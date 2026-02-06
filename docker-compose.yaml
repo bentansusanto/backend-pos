@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  pos-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8081:8081"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=8081
+      - DB_HOST=pos-app-postgres
+      - DB_PORT=5432
+      - DB_USER=pos_db
+      - DB_PASSWORD=pos_db_dev
+      - DB_NAME=pos_db
+    depends_on:
+      - pos-app-postgres
+      - pos-app-redis
+    networks:
+      - app-network
+
+  pos-app-postgres:
+    image: postgres:15-alpine
+    container_name: pos-app-postgres
+    environment:
+      - POSTGRES_USER=pos_db
+      - POSTGRES_PASSWORD=pos_db_dev
+      - POSTGRES_DB=pos_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  pos-app-redis:
+    image: redis:alpine
+    container_name: pos-app-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
