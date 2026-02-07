@@ -33,7 +33,7 @@ export class User {
   password: string;
 
   @Column()
-  fullName: string;
+  name: string;
 
   @Column({ nullable: true })
   avatar: string;
@@ -67,6 +67,9 @@ export class User {
 
   @Column({type: 'timestamp', nullable: true})
   exp_verify_at: Date;
+
+  @Column({type: 'boolean', default: false})
+  is_verified: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

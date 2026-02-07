@@ -1,12 +1,19 @@
-export const ERRORUSERMESSAGE = {
+export const errUserMessage = {
   USER_NOT_FOUND: 'User not found',
+  USER_CREATE_FAILED: 'User creation failed',
+  USER_UPDATE_FAILED: 'User update failed',
+  USER_DELETE_FAILED: 'User delete failed',
   USER_ALREADY_EXISTS: 'User already exists',
   USER_NOT_ACTIVE: 'User not active',
   USER_NOT_VERIFIED: 'User not verified',
   USER_NOT_AUTHORIZED: 'User not authorized',
-  USER_NOT_FOUND_OR_NOT_ACTIVE: 'User not found or not active',
-  USER_NOT_FOUND_OR_NOT_VERIFIED: 'User not found or not verified',
-  USER_NOT_FOUND_OR_NOT_AUTHORIZED: 'User not found or not authorized',
-  USER_NOT_FOUND_OR_NOT_VERIFIED_OR_NOT_AUTHORIZED:
-    'User not found or not verified or not authorized',
+  USER_ALREADY_VERIFIED: 'User already verified',
+  USER_VERIFY_FAILED: 'User verify failed',
+  USER_VERIFY_CODE_NOT_FOUND: 'User verify code not found',
+  USER_LOGIN_FAILED: 'User login failed',
+  USER_PASSWORD_NOT_MATCH: 'User password not match',
+  USER_LOGOUT_FAILED: 'User logout failed',
+  USER_REFRESH_TOKEN_FAILED: 'User refresh token failed',
+  USER_FORGOT_PASSWORD_FAILED: 'User forgot password failed',
+  USER_RESET_PASSWORD_FAILED: 'User reset password failed',
 };

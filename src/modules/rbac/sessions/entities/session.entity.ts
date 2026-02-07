@@ -33,8 +33,11 @@ export class Session {
   @Column()
   ip: string;
 
+  @Column({ nullable: true })
+  device: string;
+
   @Column()
-  token: string; 
+  token: string;
 
   @Column()
   lastActivityAt: Date;

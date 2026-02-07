@@ -4,8 +4,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { User } from '../users/entities/user.entity';
-import { CreateSessionDto } from './dto/create-session.dto';
-import { UpdateSessionDto } from './dto/update-session.dto';
 import { Session } from './entities/session.entity';
 
 @Injectable()
@@ -71,6 +69,7 @@ export class SessionsService {
    * @param tokenHash - Hashed refresh token
    * @param expiresAt - Session expiration date
    * @param ip - Client IP address
+   * @param device - Device information from User-Agent
    * @returns Created session
    */
   async createSession(
@@ -78,6 +77,7 @@ export class SessionsService {
     tokenHash: string,
     expiresAt: Date,
     ip: string,
+    device?: string,
   ): Promise<Session> {
     try {
       const session = this.sessionRepository.create({
@@ -85,6 +85,7 @@ export class SessionsService {
         user: user,
         expiresAt: expiresAt,
         ip: ip,
+        device: device,
         lastActivityAt: new Date(),
       });
 

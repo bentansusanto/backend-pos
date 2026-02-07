@@ -175,23 +175,39 @@ export class SeederService {
 
     const roles = [
       {
-        name: 'super_admin',
-        description: 'Super Administrator with full system access',
+        name: 'owner',
+        code: 'owner',
+        self_registered: true,
+        description: 'Owner with full system access',
       },
       {
-        name: 'branch_manager',
-        description: 'Branch Manager with full branch access',
+        name: 'developer',
+        code: 'developer',
+        self_registered: false,
+        description: 'Developer with full system access',
+      },
+      {
+        name: 'admin',
+        code: 'admin',
+        self_registered: false,
+        description: 'Admin with full system access',
       },
       {
         name: 'cashier',
+        code: 'cashier',
+        self_registered: false,
         description: 'Cashier with sales and basic inventory access',
       },
       {
         name: 'inventory_staff',
+        code: 'inventory_staff',
+        self_registered: false,
         description: 'Inventory Staff with inventory management access',
       },
       {
         name: 'accountant',
+        code: 'accountant',
+        self_registered: false,
         description: 'Accountant with financial reports access',
       },
     ];
