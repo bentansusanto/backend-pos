@@ -8,6 +8,7 @@ import { SessionsModule } from './modules/rbac/sessions/sessions.module';
 import { UsersModule } from './modules/rbac/users/users.module';
 import { SeederModule } from './modules/seeder/seeder.module';
 import { AuthModule } from './modules/rbac/auth/auth.module';
+import { ProfilesModule } from './modules/rbac/profiles/profiles.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuthModule } from './modules/rbac/auth/auth.module';
     RolesModule,
     BranchesModule,
     SeederModule,
+    ProfilesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

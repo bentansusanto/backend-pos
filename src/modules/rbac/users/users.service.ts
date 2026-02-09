@@ -7,9 +7,9 @@ import { errUserMessage } from 'src/libs/errors/error_user';
 import { successUserMessage } from 'src/libs/success/success_user';
 import { AuthResponse } from 'src/types/response/auth.type';
 import { Repository } from 'typeorm';
+import { Logger } from 'winston';
 import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
 import { User } from './entities/user.entity';
-import { Logger } from 'winston';
 
 @Injectable()
 export class UsersService {
@@ -154,10 +154,18 @@ export class UsersService {
   }
 
   // find all users
-  async findAll(): Promise<any> {
+  async findAll(): Promise<AuthResponse> {
     try {
       const users = await this.userRepository.find();
-      return users;
+      return {
+        message: successUserMessage.USER_FOUND,
+        datas: users.map((user) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          is_verified: user.is_verified,
+        })),
+      };
     } catch (error) {
       this.logger.error(errUserMessage.USER_NOT_FOUND, error);
       if (error instanceof Error) {
@@ -171,7 +179,10 @@ export class UsersService {
   }
 
   // update user
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<AuthResponse> {
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<AuthResponse> {
     try {
       const user = await this.userRepository.findOne({
         where: { id },

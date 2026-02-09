@@ -11,7 +11,7 @@ import { Role } from 'src/modules/rbac/roles/entities/role.entity';
 import { RolePermission } from 'src/modules/rbac/roles/entities/role_permission.entity';
 import { Session } from 'src/modules/rbac/sessions/entities/session.entity';
 import { SessionsModule } from 'src/modules/rbac/sessions/sessions.module';
-import { Profile } from 'src/modules/rbac/users/entities/profile.entity';
+import { Profile } from 'src/modules/rbac/profiles/entities/profile.entity';
 import { UserRole } from 'src/modules/rbac/users/entities/user-role.entity';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
 import * as winston from 'winston';
