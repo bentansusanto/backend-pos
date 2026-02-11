@@ -76,6 +76,7 @@ export class UsersService {
           id: saveUser.id,
           name: saveUser.name,
           email: saveUser.email,
+          role: saveUser.role.name,
           is_verified: saveUser.is_verified,
         },
       };
@@ -125,6 +126,7 @@ export class UsersService {
           id: user.id,
           name: user.name,
           email: user.email,
+          role: user.role.name,
           is_verified: user.is_verified,
         },
       };
@@ -163,6 +165,7 @@ export class UsersService {
           id: user.id,
           name: user.name,
           email: user.email,
+          role: user.role.name,
           is_verified: user.is_verified,
         })),
       };
@@ -211,6 +214,7 @@ export class UsersService {
           id: user.id,
           name: user.name,
           email: user.email,
+          role: user.role.name,
           is_verified: user.is_verified,
         },
       };
@@ -249,6 +253,7 @@ export class UsersService {
           id: user.id,
           name: user.name,
           email: user.email,
+          role: user.role.name,
           is_verified: user.is_verified,
         },
       };

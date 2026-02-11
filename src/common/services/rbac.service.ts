@@ -17,17 +17,15 @@ export class RbacService {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: {
-        userRoles: {
-          role: true,
-        },
+        role: true,
       },
     });
 
-    if (!user || !user.userRoles) {
+    if (!user || !user.role) {
       return false;
     }
 
-    return user.userRoles.some((ur) => ur.role.code === roleCode);
+    return user.role.code === roleCode;
   }
 
   /**
@@ -37,18 +35,15 @@ export class RbacService {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: {
-        userRoles: {
-          role: true,
-        },
+        role: true,
       },
     });
 
-    if (!user || !user.userRoles) {
+    if (!user || !user.role) {
       return false;
     }
 
-    const userRoles = user.userRoles.map((ur) => ur.role.code);
-    return roleCodes.some((role) => userRoles.includes(role));
+    return roleCodes.some((role) => user.role.code === role);
   }
 
   /**
@@ -62,31 +57,25 @@ export class RbacService {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: {
-        userRoles: {
-          role: {
-            rolePermissions: {
-              permission: true,
-            },
+        role: {
+          rolePermissions: {
+            permission: true,
           },
         },
       },
     });
 
-    if (!user || !user.userRoles) {
+    if (!user || !user.role || !user.role.rolePermissions) {
       return false;
     }
 
-    for (const userRole of user.userRoles) {
-      if (userRole.role && userRole.role.rolePermissions) {
-        for (const rp of userRole.role.rolePermissions) {
-          if (
-            rp.permission &&
-            rp.permission.module === module &&
-            rp.permission.action === action
-          ) {
-            return true;
-          }
-        }
+    for (const rp of user.role.rolePermissions) {
+      if (
+        rp.permission &&
+        rp.permission.module === module &&
+        rp.permission.action === action
+      ) {
+        return true;
       }
     }
 
@@ -100,28 +89,22 @@ export class RbacService {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: {
-        userRoles: {
-          role: {
-            rolePermissions: {
-              permission: true,
-            },
+        role: {
+          rolePermissions: {
+            permission: true,
           },
         },
       },
     });
 
-    if (!user || !user.userRoles) {
+    if (!user || !user.role || !user.role.rolePermissions) {
       return [];
     }
 
     const permissions: string[] = [];
-    user.userRoles.forEach((userRole) => {
-      if (userRole.role && userRole.role.rolePermissions) {
-        userRole.role.rolePermissions.forEach((rp) => {
-          if (rp.permission) {
-            permissions.push(`${rp.permission.module}:${rp.permission.action}`);
-          }
-        });
+    user.role.rolePermissions.forEach((rp) => {
+      if (rp.permission) {
+        permissions.push(`${rp.permission.module}:${rp.permission.action}`);
       }
     });
 
@@ -135,16 +118,14 @@ export class RbacService {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: {
-        userRoles: {
-          role: true,
-        },
+        role: true,
       },
     });
 
-    if (!user || !user.userRoles) {
+    if (!user || !user.role) {
       return [];
     }
 
-    return user.userRoles.map((ur) => ur.role.code);
+    return [user.role.code];
   }
 }

@@ -4,15 +4,12 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  OneToOne,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
 
-@Entity('profiles')
-export class Profile {
+@Entity('categories')
+export class Category {
   @PrimaryColumn()
   id: string;
 
@@ -24,14 +21,7 @@ export class Profile {
   }
 
   @Column()
-  address: string;
-
-  @Column()
-  phone: string;
-
-  @OneToOne(() => User, (user) => user.profile)
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  name: string;
 
   @CreateDateColumn()
   createdAt: Date;

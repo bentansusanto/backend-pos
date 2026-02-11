@@ -1,9 +1,4 @@
-import {
-  HttpException,
-  HttpStatus,
-  Inject,
-  Injectable
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -66,6 +61,7 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
+          role: user.role,
           is_verified: user.is_verified,
         },
       };
@@ -121,6 +117,7 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
+          role: user.role,
           is_verified: user.is_verified,
         },
       };
@@ -190,6 +187,7 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
+          role: user.role,
           is_verified: user.is_verified,
         },
       };
@@ -279,6 +277,7 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
+          role: user.role.name,
           is_verified: user.is_verified,
           token: accessToken,
         },
@@ -392,6 +391,7 @@ export class AuthService {
           id: session.user.id,
           name: session.user.name,
           email: session.user.email,
+          role: session.user.role.name,
           is_verified: session.user.is_verified,
           token: accessToken,
         },
@@ -528,10 +528,7 @@ export class AuthService {
         message: successUserMessage.USER_RESET_PASSWORD,
       };
     } catch (error) {
-      this.logger.debug(
-        errUserMessage.USER_RESET_PASSWORD_FAILED,
-        error.stack,
-      );
+      this.logger.debug(errUserMessage.USER_RESET_PASSWORD_FAILED, error.stack);
       if (error instanceof HttpException) {
         throw error;
       }

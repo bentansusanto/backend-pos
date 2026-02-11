@@ -25,22 +25,20 @@ export class PermissionsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user: User = request.user;
 
-    if (!user || !user.userRoles) {
+    if (!user || !user.role || !user.role.rolePermissions) {
       throw new ForbiddenException('User does not have required permissions');
     }
 
     // Collect all permissions from all user roles
     const userPermissions: string[] = [];
-    user.userRoles.forEach((userRole) => {
-      if (userRole.role && userRole.role.rolePermissions) {
-        userRole.role.rolePermissions.forEach((rp) => {
-          if (rp.permission) {
-            const permissionString = `${rp.permission.module}:${rp.permission.action}`;
-            userPermissions.push(permissionString);
-          }
-        });
-      }
-    });
+    if (user.role && user.role.rolePermissions) {
+      user.role.rolePermissions.forEach((rp) => {
+        if (rp.permission) {
+          const permissionString = `${rp.permission.module}:${rp.permission.action}`;
+          userPermissions.push(permissionString);
+        }
+      });
+    }
 
     // Check if user has all required permissions
     const hasAllPermissions = requiredPermissions.every((permission) =>

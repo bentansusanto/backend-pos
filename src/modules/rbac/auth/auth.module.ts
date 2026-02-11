@@ -12,7 +12,13 @@ import { SessionsService } from '../sessions/sessions.service';
 
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, UsersService, EmailService, JwtService, SessionsService],
+  providers: [
+    AuthService,
+    UsersService,
+    EmailService,
+    JwtService,
+    SessionsService,
+  ],
   imports: [TypeOrmModule.forFeature([User, Session]), SessionsModule],
 })
 export class AuthModule {}

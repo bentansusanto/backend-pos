@@ -17,7 +17,10 @@ export class ProfilesService {
     private readonly userService: UsersService,
   ) {}
   // create profile
-  async create(userId: string, createProfileDto: CreateProfileDto): Promise<ProfileResponse> {
+  async create(
+    userId: string,
+    createProfileDto: CreateProfileDto,
+  ): Promise<ProfileResponse> {
     try {
       // find user by id
       const findUser = await this.userService.findOne(userId);

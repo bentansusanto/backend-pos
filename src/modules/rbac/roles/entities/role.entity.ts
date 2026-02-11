@@ -8,6 +8,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 import { RolePermission } from './role_permission.entity';
 
 @Entity('roles')
@@ -41,11 +42,11 @@ export class Role {
   })
   rolePermissions: RolePermission[];
 
-  @OneToMany('UserRole', 'role', {
+  @OneToMany('User', 'role', {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
-  userRoles: any[];
+  users: User[];
 
   @CreateDateColumn()
   createdAt: Date;

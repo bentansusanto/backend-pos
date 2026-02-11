@@ -8,7 +8,6 @@ import { RolePermission } from '../rbac/roles/entities/role_permission.entity';
 
 @Injectable()
 export class SeederService {
-
   constructor(
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
@@ -16,9 +15,7 @@ export class SeederService {
     private permissionRepository: Repository<Permission>,
     @InjectRepository(RolePermission)
     private rolePermissionRepository: Repository<RolePermission>,
-  ) {
-
-  }
+  ) {}
 
   async seed() {
     console.log('🌱 Starting database seeding...');

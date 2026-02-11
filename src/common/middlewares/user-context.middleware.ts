@@ -46,7 +46,7 @@ export class UserContextMiddleware implements NestMiddleware {
               return next();
             }
           }
-       } catch (error) {
+        } catch (error) {
           // Access token invalid or expired
           // Fall back to refresh token authentication
         }

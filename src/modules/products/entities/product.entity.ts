@@ -4,15 +4,12 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  OneToOne,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
 
-@Entity('profiles')
-export class Profile {
+@Entity('products')
+export class Product {
   @PrimaryColumn()
   id: string;
 
@@ -24,14 +21,19 @@ export class Profile {
   }
 
   @Column()
-  address: string;
+  name: string;
 
   @Column()
-  phone: string;
+  slug: string;
 
-  @OneToOne(() => User, (user) => user.profile)
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  @Column()
+  price: number;
+
+  @Column()
+  stock: number;
+
+  @Column()
+  categoryId: string;
 
   @CreateDateColumn()
   createdAt: Date;

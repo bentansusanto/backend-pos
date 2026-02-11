@@ -143,9 +143,7 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(
-    @Body() reqDto: EmailRequest,
-  ): Promise<WebResponse> {
+  async forgotPassword(@Body() reqDto: EmailRequest): Promise<WebResponse> {
     const result = await this.authService.forgotPassword(reqDto);
     return {
       message: result.message,
@@ -156,9 +154,7 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  async resetPassword(
-    @Body() reqDto: ResetPasswordDto,
-  ): Promise<WebResponse> {
+  async resetPassword(@Body() reqDto: ResetPasswordDto): Promise<WebResponse> {
     const result = await this.authService.resetPassword(reqDto);
     return {
       message: result.message,

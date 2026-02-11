@@ -25,9 +25,7 @@ export class SessionsService {
         where: { token: tokenHash },
         relations: {
           user: {
-            userRoles: {
-              role: true,
-            },
+            role: true,
             userBranches: {
               branch: true,
             },
@@ -133,9 +131,7 @@ export class SessionsService {
         where: { token: refreshToken },
         relations: {
           user: {
-            userRoles: {
-              role: true,
-            },
+            role: true,
             userBranches: {
               branch: true,
             },

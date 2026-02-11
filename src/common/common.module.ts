@@ -6,13 +6,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { WinstonModule } from 'nest-winston';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { UserBranch } from 'src/modules/branches/entities/user-branch.entity';
+import { Profile } from 'src/modules/rbac/profiles/entities/profile.entity';
 import { Permission } from 'src/modules/rbac/roles/entities/permission.entity';
 import { Role } from 'src/modules/rbac/roles/entities/role.entity';
 import { RolePermission } from 'src/modules/rbac/roles/entities/role_permission.entity';
 import { Session } from 'src/modules/rbac/sessions/entities/session.entity';
 import { SessionsModule } from 'src/modules/rbac/sessions/sessions.module';
-import { Profile } from 'src/modules/rbac/profiles/entities/profile.entity';
-import { UserRole } from 'src/modules/rbac/users/entities/user-role.entity';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
 import * as winston from 'winston';
 import { ErrorsService } from './errors/errors.service';
@@ -67,7 +66,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       RolePermission,
       Permission,
       Branch,
-      UserRole,
       UserBranch,
       Session,
       Profile,

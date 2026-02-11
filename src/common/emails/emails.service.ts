@@ -10,7 +10,7 @@ export class EmailService {
   constructor(@Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: Logger) {}
   private transporter = nodemailer.createTransport({
     service: 'Gmail',
-    host: "smtp.gmail.com",
+    host: 'smtp.gmail.com',
     port: 465,
     secure: true,
     auth: {

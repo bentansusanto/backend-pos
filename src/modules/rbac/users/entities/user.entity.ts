@@ -5,13 +5,14 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  ManyToOne,
   OneToMany,
   OneToOne,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { UserRole } from './user-role.entity';
 import { Profile } from '../../profiles/entities/profile.entity';
+import { Role } from '../../roles/entities/role.entity';
 
 @Entity('users')
 export class User {
@@ -44,12 +45,12 @@ export class User {
   })
   userBranches: any[];
 
-  @OneToMany(() => UserRole, (userRole) => userRole.user, {
-    cascade: true,
+  @ManyToOne(() => Role, (role) => role.users, {
+    eager: true,
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
-  userRoles: UserRole[];
+  role: Role;
 
   @OneToMany('Session', 'user', {
     cascade: true,
@@ -62,13 +63,13 @@ export class User {
   @OneToOne(() => Profile, (profile) => profile.user)
   profile: Profile;
 
-  @Column({type: 'text', nullable: true})
+  @Column({ type: 'text', nullable: true })
   verify_code: string;
 
-  @Column({type: 'timestamp', nullable: true})
+  @Column({ type: 'timestamp', nullable: true })
   exp_verify_at: Date;
 
-  @Column({type: 'boolean', default: false})
+  @Column({ type: 'boolean', default: false })
   is_verified: boolean;
 
   @CreateDateColumn()

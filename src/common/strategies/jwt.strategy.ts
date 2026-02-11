@@ -28,11 +28,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         userBranches: {
           branch: true,
         },
-        userRoles: {
-          role: {
-            rolePermissions: {
-              permission: true,
-            },
+        role: {
+          rolePermissions: {
+            permission: true,
           },
         },
       },
