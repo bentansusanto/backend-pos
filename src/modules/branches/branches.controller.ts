@@ -31,7 +31,6 @@ export class BranchesController {
     };
   }
 
-
   @Permissions('read:branch')
   @Get('find-all')
   async findAll(): Promise<WebResponse> {

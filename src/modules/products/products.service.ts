@@ -1,26 +1,285 @@
-import { Injectable } from '@nestjs/common';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { errProductMessage } from 'src/libs/errors/error_product';
+import { successProductMessage } from 'src/libs/success/success_product';
+import { ProductResponse } from 'src/types/response/product.type';
+import { Repository } from 'typeorm';
+import { Logger } from 'winston';
+import { CategoriesService } from './categories/categories.service';
+import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
+
+import { Product } from './entities/product.entity';
 
 @Injectable()
 export class ProductsService {
-  create(createProductDto: CreateProductDto) {
-    return 'This action adds a new product';
+  constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+    private readonly categoriesService: CategoriesService,
+  ) {}
+
+  // slug
+  private generateSlug(name: string): string {
+    return name.toLowerCase().replace(/\s+/g, '-');
   }
 
-  findAll() {
-    return `This action returns all products`;
+  // create product
+  async create(createProductDto: CreateProductDto): Promise<ProductResponse> {
+    try {
+      // check category is exist
+      const category = await this.categoriesService.findOne(
+        createProductDto.category_id,
+      );
+      if (!category) {
+        this.logger.error(
+          `${errProductMessage.ERROR_CATEGORY_NOT_FOUND} with id: ${createProductDto.category_id}`,
+        );
+        throw new HttpException(
+          errProductMessage.ERROR_CATEGORY_NOT_FOUND,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const newProduct = this.productRepository.create({
+        ...createProductDto,
+        category: {
+          id: category.data.id,
+        },
+        slug: this.generateSlug(createProductDto.name_product),
+      });
+      await this.productRepository.save(newProduct);
+
+      this.logger.debug(
+        `${successProductMessage.SUCCESS_CREATE_PRODUCT} with id: ${newProduct.id}`,
+      );
+
+      return {
+        message: successProductMessage.SUCCESS_CREATE_PRODUCT,
+        data: {
+          id: newProduct.id,
+          name_product: newProduct.name_product,
+          price: newProduct.price,
+          category_id: newProduct.category.id,
+          slug: newProduct.slug,
+          description: newProduct.description,
+          thumbnail: newProduct.thumbnail,
+          images: Array.isArray(newProduct.images) ? newProduct.images : [],
+          createdAt: newProduct.createdAt,
+          updatedAt: newProduct.updatedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error(errProductMessage.ERROR_CREATE_PRODUCT, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        errProductMessage.ERROR_CREATE_PRODUCT,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} product`;
+  async findAll(): Promise<ProductResponse> {
+    try {
+      const products = await this.productRepository.find({
+        relations: ['category'],
+      });
+      if (!products || products.length === 0) {
+        this.logger.error(errProductMessage.ERROR_FIND_ALL_PRODUCT);
+        throw new HttpException(
+          errProductMessage.ERROR_FIND_ALL_PRODUCT,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      this.logger.debug(
+        `${successProductMessage.SUCCESS_FIND_ALL_PRODUCT} with ${products.length} products`,
+      );
+
+      return {
+        message: successProductMessage.SUCCESS_FIND_ALL_PRODUCT,
+        datas: products.map((product) => ({
+          id: product.id,
+          name_product: product.name_product,
+          price: product.price,
+          category_id: product.category.id,
+          slug: product.slug,
+          description: product.description,
+          thumbnail: product.thumbnail,
+          images: Array.isArray(product.images) ? product.images : [],
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        })),
+      };
+    } catch (error) {
+      this.logger.error(
+        errProductMessage.ERROR_FIND_ALL_PRODUCT,
+        error.message,
+      );
+      throw new HttpException(
+        errProductMessage.ERROR_FIND_ALL_PRODUCT,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
-  update(id: number, updateProductDto: UpdateProductDto) {
-    return `This action updates a #${id} product`;
+  // find product by id
+  async findOne(id: string): Promise<ProductResponse> {
+    try {
+      const product = await this.productRepository.findOne({
+        where: { id },
+        relations: ['category'],
+      });
+      if (!product) {
+        this.logger.error(
+          `${errProductMessage.ERROR_FIND_PRODUCT} with id: ${id}`,
+        );
+        throw new HttpException(
+          errProductMessage.ERROR_FIND_PRODUCT,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      this.logger.debug(
+        `${successProductMessage.SUCCESS_FIND_PRODUCT} with id: ${product.id}`,
+      );
+
+      return {
+        message: successProductMessage.SUCCESS_FIND_PRODUCT,
+        data: {
+          id: product.id,
+          name_product: product.name_product,
+          price: product.price,
+          category_id: product.category.id,
+          slug: product.slug,
+          description: product.description,
+          thumbnail: product.thumbnail,
+          images: Array.isArray(product.images) ? product.images : [],
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error(errProductMessage.ERROR_FIND_PRODUCT, error.message);
+      throw new HttpException(
+        errProductMessage.ERROR_FIND_PRODUCT,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} product`;
+  // update product
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+  ): Promise<ProductResponse> {
+    try {
+      // find product and category
+      const [findCategory, findProduct] = await Promise.all([
+        this.categoriesService.findOne(updateProductDto.category_id),
+        this.productRepository.findOne({
+          where: { id },
+          relations: ['category'],
+        }),
+      ]);
+      if (!findCategory) {
+        this.logger.error(
+          `${errProductMessage.ERROR_FIND_CATEGORY} with id: ${updateProductDto.category_id}`,
+        );
+        throw new HttpException(
+          errProductMessage.ERROR_FIND_CATEGORY,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      if (!findProduct) {
+        this.logger.error(
+          `${errProductMessage.ERROR_FIND_PRODUCT} with id: ${id}`,
+        );
+        throw new HttpException(
+          errProductMessage.ERROR_FIND_PRODUCT,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // update product
+      await this.productRepository.update(id, {
+        name_product: updateProductDto.name_product,
+        price: updateProductDto.price,
+        category: {
+          id: findCategory.data.id,
+        },
+        slug: this.generateSlug(updateProductDto.name_product),
+        description: updateProductDto.description,
+        thumbnail: updateProductDto.thumbnail,
+        images: updateProductDto.images,
+      });
+
+      this.logger.debug(
+        `${successProductMessage.SUCCESS_UPDATE_PRODUCT} with id: ${findProduct.id}`,
+      );
+
+      return {
+        message: successProductMessage.SUCCESS_UPDATE_PRODUCT,
+        data: {
+          id: findProduct.id,
+          name_product: findProduct.name_product,
+          price: findProduct.price,
+          category_id: findProduct.category.id,
+          slug: findProduct.slug,
+          description: findProduct.description,
+          thumbnail: findProduct.thumbnail,
+          images: Array.isArray(findProduct.images) ? findProduct.images : [],
+          createdAt: findProduct.createdAt,
+          updatedAt: findProduct.updatedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error(errProductMessage.ERROR_UPDATE_PRODUCT, error.message);
+      throw new HttpException(
+        errProductMessage.ERROR_UPDATE_PRODUCT,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // delete product
+  async remove(id: string): Promise<ProductResponse> {
+    try {
+      // check product is exist
+      const product = await this.productRepository.findOne({
+        where: { id },
+        relations: ['category'],
+      });
+      if (!product) {
+        this.logger.error(
+          `${errProductMessage.ERROR_FIND_PRODUCT} with id: ${id}`,
+        );
+        throw new HttpException(
+          errProductMessage.ERROR_FIND_PRODUCT,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // delete product
+      await this.productRepository.softDelete(id);
+
+      this.logger.debug(
+        `${successProductMessage.SUCCESS_DELETE_PRODUCT} with id: ${product.id}`,
+      );
+
+      return {
+        message: successProductMessage.SUCCESS_DELETE_PRODUCT,
+      };
+    } catch (error) {
+      this.logger.error(errProductMessage.ERROR_DELETE_PRODUCT, error.message);
+      throw new HttpException(
+        errProductMessage.ERROR_DELETE_PRODUCT,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }

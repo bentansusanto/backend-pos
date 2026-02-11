@@ -18,6 +18,9 @@ import { ErrorsService } from './errors/errors.service';
 import { JwtAuthGuard, PermissionsGuard, RolesGuard } from './guards';
 import { RbacService } from './services/rbac.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { Product } from 'src/modules/products/entities/product.entity';
+import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
+import { Category } from 'src/modules/products/entities/category.entities';
 
 @Module({
   imports: [
@@ -69,6 +72,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       UserBranch,
       Session,
       Profile,
+      Product,
+      ProductVariant,
+      Category,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
