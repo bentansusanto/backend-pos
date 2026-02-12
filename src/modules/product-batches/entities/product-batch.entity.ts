@@ -3,6 +3,7 @@ import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import {
   BeforeInsert,
+  Column,
   CreateDateColumn,
   Entity,
   JoinColumn,
@@ -33,6 +34,15 @@ export class ProductBatch {
   @ManyToOne(() => Branch, (branch) => branch.productStocks)
   @JoinColumn({ name: 'branch_id' })
   branch: Branch;
+
+  @Column()
+  batch_code: string;
+
+  @Column({ type: 'date' })
+  exp_date: Date; // expiration date in days
+
+  @Column({ default: 0 })
+  qty: number;
 
   @CreateDateColumn()
   createdAt: Date;
