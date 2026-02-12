@@ -1,3 +1,5 @@
+import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
+import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 import {
   Column,
   CreateDateColumn,
@@ -5,6 +7,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -36,6 +39,12 @@ export class ProductVariant {
 
   @Column()
   thumbnail: string;
+
+  @OneToMany(() => ProductStock, (productStock) => productStock.productVariant)
+  productStocks: ProductStock[];
+
+  @OneToMany(() => ProductBatch, (productBatch) => productBatch.productVariant)
+  productBatches: ProductBatch[];
 
   @CreateDateColumn()
   createdAt: Date;

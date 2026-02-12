@@ -1,4 +1,6 @@
 import Hashids from 'hashids';
+import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
+import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 import {
   BeforeInsert,
   Column,
@@ -50,6 +52,12 @@ export class Branch {
     onUpdate: 'CASCADE',
   })
   userBranches: any[];
+
+  @OneToMany(() => ProductStock, (productStock) => productStock.branch)
+  productStocks: ProductStock[];
+
+  @OneToMany(() => ProductBatch, (productBatch) => productBatch.branch)
+  productBatches: ProductBatch[];
 
   @CreateDateColumn()
   createdAt: Date;

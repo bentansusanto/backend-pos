@@ -21,6 +21,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { Product } from 'src/modules/products/entities/product.entity';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import { Category } from 'src/modules/products/entities/category.entities';
+import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
+import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 
 @Module({
   imports: [
@@ -75,6 +77,8 @@ import { Category } from 'src/modules/products/entities/category.entities';
       Product,
       ProductVariant,
       Category,
+      ProductStock,
+      ProductBatch,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
