@@ -1,6 +1,7 @@
 import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
+import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 import {
   BeforeInsert,
   Column,
@@ -8,6 +9,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -43,6 +45,9 @@ export class ProductBatch {
 
   @Column({ default: 0 })
   qty: number;
+
+  @OneToMany(() => StockMovement, (stockMovement) => stockMovement.productBatch)
+  stockMovements: StockMovement[];
 
   @CreateDateColumn()
   createdAt: Date;

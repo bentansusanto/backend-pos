@@ -23,6 +23,7 @@ import { ProductVariant } from 'src/modules/products/entities/product-variant.en
 import { Category } from 'src/modules/products/entities/category.entities';
 import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
+import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { ProductBatch } from 'src/modules/product-batches/entities/product-batch
       Category,
       ProductStock,
       ProductBatch,
+      StockMovement,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

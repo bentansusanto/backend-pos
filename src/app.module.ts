@@ -14,6 +14,8 @@ import { RolesModule } from './modules/rbac/roles/roles.module';
 import { SessionsModule } from './modules/rbac/sessions/sessions.module';
 import { UsersModule } from './modules/rbac/users/users.module';
 import { SeederModule } from './modules/seeder/seeder.module';
+import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
+import { CustomersModule } from './modules/customers/customers.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { SeederModule } from './modules/seeder/seeder.module';
     CategoriesModule,
     ProductStocksModule,
     ProductBatchesModule,
+    StockMovementsModule,
+    CustomersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,6 +1,7 @@
 import Hashids from 'hashids';
 import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
+import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 import {
   BeforeInsert,
   Column,
@@ -58,6 +59,9 @@ export class Branch {
 
   @OneToMany(() => ProductBatch, (productBatch) => productBatch.branch)
   productBatches: ProductBatch[];
+
+  @OneToMany(() => StockMovement, (stockMovement) => stockMovement.branch)
+  stockMovements: StockMovement[];
 
   @CreateDateColumn()
   createdAt: Date;
