@@ -1,9 +1,11 @@
 import Hashids from 'hashids';
+import { Order } from 'src/modules/orders/entities/order.entity';
 import {
   BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -40,6 +42,9 @@ export class Customer {
 
   @Column({ default: 0 })
   loyalPoints: number;
+
+  @OneToMany(() => Order, (order) => order.customer)
+  orders: Order[];
 
   @CreateDateColumn()
   createdAt: Date;

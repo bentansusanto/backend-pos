@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { Profile } from '../../profiles/entities/profile.entity';
 import { Role } from '../../roles/entities/role.entity';
+import { Order } from 'src/modules/orders/entities/order.entity';
 
 @Entity('users')
 export class User {
@@ -71,6 +72,9 @@ export class User {
 
   @Column({ type: 'boolean', default: false })
   is_verified: boolean;
+
+  @OneToMany(() => Order, (order) => order.user)
+  orders: Order[];
 
   @CreateDateColumn()
   createdAt: Date;

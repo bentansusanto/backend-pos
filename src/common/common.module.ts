@@ -6,6 +6,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { WinstonModule } from 'nest-winston';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { UserBranch } from 'src/modules/branches/entities/user-branch.entity';
+import { Customer } from 'src/modules/customers/entities/customer.entity';
+import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
+import { Order } from 'src/modules/orders/entities/order.entity';
+import { Payment } from 'src/modules/payments/entities/payment.entity';
+import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
+import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
+import { Category } from 'src/modules/products/entities/category.entities';
+import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
+import { Product } from 'src/modules/products/entities/product.entity';
 import { Profile } from 'src/modules/rbac/profiles/entities/profile.entity';
 import { Permission } from 'src/modules/rbac/roles/entities/permission.entity';
 import { Role } from 'src/modules/rbac/roles/entities/role.entity';
@@ -13,17 +22,12 @@ import { RolePermission } from 'src/modules/rbac/roles/entities/role_permission.
 import { Session } from 'src/modules/rbac/sessions/entities/session.entity';
 import { SessionsModule } from 'src/modules/rbac/sessions/sessions.module';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
+import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 import * as winston from 'winston';
 import { ErrorsService } from './errors/errors.service';
 import { JwtAuthGuard, PermissionsGuard, RolesGuard } from './guards';
 import { RbacService } from './services/rbac.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { Product } from 'src/modules/products/entities/product.entity';
-import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
-import { Category } from 'src/modules/products/entities/category.entities';
-import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
-import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
-import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 
 @Module({
   imports: [
@@ -81,6 +85,10 @@ import { StockMovement } from 'src/modules/stock-movements/entities/stock-moveme
       ProductStock,
       ProductBatch,
       StockMovement,
+      Customer,
+      Order,
+      OrderItem,
+      Payment,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

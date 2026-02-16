@@ -16,6 +16,8 @@ import { UsersModule } from './modules/rbac/users/users.module';
 import { SeederModule } from './modules/seeder/seeder.module';
 import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
 import { CustomersModule } from './modules/customers/customers.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { CustomersModule } from './modules/customers/customers.module';
     ProductBatchesModule,
     StockMovementsModule,
     CustomersModule,
+    OrdersModule,
+    PaymentsModule
   ],
   controllers: [AppController],
   providers: [AppService],

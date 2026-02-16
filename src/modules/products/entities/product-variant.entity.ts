@@ -1,3 +1,4 @@
+import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
 import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
@@ -52,6 +53,9 @@ export class ProductVariant {
     (stockMovement) => stockMovement.productVariant,
   )
   stockMovements: StockMovement[];
+
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.variant)
+  orderItems: OrderItem[];
 
   @CreateDateColumn()
   createdAt: Date;
