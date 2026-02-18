@@ -9,7 +9,10 @@ import { Logger } from 'winston';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { OrdersService } from '../orders/orders.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
-import { StockMovement } from '../stock-movements/entities/stock-movement.entity';
+import {
+  referenceType,
+  StockMovement,
+} from '../stock-movements/entities/stock-movement.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Payment, PaymentStatus } from './entities/payment.entity';
@@ -165,6 +168,9 @@ export class PaymentsService {
                 const movement = movementRepo.create({
                   productVariant: { id: item.variant.id },
                   branch: { id: branchId },
+                  referenceType: referenceType.SALE,
+                  qty: quantity,
+                  referenceId: order.id,
                 });
                 await movementRepo.save(movement);
               }

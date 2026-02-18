@@ -4,6 +4,7 @@ import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import {
   BeforeInsert,
+  Column,
   CreateDateColumn,
   Entity,
   JoinColumn,
@@ -11,6 +12,12 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
+export enum referenceType {
+  SALE = 'sale',
+  PURCHASE = 'purchase',
+  ADJUST = 'adjust',
+}
 
 @Entity('stock_movements')
 export class StockMovement {
@@ -34,6 +41,15 @@ export class StockMovement {
   @ManyToOne(() => Branch, (branch) => branch.stockMovements)
   @JoinColumn({ name: 'branch_id' })
   branch: Branch;
+
+  @Column({ type: 'enum', enum: referenceType })
+  referenceType: referenceType;
+
+  @Column({ default: 0 })
+  qty: number;
+
+  @Column()
+  referenceId: string;
 
   @CreateDateColumn()
   createdAt: Date;
