@@ -3,7 +3,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonModule } from './common/common.module';
 import { BranchesModule } from './modules/branches/branches.module';
-import { ProductBatchesModule } from './modules/product-batches/product-batches.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { ProductStocksModule } from './modules/product-stocks/product-stocks.module';
 import { CategoriesModule } from './modules/products/categories/categories.module';
 import { ProductVariantsModule } from './modules/products/product-variants/product-variants.module';
@@ -15,9 +17,6 @@ import { SessionsModule } from './modules/rbac/sessions/sessions.module';
 import { UsersModule } from './modules/rbac/users/users.module';
 import { SeederModule } from './modules/seeder/seeder.module';
 import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
-import { CustomersModule } from './modules/customers/customers.module';
-import { OrdersModule } from './modules/orders/orders.module';
-import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -33,11 +32,10 @@ import { PaymentsModule } from './modules/payments/payments.module';
     ProductsModule,
     CategoriesModule,
     ProductStocksModule,
-    ProductBatchesModule,
     StockMovementsModule,
     CustomersModule,
     OrdersModule,
-    PaymentsModule
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

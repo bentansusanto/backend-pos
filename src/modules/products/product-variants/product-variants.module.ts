@@ -8,10 +8,7 @@ import { ProductVariantsService } from './product-variants.service';
 @Module({
   controllers: [ProductVariantsController],
   providers: [ProductVariantsService],
-  imports: [
-    TypeOrmModule.forFeature([ProductVariant]),
-    ProductsModule,
-  ],
+  imports: [TypeOrmModule.forFeature([ProductVariant]), ProductsModule],
   exports: [ProductVariantsService],
 })
 export class ProductVariantsModule {}

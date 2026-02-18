@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Order } from './order.entity';
+import { Product } from 'src/modules/products/entities/product.entity';
 
 @Entity('order_items')
 export class OrderItem {
@@ -27,12 +28,17 @@ export class OrderItem {
   @JoinColumn({ name: 'orderId' })
   order: Order;
 
+  @ManyToOne(() => Product, (product) => product.orderItems)
+  @JoinColumn({ name: 'productId' })
+  product: Product;
+
   @ManyToOne(
     () => ProductVariant,
     (productVariant) => productVariant.orderItems,
+    { nullable: true },
   )
   @JoinColumn({ name: 'variant_id' })
-  variant: ProductVariant;
+  variant?: ProductVariant;
 
   @Column()
   quantity: number;

@@ -4,4 +4,4 @@ export const errProductBatchMessage = {
   ERR_DELETE_PRODUCT_BATCH: 'Product batch deleted failed',
   ERR_GET_PRODUCT_BATCH: 'Product batch retrieved failed',
   ERR_GET_PRODUCT_BATCHES: 'Product batches retrieved failed',
-}
+};

@@ -55,14 +55,17 @@ export class Order {
   @Column({ default: 0 })
   subtotal: number;
 
-  @Column({ default: 0 , nullable: true })
+  @Column({ default: 0, nullable: true })
   tax_amount: number;
 
-  @Column({ default: 0 , nullable: true })
+  @Column({ default: 0, nullable: true })
   discount_amount?: number;
 
   @Column({ default: OrderStatus.PENDING })
   status: OrderStatus;
+
+  @Column({ nullable: true })
+  notes: string;
 
   @CreateDateColumn()
   createdAt: Date;

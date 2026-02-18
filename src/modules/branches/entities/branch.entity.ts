@@ -1,6 +1,5 @@
 import Hashids from 'hashids';
 import { Order } from 'src/modules/orders/entities/order.entity';
-import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 import {
@@ -60,9 +59,6 @@ export class Branch {
 
   @OneToMany(() => ProductStock, (productStock) => productStock.branch)
   productStocks: ProductStock[];
-
-  @OneToMany(() => ProductBatch, (productBatch) => productBatch.branch)
-  productBatches: ProductBatch[];
 
   @OneToMany(() => StockMovement, (stockMovement) => stockMovement.branch)
   stockMovements: StockMovement[];

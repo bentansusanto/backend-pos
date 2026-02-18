@@ -6,4 +6,6 @@ export const successOrderMessage = {
   SUCCESS_GET_ORDERS: 'Orders retrieved successfully',
   SUCCESS_CANCEL_ORDER: 'Order canceled successfully',
   SUCCESS_GET_ORDER_ITEMS: 'Order items retrieved successfully',
-}
+  SUCCESS_UPDATE_ORDER_QUANTITY: 'Order quantity updated successfully',
+  SUCCESS_DELETE_ORDER_ITEMS: 'Order items deleted successfully',
+};

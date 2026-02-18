@@ -10,7 +10,6 @@ import { Customer } from 'src/modules/customers/entities/customer.entity';
 import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
 import { Order } from 'src/modules/orders/entities/order.entity';
 import { Payment } from 'src/modules/payments/entities/payment.entity';
-import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 import { Category } from 'src/modules/products/entities/category.entities';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
@@ -83,7 +82,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       ProductVariant,
       Category,
       ProductStock,
-      ProductBatch,
       StockMovement,
       Customer,
       Order,

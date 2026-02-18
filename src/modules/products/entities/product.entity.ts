@@ -13,6 +13,8 @@ import {
 } from 'typeorm';
 import { Category } from './category.entities';
 import { ProductVariant } from './product-variant.entity';
+import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
+import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 
 @Entity('products')
 export class Product {
@@ -55,6 +57,22 @@ export class Product {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.product, {
+    cascade: true,
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+    nullable: true,
+  })
+  orderItems: OrderItem[];
+
+  @OneToMany(() => ProductStock, (productStock) => productStock.product, {
+    cascade: true,
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+    nullable: true,
+  })
+  productStocks: ProductStock[];
 
   @CreateDateColumn()
   createdAt: Date;

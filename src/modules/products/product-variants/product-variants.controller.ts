@@ -15,57 +15,66 @@ export class ProductVariantsController {
   @Roles('admin', 'owner')
   @Permissions('create:product-variant')
   @Post('create')
-  async screate(@Body() createProductVariantDto: CreateProductVariantDto):Promise<WebResponse> {
-    const result = await this.productVariantsService.create(createProductVariantDto);
-    return{
+  async screate(
+    @Body() createProductVariantDto: CreateProductVariantDto,
+  ): Promise<WebResponse> {
+    const result = await this.productVariantsService.create(
+      createProductVariantDto,
+    );
+    return {
       message: result.message,
-      data: result.data
-    }
+      data: result.data,
+    };
   }
 
   // update product variant
   @Roles('admin', 'owner')
   @Permissions('update:product-variant')
   @Post('update/:id')
-  async update(@Param('id') id: string, @Body() updateProductVariantDto: CreateProductVariantDto):Promise<WebResponse> {
-    const result = await this.productVariantsService.update(id, updateProductVariantDto);
-    return{
+  async update(
+    @Param('id') id: string,
+    @Body() updateProductVariantDto: CreateProductVariantDto,
+  ): Promise<WebResponse> {
+    const result = await this.productVariantsService.update(
+      id,
+      updateProductVariantDto,
+    );
+    return {
       message: result.message,
-      data: result.data
-    }
+      data: result.data,
+    };
   }
 
   // delete product variant
   @Roles('admin', 'owner')
   @Permissions('delete:product-variant')
   @Post('delete/:id')
-  async delete(@Param('id') id: string):Promise<WebResponse> {
+  async delete(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productVariantsService.delete(id);
-    return{
+    return {
       message: result.message,
-    }
+    };
   }
 
   // get product variant by id
   @Permissions('read:product-variant')
   @Get('get/:id')
-  async findOne(@Param('id') id: string):Promise<WebResponse> {
+  async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productVariantsService.findOne(id);
-    return{
+    return {
       message: result.message,
-      data: result.data
-    }
+      data: result.data,
+    };
   }
 
   // get all product variant
   @Permissions('read:product-variant')
   @Get('find-all')
-  async findAll():Promise<WebResponse> {
+  async findAll(): Promise<WebResponse> {
     const result = await this.productVariantsService.findAll();
-    return{
+    return {
       message: result.message,
-      data: result.datas
-    }
+      data: result.datas,
+    };
   }
-
 }

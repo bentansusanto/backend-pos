@@ -18,10 +18,11 @@ export class OrderData {
 export class OrderItemData {
   id: string;
   order_id: string;
-  variant_id: string;
+  product_id: string;
+  variant_id?: string;
   qty: number;
   price: number;
-  total_amount: number;
+  subtotal: number;
 }
 
 export class OrderResponse extends ResponseModel<OrderData> {

@@ -4,4 +4,4 @@ export const successProductStockMessage = {
   SUCCESS_DELETE_PRODUCT_STOCK: 'Product stock deleted successfully',
   SUCCESS_GET_PRODUCT_STOCK: 'Product stock retrieved successfully',
   SUCCESS_GET_PRODUCT_STOCKS: 'Product stocks retrieved successfully',
-}
+};

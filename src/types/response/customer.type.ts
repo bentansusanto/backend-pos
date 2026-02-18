@@ -1,4 +1,4 @@
-import { ResponseModel } from "./index.type";
+import { ResponseModel } from './index.type';
 
 export class CustomerData {
   id: string;

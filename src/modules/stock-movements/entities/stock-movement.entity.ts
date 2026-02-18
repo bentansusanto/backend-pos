@@ -1,6 +1,6 @@
 import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
-import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
+
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import {
   BeforeInsert,
@@ -24,11 +24,10 @@ export class StockMovement {
     }
   }
 
-  @ManyToOne(() => ProductBatch, (productBatch) => productBatch.stockMovements)
-  @JoinColumn({ name: 'product_batch_id' })
-  productBatch: ProductBatch;
-
-  @ManyToOne(() => ProductVariant, (productVariant) => productVariant.stockMovements)
+  @ManyToOne(
+    () => ProductVariant,
+    (productVariant) => productVariant.stockMovements,
+  )
   @JoinColumn({ name: 'variant_id' })
   productVariant: ProductVariant;
 
