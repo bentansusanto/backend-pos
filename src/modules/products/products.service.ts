@@ -1,6 +1,10 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import {
+  CloudinaryService,
+  MulterFile,
+} from 'src/common/cloudinary/cloudinary.service';
 import { errProductMessage } from 'src/libs/errors/error_product';
 import { successProductMessage } from 'src/libs/success/success_product';
 import { ProductResponse } from 'src/types/response/product.type';
@@ -18,15 +22,45 @@ export class ProductsService {
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     private readonly categoriesService: CategoriesService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  // slug
+  // Helper function to generate slug
   private generateSlug(name: string): string {
     return name.toLowerCase().replace(/\s+/g, '-');
   }
 
-  // create product
-  async create(createProductDto: CreateProductDto): Promise<ProductResponse> {
+  // Helper function to handle file uploads to Cloudinary
+  private async handleFileUploads(
+    thumbnailFile?: MulterFile,
+    imageFiles?: MulterFile[],
+    existingThumbnail?: string,
+    existingImages?: string[],
+  ): Promise<{ thumbnailUrl: string; imageUrls: string[] }> {
+    let thumbnailUrl = existingThumbnail || '';
+    let imageUrls = existingImages || [];
+
+    // Upload thumbnail if provided
+    if (thumbnailFile) {
+      thumbnailUrl = await this.cloudinaryService.uploadFile(thumbnailFile);
+    }
+
+    // Upload images if provided
+    if (imageFiles && imageFiles.length > 0) {
+      const uploadedUrls =
+        await this.cloudinaryService.uploadMultipleFiles(imageFiles);
+      imageUrls = [...imageUrls, ...uploadedUrls];
+    }
+
+    return { thumbnailUrl, imageUrls };
+  }
+
+  // create product with optional file upload support
+  async create(
+    createProductDto: CreateProductDto,
+    thumbnailFile?: MulterFile,
+    imageFiles?: MulterFile[],
+  ): Promise<ProductResponse> {
     try {
       // check category is exist
       const category = await this.categoriesService.findOne(
@@ -42,12 +76,20 @@ export class ProductsService {
         );
       }
 
+      // Handle file uploads if provided
+      const { thumbnailUrl, imageUrls } = await this.handleFileUploads(
+        thumbnailFile,
+        imageFiles,
+      );
+
       const newProduct = this.productRepository.create({
         ...createProductDto,
         category: {
           id: category.data.id,
         },
         slug: this.generateSlug(createProductDto.name_product),
+        thumbnail: thumbnailUrl,
+        images: imageUrls,
       });
       await this.productRepository.save(newProduct);
 
@@ -171,10 +213,12 @@ export class ProductsService {
     }
   }
 
-  // update product
+  // update product with optional file upload support
   async update(
     id: string,
     updateProductDto: UpdateProductDto,
+    thumbnailFile?: MulterFile,
+    imageFiles?: MulterFile[],
   ): Promise<ProductResponse> {
     try {
       // find product and category
@@ -205,6 +249,14 @@ export class ProductsService {
         );
       }
 
+      // Handle file uploads if provided, otherwise use existing values
+      const { thumbnailUrl, imageUrls } = await this.handleFileUploads(
+        thumbnailFile,
+        imageFiles,
+        updateProductDto.thumbnail,
+        updateProductDto.images,
+      );
+
       // update product
       await this.productRepository.update(id, {
         name_product: updateProductDto.name_product,
@@ -214,8 +266,8 @@ export class ProductsService {
         },
         slug: this.generateSlug(updateProductDto.name_product),
         description: updateProductDto.description,
-        thumbnail: updateProductDto.thumbnail,
-        images: updateProductDto.images,
+        thumbnail: thumbnailUrl,
+        images: imageUrls,
       });
 
       this.logger.debug(

@@ -10,6 +10,8 @@ import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { BranchesService } from '../branches/branches.service';
 import { ProductVariantsService } from '../products/product-variants/product-variants.service';
+import { referenceType } from '../stock-movements/entities/stock-movement.entity';
+import { StockMovementsService } from '../stock-movements/stock-movements.service';
 import {
   CreateProductStockDto,
   UpdateProductStockDto,
@@ -24,6 +26,7 @@ export class ProductStocksService {
     private readonly productStockRepository: Repository<ProductStock>,
     private readonly productVariantService: ProductVariantsService,
     private readonly branchService: BranchesService,
+    private readonly stockMovementsService: StockMovementsService,
   ) {}
 
   // create product stock
@@ -62,6 +65,17 @@ export class ProductStocksService {
         },
       });
       await this.productStockRepository.save(productStock);
+
+      // Create stock movement for adjustment
+      await this.stockMovementsService.create({
+        productId: productVariant.data.product_id,
+        variantId: productVariant.data.id,
+        branchId: createProductStockDto.branchId,
+        referenceType: referenceType.ADJUST,
+        qty: createProductStockDto.stock,
+        referenceId: productStock.id,
+      });
+
       this.logger.info(
         successProductStockMessage.SUCCESS_CREATE_PRODUCT_STOCK,
         productStock,

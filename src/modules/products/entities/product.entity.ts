@@ -15,6 +15,7 @@ import { Category } from './category.entities';
 import { ProductVariant } from './product-variant.entity';
 import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
 import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
+import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 
 @Entity('products')
 export class Product {
@@ -73,6 +74,14 @@ export class Product {
     nullable: true,
   })
   productStocks: ProductStock[];
+
+  @OneToMany(() => StockMovement, (stockMovement) => stockMovement.product, {
+    cascade: true,
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+    nullable: true,
+  })
+  stockMovements: StockMovement[];
 
   @CreateDateColumn()
   createdAt: Date;

@@ -27,6 +27,8 @@ import { ErrorsService } from './errors/errors.service';
 import { JwtAuthGuard, PermissionsGuard, RolesGuard } from './guards';
 import { RbacService } from './services/rbac.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { AiJob } from 'src/modules/ai-jobs/entities/ai-job.entity';
+import { AiInsight } from 'src/modules/ai-insight/entities/ai-insight.entity';
 
 @Module({
   imports: [
@@ -87,6 +89,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       Order,
       OrderItem,
       Payment,
+      AiJob,
+      AiInsight,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

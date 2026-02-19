@@ -2,6 +2,7 @@ import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
+import { Product } from 'src/modules/products/entities/product.entity';
 import {
   BeforeInsert,
   Column,
@@ -31,9 +32,14 @@ export class StockMovement {
     }
   }
 
+  @ManyToOne(() => Product, (product) => product.stockMovements)
+  @JoinColumn({ name: 'product_id' })
+  product: Product;
+
   @ManyToOne(
     () => ProductVariant,
     (productVariant) => productVariant.stockMovements,
+    { nullable: true },
   )
   @JoinColumn({ name: 'variant_id' })
   productVariant: ProductVariant;

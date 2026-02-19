@@ -27,7 +27,7 @@ export class StockMovementsController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.stockMovementsService.findOne(+id);
+    return this.stockMovementsService.findOne(id);
   }
 
   @Patch(':id')

@@ -17,6 +17,7 @@ import { SessionsModule } from './modules/rbac/sessions/sessions.module';
 import { UsersModule } from './modules/rbac/users/users.module';
 import { SeederModule } from './modules/seeder/seeder.module';
 import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
+import { SalesReportsModule } from './modules/sales-reports/sales-reports.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { StockMovementsModule } from './modules/stock-movements/stock-movements.
     CustomersModule,
     OrdersModule,
     PaymentsModule,
+    SalesReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

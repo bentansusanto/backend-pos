@@ -1,4 +1,6 @@
 import Hashids from 'hashids';
+import { AiInsight } from 'src/modules/ai-insight/entities/ai-insight.entity';
+import { AiJob } from 'src/modules/ai-jobs/entities/ai-job.entity';
 import { Order } from 'src/modules/orders/entities/order.entity';
 import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
@@ -62,6 +64,12 @@ export class Branch {
 
   @OneToMany(() => StockMovement, (stockMovement) => stockMovement.branch)
   stockMovements: StockMovement[];
+
+  @OneToMany(() => AiJob, (aiJob) => aiJob.branch)
+  aiJobs: AiJob[];
+
+  @OneToMany(() => AiInsight, (aiInsight) => aiInsight.branch)
+  aiInsights: AiInsight[];
 
   @CreateDateColumn()
   createdAt: Date;

@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CloudinaryModule } from 'src/common/cloudinary/cloudinary.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductVariant } from './entities/product-variant.entity';
 import { Product } from './entities/product.entity';
@@ -14,6 +15,7 @@ import { ProductsService } from './products.service';
     TypeOrmModule.forFeature([Product, ProductVariant]),
     CategoriesModule,
     forwardRef(() => ProductVariantsModule),
+    CloudinaryModule,
   ],
   exports: [ProductsService],
 })

@@ -9,6 +9,7 @@ import { Logger } from 'winston';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { OrdersService } from '../orders/orders.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
+import { SalesReportsService } from '../sales-reports/sales-reports.service';
 import {
   referenceType,
   StockMovement,
@@ -24,6 +25,7 @@ export class PaymentsService {
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     private readonly orderService: OrdersService,
+    private readonly salesReportsService: SalesReportsService,
   ) {}
 
   // create payment
@@ -215,7 +217,11 @@ export class PaymentsService {
           payment.paid_at = new Date();
           const savedPayment = await paymentRepo.save(payment);
 
-          return savedPayment;
+          // Return both payment and order for sales report creation
+          return {
+            payment: savedPayment,
+            order: order,
+          };
         },
       );
 
@@ -223,14 +229,14 @@ export class PaymentsService {
       return {
         message: successPaymentMessage.SUCCESS_PAYMENT,
         data: {
-          id: result.id,
-          orderId: result.orderId,
-          amount: result.amount,
-          status: result.status,
-          paymentMethod: result.method,
-          paid_at: result.paid_at,
-          createdAt: result.createdAt,
-          updatedAt: result.updatedAt,
+          id: result.payment.id,
+          orderId: result.payment.orderId,
+          amount: result.payment.amount,
+          status: result.payment.status,
+          paymentMethod: result.payment.method,
+          paid_at: result.payment.paid_at,
+          createdAt: result.payment.createdAt,
+          updatedAt: result.payment.updatedAt,
         },
       };
     } catch (error) {
