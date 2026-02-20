@@ -49,11 +49,7 @@ export class RbacService {
   /**
    * Check if user has a specific permission
    */
-  async userHasPermission(
-    userId: string,
-    module: string,
-    action: string,
-  ): Promise<boolean> {
+  async userHasPermission(userId: string, action: string): Promise<boolean> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       relations: {
@@ -70,11 +66,7 @@ export class RbacService {
     }
 
     for (const rp of user.role.rolePermissions) {
-      if (
-        rp.permission &&
-        rp.permission.module === module &&
-        rp.permission.action === action
-      ) {
+      if (rp.permission && rp.permission.action === action) {
         return true;
       }
     }
@@ -104,7 +96,7 @@ export class RbacService {
     const permissions: string[] = [];
     user.role.rolePermissions.forEach((rp) => {
       if (rp.permission) {
-        permissions.push(`${rp.permission.module}:${rp.permission.action}`);
+        permissions.push(rp.permission.action);
       }
     });
 

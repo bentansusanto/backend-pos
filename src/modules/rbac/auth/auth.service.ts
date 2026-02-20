@@ -8,6 +8,7 @@ import { errUserMessage } from 'src/libs/errors/error_user';
 import { successUserMessage } from 'src/libs/success/success_user';
 import { EmailType } from 'src/types/email.types';
 import { AuthResponse } from 'src/types/response/auth.type';
+import { Logger } from 'winston';
 import { SessionsService } from '../sessions/sessions.service';
 import {
   CreateUserDto,
@@ -16,7 +17,6 @@ import {
   ResetPasswordDto,
 } from '../users/dto/create-user.dto';
 import { UsersService } from '../users/users.service';
-import { Logger } from 'winston';
 
 @Injectable()
 export class AuthService {
@@ -31,6 +31,45 @@ export class AuthService {
   // register user for role owner and super admin
   async register(reqDto: CreateUserDto): Promise<AuthResponse> {
     try {
+      const { role_code } = reqDto as any;
+      let role;
+
+      if (role_code) {
+        role = await this.usersService.findRole(role_code);
+      } else {
+        // Always default to patient role since role_code is not in DTO or not provided
+        role = await this.usersService.findRole('owner');
+      }
+
+      if (!role) {
+        this.logger.error('Role not found');
+        throw new HttpException(
+          'Role not configured',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      // Check max owner
+      if (role.code === 'owner') {
+        const countOwner = await this.usersService.countByRole('owner');
+        if (countOwner >= 2) {
+          throw new HttpException(
+            'Maximum owner limit reached (2)',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
+      // check if role allows self register
+      if (role.self_register === false) {
+        this.logger.error(
+          'User cannot register',
+          'role.self_register',
+          role.self_register,
+        );
+        throw new HttpException('User cannot register', HttpStatus.BAD_REQUEST);
+      }
+
       // check user already exists
       const userExists = await this.usersService.findEmail(reqDto.email);
       if (userExists) {
@@ -39,11 +78,12 @@ export class AuthService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      const user = await this.usersService.create(reqDto);
+      const user = await this.usersService.create(reqDto, role);
       this.logger.debug(`${successUserMessage.USER_CREATED}: ${user.name}`);
 
       // Send verification email
-      const links = process.env.CLIENT_SITE;
+      const links =
+        process.env.CLIENT_SITE || 'https://pos-app.backend.orb.local';
       const baseSite = (links || '').replace(/\/+$/, '');
       this.logger.debug(
         `Sending verification email with token: ${user.verify_code}`,
@@ -61,17 +101,26 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: user.role.code,
           is_verified: user.is_verified,
         },
       };
     } catch (error) {
       this.logger.debug(errUserMessage.USER_CREATE_FAILED, error.stack);
-      if (error instanceof Error) {
-        throw new Error(error.message);
+      if (
+        error instanceof HttpException ||
+        (error.response && error.status) ||
+        (error.getResponse && error.getStatus)
+      ) {
+        throw error;
       }
       throw new HttpException(
-        errUserMessage.USER_CREATE_FAILED,
+        {
+          Error: {
+            field: 'general',
+            body: error.message || errUserMessage.USER_CREATE_FAILED,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -103,12 +152,10 @@ export class AuthService {
       }
       // update user
       await this.usersService.update(user.id, {
-        name: user.name,
-        email: user.email,
-        password: user.password,
         is_verified: true,
         verify_code: null,
         exp_verify_at: null,
+        updatedAt: new Date(),
       });
       this.logger.debug(`${successUserMessage.USER_VERIFIED}: ${user.name}`);
       return {
@@ -117,17 +164,26 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
-          is_verified: user.is_verified,
+          role: user.role.code,
+          is_verified: true,
         },
       };
     } catch (error) {
       this.logger.debug(errUserMessage.USER_VERIFY_FAILED, error.stack);
-      if (error instanceof Error) {
-        throw new Error(error.message);
+      if (
+        error instanceof HttpException ||
+        (error.response && error.status) ||
+        (error.getResponse && error.getStatus)
+      ) {
+        throw error;
       }
       throw new HttpException(
-        errUserMessage.USER_VERIFY_FAILED,
+        {
+          Error: {
+            field: 'general',
+            body: error.message || errUserMessage.USER_VERIFY_FAILED,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -162,42 +218,44 @@ export class AuthService {
 
       // update user
       await this.usersService.update(user.id, {
-        ...user,
         verify_code: tokenVerify,
         exp_verify_at: new Date(Date.now() + 10 * 60 * 1000),
       });
 
       // Send verification email
-      const links = process.env.CLIENT_SITE;
+      const links =
+        process.env.CLIENT_SITE || 'https://pos-app.backend.orb.local';
       const baseSite = (links || '').replace(/\/+$/, '');
       this.logger.debug(
-        `Sending verification email with token: ${user.verify_code}`,
+        `Sending verification email with token: ${tokenVerify}`,
       );
 
       await this.emailService.sendMail(EmailType.VERIFY_ACCOUNT, {
-        links: `${baseSite}/verify-account?verify_token=${user.verify_code}`,
+        links: `${baseSite}/verify-account?verify_token=${tokenVerify}`,
         email: user.email,
         subjectMessage: 'Verify your account',
       });
 
       this.logger.debug(`${successUserMessage.USER_VERIFIED}: ${user.name}`);
       return {
-        message: successUserMessage.USER_VERIFIED,
-        data: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          is_verified: user.is_verified,
-        },
+        message: successUserMessage.USER_RESEND_VERIFY_EMAIL,
       };
     } catch (error) {
       this.logger.debug(errUserMessage.USER_VERIFY_FAILED, error.stack);
-      if (error instanceof Error) {
-        throw new Error(error.message);
+      if (
+        error instanceof HttpException ||
+        (error.response && error.status) ||
+        (error.getResponse && error.getStatus)
+      ) {
+        throw error;
       }
       throw new HttpException(
-        errUserMessage.USER_VERIFY_FAILED,
+        {
+          Error: {
+            field: 'general',
+            body: error.message || errUserMessage.USER_VERIFY_FAILED,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -208,7 +266,7 @@ export class AuthService {
     ip: string,
     device: string,
     reqDto: LoginUserDto,
-  ): Promise<AuthResponse & { session_token: string }> {
+  ): Promise<AuthResponse> {
     try {
       // check user exists
       const user = await this.usersService.findEmail(reqDto.email);
@@ -221,7 +279,7 @@ export class AuthService {
       }
       // check user already verified
       if (user.is_verified === false) {
-        this.logger.debug(`${errUserMessage.USER_NOT_VERIFIED}: ${user.name}`);
+        this.logger.error(`${errUserMessage.USER_NOT_VERIFIED}: ${user.name}`);
         throw new HttpException(
           errUserMessage.USER_NOT_VERIFIED,
           HttpStatus.BAD_REQUEST,
@@ -233,11 +291,9 @@ export class AuthService {
         user.password,
       );
       if (!isPasswordValid) {
-        this.logger.debug(
-          `${errUserMessage.USER_PASSWORD_NOT_MATCH}: ${user.name}`,
-        );
+        this.logger.error(`${errUserMessage.USER_LOGIN_FAILED}: ${user.name}`);
         throw new HttpException(
-          errUserMessage.USER_PASSWORD_NOT_MATCH,
+          errUserMessage.USER_LOGIN_FAILED,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -277,19 +333,24 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role.name,
+          role: user.role.code,
           is_verified: user.is_verified,
           token: accessToken,
+          session_token: sessionToken,
         },
-        session_token: sessionToken,
       };
     } catch (error) {
-      this.logger.debug(errUserMessage.USER_LOGIN_FAILED, error.stack);
+      this.logger.error(errUserMessage.USER_LOGIN_FAILED, error.stack);
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        errUserMessage.USER_LOGIN_FAILED,
+        {
+          Error: {
+            field: 'general',
+            body: error.message,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -298,6 +359,12 @@ export class AuthService {
   // logout user
   async logout(sessionToken: string): Promise<AuthResponse> {
     try {
+      if (!sessionToken) {
+        return {
+          message: successUserMessage.USER_LOGGED_OUT,
+        };
+      }
+
       // Hash session token for storage
       const tokenHash = crypto
         .createHash('sha256')
@@ -330,17 +397,27 @@ export class AuthService {
         throw error;
       }
       throw new HttpException(
-        errUserMessage.USER_LOGOUT_FAILED,
+        {
+          Error: {
+            field: 'general',
+            body: error.message || errUserMessage.USER_LOGOUT_FAILED,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   // refresh token
-  async refreshToken(
-    token: string,
-  ): Promise<AuthResponse & { session_token: string }> {
+  async refreshToken(token: string): Promise<AuthResponse> {
     try {
+      if (!token) {
+        throw new HttpException(
+          errUserMessage.USER_REFRESH_TOKEN_FAILED,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       // Hash session token for storage
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
@@ -394,8 +471,8 @@ export class AuthService {
           role: session.user.role.name,
           is_verified: session.user.is_verified,
           token: accessToken,
+          session_token: sessionToken,
         },
-        session_token: sessionToken,
       };
     } catch (error) {
       this.logger.debug(errUserMessage.USER_REFRESH_TOKEN_FAILED, error.stack);
@@ -435,20 +512,20 @@ export class AuthService {
 
       // create verify token
       await this.usersService.update(user.id, {
-        ...user,
         verify_code: tokenVerify,
         exp_verify_at: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       });
 
       // Send reset password
-      const links = process.env.CLIENT_SITE;
+      const links =
+        process.env.CLIENT_SITE || 'https://pos-app.backend.orb.local';
       const baseSite = (links || '').replace(/\/+$/, '');
       this.logger.debug(
-        `Sending reset password email with token: ${user.verify_code}`,
+        `Sending reset password email with token: ${tokenVerify}`,
       );
 
-      await this.emailService.sendMail(EmailType.VERIFY_ACCOUNT, {
-        links: `${baseSite}/reset-password?verify_token=${user.verify_code}`,
+      await this.emailService.sendMail(EmailType.RESET_PASSWORD, {
+        links: `${baseSite}/reset-password?verify_token=${tokenVerify}`,
         email: user.email,
         subjectMessage: 'Reset your password',
       });
@@ -495,14 +572,18 @@ export class AuthService {
           HttpStatus.BAD_REQUEST,
         );
       }
-
-      // hash password
-      const hashedPassword = await bcrypt.hash(reqDto.password, 10);
+      // check password and retry password
+      if (reqDto.password !== reqDto.retryPassword) {
+        this.logger.debug(`${errUserMessage.USER_PASSWORD_NOT_MATCH}`);
+        throw new HttpException(
+          errUserMessage.USER_PASSWORD_NOT_MATCH,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
 
       // update user
       await this.usersService.update(user.id, {
-        ...user,
-        password: hashedPassword,
+        password: reqDto.password,
         verify_code: null,
         exp_verify_at: null,
       });
@@ -515,7 +596,7 @@ export class AuthService {
       );
 
       await this.emailService.sendMail(EmailType.RESET_PASSWORD, {
-        links: `${baseSite}/reset-password?verify_token=${user.verify_code}`,
+        links: `${baseSite}/login`,
         email: user.email,
         subjectMessage: 'Success Reset Password',
       });

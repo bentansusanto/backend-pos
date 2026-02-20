@@ -24,8 +24,11 @@ export class UserContextMiddleware implements NestMiddleware {
           const payload = this.jwtService.verify(accessToken);
 
           // Try to get session from refresh token cookie
-          const refreshToken = req.cookies?.sessionToken;
+          const refreshToken = req.cookies?.session_pos;
           if (refreshToken) {
+            // Attach token to request
+            (req as any).token = refreshToken;
+
             // Hash refresh token
             const tokenHash = crypto
               .createHash('sha256')
@@ -66,11 +69,14 @@ export class UserContextMiddleware implements NestMiddleware {
    */
   private async authenticateWithRefreshToken(req: Request) {
     try {
-      const refreshToken = req.cookies?.sessionToken;
+      const refreshToken = req.cookies?.session_pos;
 
       if (!refreshToken) {
         return;
       }
+
+      // Attach token to request
+      (req as any).token = refreshToken;
 
       // Hash refresh token
       const tokenHash = crypto

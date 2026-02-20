@@ -1,34 +1,32 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
+  Post,
   Put,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
-import { AuthResponse } from 'src/types/response/auth.type';
-import { WebResponse } from 'src/types/response/index.type';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
-import { User } from './entities/user.entity';
-import { Roles } from 'src/common/decorator/roles.decorator';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
+import { Roles } from 'src/common/decorator/roles.decorator';
+import { WebResponse } from 'src/types/response/index.type';
+import { CreateUserByOwnerDto, CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
+import { User } from './entities/user.entity';
+import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // create user
-  @Roles('super_admin', 'owner')
-  @Permissions('create_user')
+  @Roles('owner')
+  @Permissions('users:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createUserDto: CreateUserDto): Promise<WebResponse> {
+  async create(@Body() createUserDto: CreateUserByOwnerDto): Promise<WebResponse> {
     const result = await this.usersService.createUser(createUserDto);
     return {
       message: result.message,
@@ -37,8 +35,8 @@ export class UsersController {
   }
 
   // get all users
-  @Roles('super_admin', 'owner')
-  @Permissions('read_user')
+  @Roles('owner')
+  @Permissions('users:read')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
@@ -49,20 +47,8 @@ export class UsersController {
     };
   }
 
-  // get user by id
-  @Roles('super_admin', 'owner')
-  @Permissions('read_user')
-  @Get(':id')
-  @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id') id: string): Promise<WebResponse> {
-    const result = await this.usersService.findOne(id);
-    return {
-      message: result.message,
-      data: result.data,
-    };
-  }
-
   // get user by id for access dashboard
+  @Permissions('users:read')
   @Get('me')
   @HttpCode(HttpStatus.OK)
   async getUser(@CurrentUser() user: User): Promise<WebResponse> {
@@ -73,9 +59,21 @@ export class UsersController {
     };
   }
 
+  // get user by id
+  @Permissions('users:read')
+  @Get(':id')
+  @HttpCode(HttpStatus.OK)
+  async findOne(@Param('id') id: string): Promise<WebResponse> {
+    const result = await this.usersService.findOne(id);
+    return {
+      message: result.message,
+      data: result.data,
+    };
+  }
+
   // update user
   @Roles('super_admin', 'owner')
-  @Permissions('update_user')
+  @Permissions('users:update')
   @Put('update/:id')
   @HttpCode(HttpStatus.OK)
   async update(
@@ -91,7 +89,7 @@ export class UsersController {
 
   // soft delete user
   @Roles('super_admin', 'owner')
-  @Permissions('delete_user')
+  @Permissions('users:delete')
   @Delete('delete/:id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string): Promise<WebResponse> {

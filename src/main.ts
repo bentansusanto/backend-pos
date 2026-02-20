@@ -32,16 +32,28 @@ async function bootstrap() {
     }),
   );
 
-  const origins = ['http://localhost:3500'];
+  const origins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',')
+    : [
+        'http://localhost:3000',
+        'http://localhost:3500',
+      ];
+
   app.enableCors({
-    origin: function (origin, callback) {
-      const allowedOrigins = origins;
-      if (!origin || allowedOrigins.includes(origin)) {
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (
+        origins.indexOf(origin) !== -1 ||
+        process.env.NODE_ENV !== 'production'
+      ) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
       }
     },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 

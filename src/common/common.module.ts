@@ -1,9 +1,16 @@
-import { Module } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WinstonModule } from 'nest-winston';
+import { AiInsight } from 'src/modules/ai-insight/entities/ai-insight.entity';
+import { AiJob } from 'src/modules/ai-jobs/entities/ai-job.entity';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { UserBranch } from 'src/modules/branches/entities/user-branch.entity';
 import { Customer } from 'src/modules/customers/entities/customer.entity';
@@ -25,10 +32,9 @@ import { StockMovement } from 'src/modules/stock-movements/entities/stock-moveme
 import * as winston from 'winston';
 import { ErrorsService } from './errors/errors.service';
 import { JwtAuthGuard, PermissionsGuard, RolesGuard } from './guards';
+import { UserContextMiddleware } from './middlewares/user-context.middleware';
 import { RbacService } from './services/rbac.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { AiJob } from 'src/modules/ai-jobs/entities/ai-job.entity';
-import { AiInsight } from 'src/modules/ai-insight/entities/ai-insight.entity';
 
 @Module({
   imports: [
@@ -38,6 +44,7 @@ import { AiInsight } from 'src/modules/ai-insight/entities/ai-insight.entity';
         process.env.NODE_ENV === 'development' ? '.env.development' : '.env',
     }),
     WinstonModule.forRoot({
+      level: 'debug',
       transports: [
         new winston.transports.Console({
           format: winston.format.combine(
@@ -131,4 +138,10 @@ import { AiInsight } from 'src/modules/ai-insight/entities/ai-insight.entity';
     PermissionsGuard,
   ],
 })
-export class CommonModule {}
+export class CommonModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(UserContextMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
+  }
+}

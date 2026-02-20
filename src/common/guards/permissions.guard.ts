@@ -34,7 +34,7 @@ export class PermissionsGuard implements CanActivate {
     if (user.role && user.role.rolePermissions) {
       user.role.rolePermissions.forEach((rp) => {
         if (rp.permission) {
-          const permissionString = `${rp.permission.module}:${rp.permission.action}`;
+          const permissionString = rp.permission.action;
           userPermissions.push(permissionString);
         }
       });

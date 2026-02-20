@@ -22,10 +22,7 @@ export class Permission {
     }
   }
 
-  @Column()
-  module: string;
-
-  @Column()
+  @Column({ unique: true })
   action: string;
 
   @Column()

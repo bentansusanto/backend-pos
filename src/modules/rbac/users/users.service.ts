@@ -3,23 +3,32 @@ import { InjectRepository } from '@nestjs/typeorm';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { errorRoleMessage } from 'src/libs/errors/error_role';
 import { errUserMessage } from 'src/libs/errors/error_user';
 import { successUserMessage } from 'src/libs/success/success_user';
 import { AuthResponse } from 'src/types/response/auth.type';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
-import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
+import { Role } from '../roles/entities/role.entity';
+import {
+  CreateUserByOwnerDto,
+  CreateUserDto,
+  UpdateUserDto,
+} from './dto/create-user.dto';
 import { User } from './entities/user.entity';
+import { RolesService } from '../roles/roles.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
+    private readonly rolesService: RolesService,
   ) {}
 
   // create user for super admin and owner
-  async create(createUserDto: CreateUserDto): Promise<any> {
+  async create(createUserDto: CreateUserDto, role?: Role): Promise<any> {
     try {
       // generate verify code
       const tokens = crypto.randomBytes(40).toString('hex');
@@ -32,6 +41,7 @@ export class UsersService {
         password: hashedPassword,
         verify_code: tokenVerify,
         exp_verify_at: new Date(Date.now() + 10 * 60 * 1000),
+        role,
       });
       this.logger.debug(`Created user with verify_code: ${user.verify_code}`);
       const saveUser = await this.userRepository.save(user);
@@ -43,8 +53,32 @@ export class UsersService {
     }
   }
 
+  // find role by code
+  async findRole(code: string): Promise<Role> {
+    try {
+      return await this.roleRepository.findOne({
+        where: { code },
+      });
+    } catch (error) {
+      this.logger.error('Error finding role', error);
+      throw error;
+    }
+  }
+
+  // count users by role
+  async countByRole(code: string): Promise<number> {
+    try {
+      return await this.userRepository.count({
+        where: { role: { code } },
+      });
+    } catch (error) {
+      this.logger.error('Error counting users by role', error);
+      throw error;
+    }
+  }
+
   // create user for admin, staff, cashier
-  async createUser(createUserDto: CreateUserDto): Promise<AuthResponse> {
+  async createUser(createUserDto: CreateUserByOwnerDto): Promise<AuthResponse> {
     try {
       // check user already exists
       const userExists = await this.findEmail(createUserDto.email);
@@ -56,28 +90,32 @@ export class UsersService {
       }
 
       // generate verify code
-      const tokens = crypto.randomBytes(40).toString('hex');
-      const tokenVerify = `${tokens}-${Date.now()}`;
+      // const tokens = crypto.randomBytes(40).toString('hex');
+      // const tokenVerify = `${tokens}-${Date.now()}`;
 
       // hash password
       const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+       await this.rolesService.findOne(createUserDto.role_id);
       const user = this.userRepository.create({
         ...createUserDto,
         password: hashedPassword,
-        verify_code: tokenVerify,
-        exp_verify_at: new Date(Date.now() + 10 * 60 * 1000),
+        is_verified: true,
+        verify_code: null,
+        exp_verify_at: null,
+        role: {
+          id: createUserDto.role_id,
+        },
       });
-      this.logger.debug(`Created user with verify_code: ${user.verify_code}`);
-      const saveUser = await this.userRepository.save(user);
-      this.logger.debug(`${successUserMessage.USER_CREATED}: ${saveUser.name}`);
+       await this.userRepository.save(user);
+      this.logger.debug(`${successUserMessage.USER_CREATED}: ${user.name}`);
       return {
         message: successUserMessage.USER_CREATED,
         data: {
-          id: saveUser.id,
-          name: saveUser.name,
-          email: saveUser.email,
-          role: saveUser.role.name,
-          is_verified: saveUser.is_verified,
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role.code,
+          is_verified: user.is_verified,
         },
       };
     } catch (error) {
@@ -198,24 +236,29 @@ export class UsersService {
         );
       }
 
-      const hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
+      if (updateUserDto.password) {
+        updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+      }
 
       await this.userRepository.update(id, {
-        name: updateUserDto.name,
-        email: updateUserDto.email,
-        password: hashedPassword,
+        ...updateUserDto,
         updatedAt: new Date(),
       });
+
+      const updatedUser = await this.userRepository.findOne({
+        where: { id },
+      });
+
       this.logger.debug(`${successUserMessage.USER_UPDATED}: ${user.id}`);
 
       return {
         message: successUserMessage.USER_UPDATED,
         data: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role.name,
-          is_verified: user.is_verified,
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role.name,
+          is_verified: updatedUser.is_verified,
         },
       };
     } catch (error) {

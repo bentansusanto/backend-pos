@@ -8,7 +8,7 @@ import {
 import { ValidationError } from 'class-validator';
 import { Response } from 'express';
 
-@Catch(HttpException)
+@Catch()
 export class ErrorsService implements ExceptionFilter {
   catch(exception: HttpException | any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();

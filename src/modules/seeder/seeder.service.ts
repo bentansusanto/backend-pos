@@ -1,13 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import Hashids from 'hashids';
 import { Repository } from 'typeorm';
 import { Permission } from '../rbac/roles/entities/permission.entity';
 import { Role } from '../rbac/roles/entities/role.entity';
 import { RolePermission } from '../rbac/roles/entities/role_permission.entity';
 
 @Injectable()
-export class SeederService {
+export class SeederService implements OnModuleInit {
   constructor(
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
@@ -16,6 +15,10 @@ export class SeederService {
     @InjectRepository(RolePermission)
     private rolePermissionRepository: Repository<RolePermission>,
   ) {}
+
+  async onModuleInit() {
+    await this.seed();
+  }
 
   async seed() {
     console.log('🌱 Starting database seeding...');
@@ -32,127 +35,112 @@ export class SeederService {
 
     const permissions = [
       // Dashboard
-      { module: 'dashboard', action: 'view', description: 'View dashboard' },
+      { action: 'dashboard:view', description: 'View dashboard' },
       {
-        module: 'dashboard',
-        action: 'analytics',
+        action: 'dashboard:analytics',
         description: 'View analytics',
       },
 
       // Products
-      { module: 'products', action: 'create', description: 'Create products' },
-      { module: 'products', action: 'read', description: 'View products' },
-      { module: 'products', action: 'update', description: 'Update products' },
-      { module: 'products', action: 'delete', description: 'Delete products' },
-      { module: 'products', action: 'import', description: 'Import products' },
-      { module: 'products', action: 'export', description: 'Export products' },
+      { action: 'products:create', description: 'Create products' },
+      { action: 'products:read', description: 'View products' },
+      { action: 'products:update', description: 'Update products' },
+      { action: 'products:delete', description: 'Delete products' },
+      { action: 'products:import', description: 'Import products' },
+      { action: 'products:export', description: 'Export products' },
 
       // Sales
       {
-        module: 'sales',
-        action: 'create',
+        action: 'sales:create',
         description: 'Create sales transactions',
       },
       {
-        module: 'sales',
-        action: 'read',
+        action: 'sales:read',
         description: 'View sales transactions',
       },
       {
-        module: 'sales',
-        action: 'update',
+        action: 'sales:update',
         description: 'Update sales transactions',
       },
       {
-        module: 'sales',
-        action: 'delete',
+        action: 'sales:delete',
         description: 'Delete sales transactions',
       },
       {
-        module: 'sales',
-        action: 'void',
+        action: 'sales:void',
         description: 'Void sales transactions',
       },
-      { module: 'sales', action: 'refund', description: 'Process refunds' },
+      { action: 'sales:refund', description: 'Process refunds' },
 
       // Inventory
       {
-        module: 'inventory',
-        action: 'create',
+        action: 'inventory:create',
         description: 'Create inventory records',
       },
-      { module: 'inventory', action: 'read', description: 'View inventory' },
+      { action: 'inventory:read', description: 'View inventory' },
       {
-        module: 'inventory',
-        action: 'update',
+        action: 'inventory:update',
         description: 'Update inventory',
       },
       {
-        module: 'inventory',
-        action: 'delete',
+        action: 'inventory:delete',
         description: 'Delete inventory records',
       },
       {
-        module: 'inventory',
-        action: 'adjust',
+        action: 'inventory:adjust',
         description: 'Adjust inventory levels',
       },
       {
-        module: 'inventory',
-        action: 'transfer',
+        action: 'inventory:transfer',
         description: 'Transfer inventory between branches',
       },
 
       // Users
-      { module: 'users', action: 'create', description: 'Create users' },
-      { module: 'users', action: 'read', description: 'View users' },
-      { module: 'users', action: 'update', description: 'Update users' },
-      { module: 'users', action: 'delete', description: 'Delete users' },
+      { action: 'users:create', description: 'Create users' },
+      { action: 'users:read', description: 'View users' },
+      { action: 'users:update', description: 'Update users' },
+      { action: 'users:delete', description: 'Delete users' },
       {
-        module: 'users',
-        action: 'assign_roles',
+        action: 'users:assign_roles',
         description: 'Assign roles to users',
       },
 
       // Roles & Permissions
-      { module: 'roles', action: 'create', description: 'Create roles' },
-      { module: 'roles', action: 'read', description: 'View roles' },
-      { module: 'roles', action: 'update', description: 'Update roles' },
-      { module: 'roles', action: 'delete', description: 'Delete roles' },
+      { action: 'roles:create', description: 'Create roles' },
+      { action: 'roles:read', description: 'View roles' },
+      { action: 'roles:update', description: 'Update roles' },
+      { action: 'roles:delete', description: 'Delete roles' },
       {
-        module: 'roles',
-        action: 'assign_permissions',
+        action: 'roles:assign_permissions',
         description: 'Assign permissions to roles',
       },
 
       // Branches
-      { module: 'branches', action: 'create', description: 'Create branches' },
-      { module: 'branches', action: 'read', description: 'View branches' },
-      { module: 'branches', action: 'update', description: 'Update branches' },
-      { module: 'branches', action: 'delete', description: 'Delete branches' },
+      { action: 'branches:create', description: 'Create branches' },
+      { action: 'branches:read', description: 'View branches' },
+      { action: 'branches:update', description: 'Update branches' },
+      { action: 'branches:delete', description: 'Delete branches' },
 
       // Reports
-      { module: 'reports', action: 'sales', description: 'View sales reports' },
+      { action: 'reports:sales', description: 'View sales reports' },
       {
-        module: 'reports',
-        action: 'inventory',
+        action: 'reports:inventory',
         description: 'View inventory reports',
       },
       {
-        module: 'reports',
-        action: 'financial',
+        action: 'reports:financial',
         description: 'View financial reports',
       },
-      { module: 'reports', action: 'export', description: 'Export reports' },
+      { action: 'reports:export', description: 'Export reports' },
 
       // Settings
-      { module: 'settings', action: 'read', description: 'View settings' },
-      { module: 'settings', action: 'update', description: 'Update settings' },
+      { action: 'settings:read', description: 'View settings' },
+      { action: 'settings:update', description: 'Update settings' },
     ];
 
     for (const perm of permissions) {
       const exists = await this.permissionRepository.findOne({
-        where: { module: perm.module, action: perm.action },
+        where: { action: perm.action },
       });
 
       if (!exists) {
@@ -160,7 +148,7 @@ export class SeederService {
           ...perm,
         });
         await this.permissionRepository.save(permission);
-        console.log(`  ✓ Created permission: ${perm.module}:${perm.action}`);
+        console.log(`  ✓ Created permission: ${perm.action}`);
       }
     }
 
@@ -230,6 +218,9 @@ export class SeederService {
     console.log('🔗 Seeding role-permission mappings...');
 
     // Get all roles and permissions
+    const owner = await this.roleRepository.findOne({
+      where: { name: 'owner' },
+    });
     const superAdmin = await this.roleRepository.findOne({
       where: { name: 'super_admin' },
     });
@@ -248,6 +239,14 @@ export class SeederService {
 
     const allPermissions = await this.permissionRepository.find();
 
+    // Owner - All permissions
+    if (owner) {
+      for (const permission of allPermissions) {
+        await this.assignPermissionToRole(owner.id, permission.id);
+      }
+      console.log(`  ✓ Assigned all permissions to owner`);
+    }
+
     // Super Admin - All permissions
     if (superAdmin) {
       for (const permission of allPermissions) {
@@ -260,8 +259,8 @@ export class SeederService {
     if (branchManager) {
       const managerPermissions = allPermissions.filter(
         (p) =>
-          !(p.module === 'settings' && p.action === 'update') &&
-          p.module !== 'branches', // Cannot manage branches
+          !(p.action.startsWith('settings:') && p.action.endsWith('update')) &&
+          !p.action.startsWith('branches:'), // Cannot manage branches
       );
       for (const permission of managerPermissions) {
         await this.assignPermissionToRole(branchManager.id, permission.id);
@@ -273,11 +272,11 @@ export class SeederService {
     if (cashier) {
       const cashierPermissions = allPermissions.filter(
         (p) =>
-          (p.module === 'dashboard' && p.action === 'view') ||
-          (p.module === 'products' && ['read'].includes(p.action)) ||
-          (p.module === 'sales' &&
-            ['create', 'read', 'refund'].includes(p.action)) ||
-          (p.module === 'inventory' && p.action === 'read'),
+          p.action === 'dashboard:view' ||
+          (p.action.startsWith('products:') && p.action.includes('read')) ||
+          (p.action.startsWith('sales:') &&
+            ['create', 'read', 'refund'].some((a) => p.action.endsWith(a))) ||
+          (p.action.startsWith('inventory:') && p.action.endsWith('read')),
       );
       for (const permission of cashierPermissions) {
         await this.assignPermissionToRole(cashier.id, permission.id);
@@ -289,11 +288,11 @@ export class SeederService {
     if (inventoryStaff) {
       const inventoryPermissions = allPermissions.filter(
         (p) =>
-          (p.module === 'dashboard' && p.action === 'view') ||
-          (p.module === 'products' &&
-            ['create', 'read', 'update'].includes(p.action)) ||
-          p.module === 'inventory' ||
-          (p.module === 'reports' && p.action === 'inventory'),
+          p.action === 'dashboard:view' ||
+          (p.action.startsWith('products:') &&
+            ['create', 'read', 'update'].some((a) => p.action.endsWith(a))) ||
+          p.action.startsWith('inventory:') ||
+          p.action === 'reports:inventory',
       );
       for (const permission of inventoryPermissions) {
         await this.assignPermissionToRole(inventoryStaff.id, permission.id);
@@ -305,9 +304,9 @@ export class SeederService {
     if (accountant) {
       const accountantPermissions = allPermissions.filter(
         (p) =>
-          p.module === 'dashboard' ||
-          (p.module === 'sales' && p.action === 'read') ||
-          p.module === 'reports',
+          p.action.startsWith('dashboard:') ||
+          (p.action.startsWith('sales:') && p.action.endsWith('read')) ||
+          p.action.startsWith('reports:'),
       );
       for (const permission of accountantPermissions) {
         await this.assignPermissionToRole(accountant.id, permission.id);

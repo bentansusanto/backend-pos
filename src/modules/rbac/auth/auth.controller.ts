@@ -9,6 +9,8 @@ import {
   Res,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { CurrentToken } from 'src/common/decorator/current-user.decorator';
+import { Public } from 'src/common/decorator/public.decorator';
 import { parseDeviceInfo } from 'src/libs/utils/device-parser.util';
 import { WebResponse } from 'src/types/response/index.type';
 import {
@@ -18,8 +20,6 @@ import {
   ResetPasswordDto,
 } from '../users/dto/create-user.dto';
 import { AuthService } from './auth.service';
-import { CurrentToken } from 'src/common/decorator/current-user.decorator';
-import { Public } from 'src/common/decorator/public.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -72,7 +72,7 @@ export class AuthController {
     @Body() loginDto: LoginUserDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<WebResponse> {
+  ): Promise<any> {
     // Extract IP address
     const ip =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
@@ -87,7 +87,7 @@ export class AuthController {
     const result = await this.authService.login(ip, device, loginDto);
 
     // Set session token in cookie
-    res.cookie('session_pos', result.session_token, {
+    res.cookie('session_pos', result.data.session_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -98,10 +98,10 @@ export class AuthController {
     res.setHeader('Authorization', `Bearer ${result.data.token}`);
 
     // Return response (without session_token in body)
-    return {
+    res.status(HttpStatus.OK).json({
       message: result.message,
       data: result.data,
-    };
+    });
   }
 
   // logout user
@@ -109,9 +109,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(
     @CurrentToken() token: string,
+    @Body() body: { session_token?: string },
     @Res({ passthrough: true }) res: Response,
   ): Promise<WebResponse> {
-    const result = await this.authService.logout(token);
+    const sessionToken = token || body?.session_token;
+    const result = await this.authService.logout(sessionToken);
     res.clearCookie('session_pos');
     return {
       message: result.message,
@@ -119,6 +121,7 @@ export class AuthController {
   }
 
   // refresh token
+  // @Public()
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
   async refreshToken(
@@ -126,7 +129,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<WebResponse> {
     const result = await this.authService.refreshToken(token);
-    res.cookie('session_pos', result.session_token, {
+    res.cookie('session_pos', result.data.session_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
