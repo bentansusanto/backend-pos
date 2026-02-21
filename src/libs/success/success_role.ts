@@ -4,4 +4,4 @@ export const successRoleMessage = {
   SUCCESS_UPDATE_ROLE: 'Role updated successfully',
   SUCCESS_DELETE_ROLE: 'Role deleted successfully',
   SUCCESS_FIND_ALL_ROLE: 'All roles found successfully',
-}
+};

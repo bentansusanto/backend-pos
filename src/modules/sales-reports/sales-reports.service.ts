@@ -87,6 +87,7 @@ export class SalesReportsService {
           orderId: payment.orderId,
           amount: payment.amount,
           paymentMethod: payment.method,
+          status: payment.status,
           paidAt: payment.paid_at,
           branch: order?.branch
             ? {

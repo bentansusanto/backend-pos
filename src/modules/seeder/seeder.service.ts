@@ -48,7 +48,21 @@ export class SeederService implements OnModuleInit {
       { action: 'products:delete', description: 'Delete products' },
       { action: 'products:import', description: 'Import products' },
       { action: 'products:export', description: 'Export products' },
-
+      // Variants
+      { action: 'variants:create', description: 'Create product variants' },
+      { action: 'variants:read', description: 'View product variants' },
+      { action: 'variants:update', description: 'Update product variants' },
+      { action: 'variants:delete', description: 'Delete product variants' },
+      // Categories
+      { action: 'categories:create', description: 'Create categories' },
+      { action: 'categories:read', description: 'View categories' },
+      { action: 'categories:update', description: 'Update categories' },
+      { action: 'categories:delete', description: 'Delete categories' },
+      // Product Stock
+      { action: 'stock:create', description: 'Create product stock' },
+      { action: 'stock:read', description: 'View product stock' },
+      { action: 'stock:update', description: 'Update product stock' },
+      { action: 'stock:adjust', description: 'Adjust product stock' },
       // Sales
       {
         action: 'sales:create',
@@ -71,6 +85,11 @@ export class SeederService implements OnModuleInit {
         description: 'Void sales transactions',
       },
       { action: 'sales:refund', description: 'Process refunds' },
+      // payments
+      { action: 'payments:create', description: 'Create payment methods' },
+      { action: 'payments:read', description: 'View payment methods' },
+      { action: 'payments:update', description: 'Update payment methods' },
+      { action: 'payments:delete', description: 'Delete payment methods' },
 
       // Inventory
       {
@@ -104,6 +123,11 @@ export class SeederService implements OnModuleInit {
         action: 'users:assign_roles',
         description: 'Assign roles to users',
       },
+      // Customers
+      { action: 'customers:create', description: 'Create customers' },
+      { action: 'customers:read', description: 'View customers' },
+      { action: 'customers:update', description: 'Update customers' },
+      { action: 'customers:delete', description: 'Delete customers' },
 
       // Roles & Permissions
       { action: 'roles:create', description: 'Create roles' },
@@ -166,6 +190,12 @@ export class SeederService implements OnModuleInit {
         description: 'Owner with full system access',
       },
       {
+        name: 'super_admin',
+        code: 'super_admin',
+        self_registered: false,
+        description: 'Super Admin with full system access',
+      },
+      {
         name: 'developer',
         code: 'developer',
         self_registered: false,
@@ -176,6 +206,12 @@ export class SeederService implements OnModuleInit {
         code: 'admin',
         self_registered: false,
         description: 'Admin with full system access',
+      },
+      {
+        name: 'branch_manager',
+        code: 'branch_manager',
+        self_registered: false,
+        description: 'Branch Manager with branch management access',
       },
       {
         name: 'cashier',
@@ -224,6 +260,9 @@ export class SeederService implements OnModuleInit {
     const superAdmin = await this.roleRepository.findOne({
       where: { name: 'super_admin' },
     });
+    const admin = await this.roleRepository.findOne({
+      where: { name: 'admin' },
+    });
     const branchManager = await this.roleRepository.findOne({
       where: { name: 'branch_manager' },
     });
@@ -253,6 +292,14 @@ export class SeederService implements OnModuleInit {
         await this.assignPermissionToRole(superAdmin.id, permission.id);
       }
       console.log(`  ✓ Assigned all permissions to super_admin`);
+    }
+
+    // Admin - All permissions
+    if (admin) {
+      for (const permission of allPermissions) {
+        await this.assignPermissionToRole(admin.id, permission.id);
+      }
+      console.log(`  ✓ Assigned all permissions to admin`);
     }
 
     // Branch Manager - All except system settings

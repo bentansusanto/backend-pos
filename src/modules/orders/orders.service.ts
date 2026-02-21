@@ -34,10 +34,14 @@ export class OrdersService {
   ) {}
 
   // create orders
-  async create(createOrderDto: CreateOrderDto): Promise<OrderResponse> {
+  async create(
+    createOrderDto: CreateOrderDto,
+    currentUserId?: string,
+  ): Promise<OrderResponse> {
     try {
       const { items, notes, order_id, branch_id, user_id, customer_id } =
         createOrderDto;
+      const resolvedUserId = user_id || currentUserId;
       // Step 1: Normalize items so each product/variant has a single entry
       const aggregatedItems = new Map<
         string,
@@ -142,6 +146,17 @@ export class OrdersService {
             relations: ['productVariant', 'product', 'branch'],
           })
         : Promise.resolve([]);
+      const variantStocksByProductPromise = productIds.length
+        ? this.productStockRepository.find({
+            where: [
+              {
+                productVariant: { product: { id: In(productIds) } },
+                ...(branch_id ? { branch: { id: branch_id } } : {}),
+              },
+            ],
+            relations: ['productVariant', 'productVariant.product', 'branch'],
+          })
+        : Promise.resolve([]);
 
       const existingOrderPromise = order_id
         ? this.orderRepository.findOne({
@@ -157,10 +172,12 @@ export class OrdersService {
           })
         : Promise.resolve(null);
 
-      const [productStocks, existingOrderResult] = await Promise.all([
-        productStocksPromise,
-        existingOrderPromise,
-      ]);
+      const [productStocks, variantStocksByProduct, existingOrderResult] =
+        await Promise.all([
+          productStocksPromise,
+          variantStocksByProductPromise,
+          existingOrderPromise,
+        ]);
 
       const variantStockMap = new Map(
         productStocks
@@ -172,6 +189,16 @@ export class OrdersService {
           .filter((stock) => stock.product?.id)
           .map((stock) => [stock.product.id, stock]),
       );
+      const variantStockTotalsByProduct = new Map<string, number>();
+      variantStocksByProduct.forEach((stock) => {
+        const productId = stock.productVariant?.product?.id;
+        if (!productId) return;
+        const current = variantStockTotalsByProduct.get(productId) || 0;
+        variantStockTotalsByProduct.set(
+          productId,
+          current + (stock.stock || 0),
+        );
+      });
 
       // Step 4: Ensure stock is sufficient for each requested item
       aggregatedItems.forEach((item) => {
@@ -194,10 +221,22 @@ export class OrdersService {
         if (item.productId) {
           const stock = productStockMap.get(item.productId);
           if (!stock) {
-            throw new HttpException(
-              'Product stock not found',
-              HttpStatus.BAD_REQUEST,
+            const variantTotal = variantStockTotalsByProduct.get(
+              item.productId,
             );
+            if (!variantTotal) {
+              throw new HttpException(
+                'Product stock not found',
+                HttpStatus.BAD_REQUEST,
+              );
+            }
+            if (variantTotal < item.quantity) {
+              throw new HttpException(
+                'Product stock is insufficient',
+                HttpStatus.BAD_REQUEST,
+              );
+            }
+            return;
           }
           if (stock.stock < item.quantity) {
             throw new HttpException(
@@ -231,7 +270,7 @@ export class OrdersService {
               notes,
               status: OrderStatus.PENDING,
               branch: branch_id ? { id: branch_id } : undefined,
-              user: user_id ? { id: user_id } : undefined,
+              user: resolvedUserId ? { id: resolvedUserId } : undefined,
               customer: customer_id ? { id: customer_id } : undefined,
             });
             const savedOrder = await orderRepo.save(createdOrder);
@@ -323,6 +362,9 @@ export class OrdersService {
           const updatedOrder = orderRepo.create({
             ...existingOrder,
             notes: notes ?? existingOrder.notes,
+            user:
+              existingOrder.user ??
+              (resolvedUserId ? { id: resolvedUserId } : undefined),
             subtotal,
           });
           const savedOrder = await orderRepo.save(updatedOrder);
@@ -375,9 +417,10 @@ export class OrdersService {
     }
   }
 
-  async findAll(): Promise<OrderResponse> {
+  async findAll(userId?: string): Promise<OrderResponse> {
     try {
       const orders = await this.orderRepository.find({
+        where: userId ? { user: { id: userId } } : undefined,
         relations: [
           'items',
           'items.product',
@@ -388,10 +431,10 @@ export class OrdersService {
         ],
       });
       if (!orders || orders.length === 0) {
-        throw new HttpException(
-          errOrderMessage.ERR_GET_ORDERS,
-          HttpStatus.NOT_FOUND,
-        );
+        return {
+          message: successOrderMessage.SUCCESS_GET_ORDERS,
+          datas: [],
+        };
       }
 
       return {

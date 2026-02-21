@@ -1,5 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateProductVariantDto {
   @IsNotEmpty({ message: 'Product ID is required' })
@@ -11,10 +12,12 @@ export class CreateProductVariantDto {
   name_variant: string;
 
   @IsNotEmpty({ message: 'Price is required' })
+  @Type(() => Number)
   @IsNumber({}, { message: 'Price must be a number' })
   price: number;
 
   @IsNotEmpty({ message: 'Weight is required' })
+  @Type(() => Number)
   @IsNumber({}, { message: 'Weight must be a number' })
   weight: number;
 
@@ -22,8 +25,7 @@ export class CreateProductVariantDto {
   @IsString({ message: 'Color must be a string' })
   color: string;
 
-  @IsNotEmpty({ message: 'Thumbnail is required' })
-  @IsString({ message: 'Thumbnail must be a string' })
+  @IsOptional()
   thumbnail: string;
 }
 

@@ -13,7 +13,11 @@ import { CurrentUser } from 'src/common/decorator/current-user.decorator';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { WebResponse } from 'src/types/response/index.type';
-import { CreateUserByOwnerDto, CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
+import {
+  CreateUserByOwnerDto,
+  CreateUserDto,
+  UpdateUserDto,
+} from './dto/create-user.dto';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 
@@ -26,7 +30,9 @@ export class UsersController {
   @Permissions('users:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createUserDto: CreateUserByOwnerDto): Promise<WebResponse> {
+  async create(
+    @Body() createUserDto: CreateUserByOwnerDto,
+  ): Promise<WebResponse> {
     const result = await this.usersService.createUser(createUserDto);
     return {
       message: result.message,
@@ -48,7 +54,8 @@ export class UsersController {
   }
 
   // get user by id for access dashboard
-  @Permissions('users:read')
+  // @Roles('owner', 'admin', 'branch_manager', 'cashier')
+  // @Permissions('users:read')
   @Get('me')
   @HttpCode(HttpStatus.OK)
   async getUser(@CurrentUser() user: User): Promise<WebResponse> {

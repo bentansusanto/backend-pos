@@ -41,7 +41,7 @@ export class CategoriesService {
       // creating category
       const category = this.categoryRepository.create(createCategoryDto);
       await this.categoryRepository.save(category);
-      this.logger.info(
+      this.logger.debug(
         `${successProductMessage.SUCCESS_CREATE_CATEGORY} with name: ${category.name}`,
       );
       return {
@@ -54,12 +54,19 @@ export class CategoriesService {
         },
       };
     } catch (error) {
-      this.logger.error(errProductMessage.ERROR_CREATE_CATEGORY, error.message);
+      const errorMessage =
+        error?.message || errProductMessage.ERROR_CREATE_CATEGORY;
+      this.logger.error(errProductMessage.ERROR_CREATE_CATEGORY, errorMessage);
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        errProductMessage.ERROR_CREATE_CATEGORY,
+        {
+          Error: {
+            field: 'general',
+            body: errorMessage,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -70,14 +77,7 @@ export class CategoriesService {
     try {
       // check category is exist
       const categories = await this.categoryRepository.find();
-      if (categories.length === 0) {
-        this.logger.warn(errProductMessage.ERROR_FIND_ALL_CATEGORY);
-        throw new HttpException(
-          errProductMessage.ERROR_FIND_ALL_CATEGORY,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      this.logger.info(
+      this.logger.debug(
         `${successProductMessage.SUCCESS_FIND_ALL_CATEGORY} with ${categories.length} categories`,
       );
       return {
@@ -90,12 +90,22 @@ export class CategoriesService {
         })),
       };
     } catch (error) {
+      const errorMessage =
+        error?.message || errProductMessage.ERROR_FIND_ALL_CATEGORY;
       this.logger.error(
         errProductMessage.ERROR_FIND_ALL_CATEGORY,
-        error.message,
+        errorMessage,
       );
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
-        errProductMessage.ERROR_FIND_ALL_CATEGORY,
+        {
+          Error: {
+            field: 'general',
+            body: errorMessage,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -117,7 +127,7 @@ export class CategoriesService {
           HttpStatus.NOT_FOUND,
         );
       }
-      this.logger.info(
+      this.logger.debug(
         `${successProductMessage.SUCCESS_FIND_CATEGORY} with id: ${category.id}`,
       );
       return {
@@ -130,9 +140,19 @@ export class CategoriesService {
         },
       };
     } catch (error) {
-      this.logger.error(errProductMessage.ERROR_FIND_CATEGORY, error.message);
+      const errorMessage =
+        error?.message || errProductMessage.ERROR_FIND_CATEGORY;
+      this.logger.error(errProductMessage.ERROR_FIND_CATEGORY, errorMessage);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
-        errProductMessage.ERROR_FIND_CATEGORY,
+        {
+          Error: {
+            field: 'general',
+            body: errorMessage,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -159,7 +179,7 @@ export class CategoriesService {
       }
       // update category
       await this.categoryRepository.update(id, updateCategoryDto);
-      this.logger.info(
+      this.logger.debug(
         `${successProductMessage.SUCCESS_UPDATE_CATEGORY} with id: ${category.id}`,
       );
       return {
@@ -198,7 +218,7 @@ export class CategoriesService {
       }
       // delete category
       await this.categoryRepository.delete(id);
-      this.logger.info(
+      this.logger.debug(
         `${successProductMessage.SUCCESS_DELETE_CATEGORY} with id: ${category.id}`,
       );
       return {

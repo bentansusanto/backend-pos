@@ -36,6 +36,25 @@ export class CloudinaryService {
     });
   }
 
+  async uploadBase64(base64: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload(
+        base64,
+        {
+          resource_type: 'auto',
+          folder: 'pos-app',
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result.secure_url);
+          }
+        },
+      );
+    });
+  }
+
   async uploadMultipleFiles(files: MulterFile[]): Promise<string[]> {
     const uploadPromises = files.map((file) => this.uploadFile(file));
     return Promise.all(uploadPromises);

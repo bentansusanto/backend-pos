@@ -23,7 +23,7 @@ export class ProductStocksController {
   constructor(private readonly productStocksService: ProductStocksService) {}
 
   @Roles('admin', 'staff', 'owner')
-  @Permissions('create_product_stock')
+  @Permissions('stock:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -46,7 +46,7 @@ export class ProductStocksController {
     const result = await this.productStocksService.findAll();
     return {
       message: result.message,
-      data: result.data,
+      data: result.datas,
     };
   }
 

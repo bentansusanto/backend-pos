@@ -8,6 +8,7 @@ export class AuthData {
   role: string;
   token?: string;
   session_token?: string;
+  branches?: any[];
 }
 
 export class AuthResponse extends ResponseModel<AuthData> {

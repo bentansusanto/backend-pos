@@ -1,7 +1,9 @@
+import Hashids from 'hashids';
 import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
 import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.entity';
 import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 import {
+  BeforeInsert,
   Column,
   CreateDateColumn,
   DeleteDateColumn,
@@ -18,6 +20,13 @@ import { Product } from './product.entity';
 export class ProductVariant {
   @PrimaryColumn()
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
+    }
+  }
 
   @ManyToOne(() => Product, (product) => product.productVariants)
   @JoinColumn({ name: 'productId' })
@@ -38,7 +47,7 @@ export class ProductVariant {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   price: number;
 
-  @Column()
+  @Column({ nullable: true })
   thumbnail: string;
 
   @OneToMany(() => ProductStock, (productStock) => productStock.productVariant)

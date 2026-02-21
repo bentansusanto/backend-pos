@@ -9,17 +9,18 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
+import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  @Roles('admin', 'cashier')
+  @Roles('admin', 'cashier', 'owner')
+  @Permissions('payments:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -52,12 +53,11 @@ export class PaymentsController {
     };
   }
 
-  @Put('verify-payment')
+  @Roles('admin', 'cashier', 'owner')
+  @Permissions('payments:update')
+  @Put('verify-payment/:id')
   @HttpCode(HttpStatus.OK)
-  async verifyPayment(
-    @Param('id') id: string,
-    @Body() updatePaymentDto: UpdatePaymentDto,
-  ): Promise<WebResponse> {
+  async verifyPayment(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.paymentsService.verifyPayment(id);
     return {
       message: result.message,

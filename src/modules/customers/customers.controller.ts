@@ -22,8 +22,8 @@ import {
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
-  @Roles('cashier', 'admin')
-  @Permissions('create_customer')
+  @Roles('cashier', 'admin', 'owner')
+  @Permissions('customers:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -37,19 +37,19 @@ export class CustomersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('read_customer')
+  @Permissions('customers:read')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
     const result = await this.customersService.findAll();
     return {
       message: result.message,
-      data: result.data,
+      data: result.datas,
     };
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('read_customer')
+  @Permissions('customers:read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string): Promise<WebResponse> {
@@ -61,7 +61,7 @@ export class CustomersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('update_customer')
+  @Permissions('customers:update')
   @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(
@@ -76,7 +76,7 @@ export class CustomersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('delete_customer')
+  @Permissions('customers:delete')
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string): Promise<WebResponse> {

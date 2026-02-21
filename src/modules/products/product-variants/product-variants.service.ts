@@ -1,6 +1,10 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import {
+  CloudinaryService,
+  MulterFile,
+} from 'src/common/cloudinary/cloudinary.service';
 import { errProductMessage } from 'src/libs/errors/error_product';
 import { successProductMessage } from 'src/libs/success/success_product';
 import { ProductVariantResponse } from 'src/types/response/product.type';
@@ -17,6 +21,7 @@ export class ProductVariantsService {
     @InjectRepository(ProductVariant)
     private readonly productVariantRepository: Repository<ProductVariant>,
     private readonly productsService: ProductsService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   private generateSku(
@@ -40,9 +45,25 @@ export class ProductVariantsService {
     return `${prod}-${varc}${col}-W${wcode}-${short}`;
   }
 
+  private async handleThumbnailUpload(
+    thumbnailFile?: MulterFile,
+    existingThumbnail?: string,
+  ): Promise<string> {
+    if (thumbnailFile) {
+      return this.cloudinaryService.uploadFile(thumbnailFile);
+    }
+
+    if (existingThumbnail && existingThumbnail.startsWith('data:image')) {
+      return this.cloudinaryService.uploadBase64(existingThumbnail);
+    }
+
+    return existingThumbnail || '';
+  }
+
   // create product variant
   async create(
     createProductVariantDto: CreateProductVariantDto,
+    thumbnailFile?: MulterFile,
   ): Promise<ProductVariantResponse> {
     try {
       // check product is exist
@@ -79,9 +100,14 @@ export class ProductVariantsService {
           }
         }
       }
+      const thumbnailUrl = await this.handleThumbnailUpload(
+        thumbnailFile,
+        createProductVariantDto.thumbnail,
+      );
       // create product variant
       const newProductVariant = this.productVariantRepository.create({
         ...createProductVariantDto,
+        thumbnail: thumbnailUrl,
         sku,
         product: {
           id: product.data.id,
@@ -106,9 +132,19 @@ export class ProductVariantsService {
         },
       };
     } catch (error) {
-      this.logger.error(errProductMessage.ERROR_CREATE_VARIANT, error.message);
+      const errorMessage =
+        error?.message || errProductMessage.ERROR_CREATE_VARIANT;
+      this.logger.error(errProductMessage.ERROR_CREATE_VARIANT, errorMessage);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
-        errProductMessage.ERROR_CREATE_VARIANT,
+        {
+          Error: {
+            field: 'general',
+            body: errorMessage,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -118,11 +154,13 @@ export class ProductVariantsService {
   async update(
     id: string,
     updateProductVariantDto: CreateProductVariantDto,
+    thumbnailFile?: MulterFile,
   ): Promise<ProductVariantResponse> {
     try {
       // check product variant is exist
       const productVariant = await this.productVariantRepository.findOne({
         where: { id },
+        relations: ['product'],
       });
       if (!productVariant) {
         this.logger.warn(errProductMessage.ERROR_VARIANT_NOT_FOUND);
@@ -138,7 +176,7 @@ export class ProductVariantsService {
         productVariant.product.id,
         updateProductVariantDto.name_variant,
         updateProductVariantDto.color,
-        updateProductVariantDto.weight,
+        Number(updateProductVariantDto.weight),
       );
       let sku = baseSku;
       const exists = await this.productVariantRepository.findOne({
@@ -156,14 +194,20 @@ export class ProductVariantsService {
           }
         }
       }
+      const thumbnailUrl = await this.handleThumbnailUpload(
+        thumbnailFile,
+        updateProductVariantDto.thumbnail ?? productVariant.thumbnail,
+      );
 
       // update product variant
       await this.productVariantRepository.update(id, {
-        ...updateProductVariantDto,
+        product: { id: updateProductVariantDto.productId },
+        name_variant: updateProductVariantDto.name_variant,
+        price: Number(updateProductVariantDto.price),
+        weight: Number(updateProductVariantDto.weight),
+        color: updateProductVariantDto.color,
+        thumbnail: thumbnailUrl,
         sku,
-        product: {
-          id: productVariant.product.id,
-        },
       });
       return {
         message: successProductMessage.SUCCESS_UPDATE_PRODUCT_VARIANT,

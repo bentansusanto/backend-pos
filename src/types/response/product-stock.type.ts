@@ -3,7 +3,8 @@ import { ResponseModel } from './index.type';
 export class ProductStockData {
   id: string;
   variantId: string;
-  branchId: string;
+  productId?: string;
+  branchId?: string;
   stock: number;
   minStock: number;
   createdAt?: Date;

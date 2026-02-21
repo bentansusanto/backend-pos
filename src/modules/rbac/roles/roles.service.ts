@@ -14,10 +14,10 @@ import { RoleResponse } from 'src/types/response/role.type';
 @Injectable()
 export class RolesService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger:Logger,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
-  ){}
+  ) {}
   create(createRoleDto: CreateRoleDto) {
     return 'This action adds a new role';
   }
@@ -27,8 +27,14 @@ export class RolesService {
     try {
       const roles = await this.roleRepository.find();
       if (roles.length === 0) {
-        this.logger.warn(errorRoleMessage.ERROR_FIND_ALL_ROLE, 'No roles found');
-        throw new HttpException(errorRoleMessage.ERROR_FIND_ALL_ROLE, HttpStatus.NOT_FOUND);
+        this.logger.warn(
+          errorRoleMessage.ERROR_FIND_ALL_ROLE,
+          'No roles found',
+        );
+        throw new HttpException(
+          errorRoleMessage.ERROR_FIND_ALL_ROLE,
+          HttpStatus.NOT_FOUND,
+        );
       }
       this.logger.debug(successRoleMessage.SUCCESS_FIND_ALL_ROLE);
       return {
@@ -44,16 +50,19 @@ export class RolesService {
         })),
       };
     } catch (error) {
-      this.logger.error(errorRoleMessage.ERROR_FIND_ALL_ROLE, error.message)
+      this.logger.error(errorRoleMessage.ERROR_FIND_ALL_ROLE, error.message);
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException(errorRoleMessage.ERROR_FIND_ALL_ROLE, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        errorRoleMessage.ERROR_FIND_ALL_ROLE,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
   // find role by id
-  async findOne(id: string):Promise<RoleResponse> {
+  async findOne(id: string): Promise<RoleResponse> {
     try {
       const role = await this.roleRepository.findOne({
         where: {
@@ -61,8 +70,14 @@ export class RolesService {
         },
       });
       if (!role) {
-        this.logger.warn(errorRoleMessage.ERROR_FIND_ROLE, `Role with id ${id} not found`);
-        throw new HttpException(errorRoleMessage.ERROR_FIND_ROLE, HttpStatus.NOT_FOUND);
+        this.logger.warn(
+          errorRoleMessage.ERROR_FIND_ROLE,
+          `Role with id ${id} not found`,
+        );
+        throw new HttpException(
+          errorRoleMessage.ERROR_FIND_ROLE,
+          HttpStatus.NOT_FOUND,
+        );
       }
       this.logger.debug(successRoleMessage.SUCCESS_FIND_ROLE);
       return {
@@ -82,7 +97,10 @@ export class RolesService {
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new HttpException(errorRoleMessage.ERROR_FIND_ROLE, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        errorRoleMessage.ERROR_FIND_ROLE,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

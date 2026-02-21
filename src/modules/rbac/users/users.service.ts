@@ -10,13 +10,15 @@ import { AuthResponse } from 'src/types/response/auth.type';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { Role } from '../roles/entities/role.entity';
+import { RolesService } from '../roles/roles.service';
 import {
   CreateUserByOwnerDto,
   CreateUserDto,
   UpdateUserDto,
 } from './dto/create-user.dto';
 import { User } from './entities/user.entity';
-import { RolesService } from '../roles/roles.service';
+
+import { UserBranch } from 'src/modules/branches/entities/user-branch.entity';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +26,8 @@ export class UsersService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
+    @InjectRepository(UserBranch)
+    private readonly userBranchRepository: Repository<UserBranch>,
     private readonly rolesService: RolesService,
   ) {}
 
@@ -95,18 +99,34 @@ export class UsersService {
 
       // hash password
       const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-       await this.rolesService.findOne(createUserDto.role_id);
+      const role = await this.roleRepository.findOne({
+        where: { id: createUserDto.role_id },
+      });
+      if (!role) {
+        throw new HttpException(
+          errorRoleMessage.ERROR_FIND_ROLE,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       const user = this.userRepository.create({
         ...createUserDto,
         password: hashedPassword,
         is_verified: true,
         verify_code: null,
         exp_verify_at: null,
-        role: {
-          id: createUserDto.role_id,
-        },
+        role,
       });
-       await this.userRepository.save(user);
+      await this.userRepository.save(user);
+
+      // assign branch if provided
+      if (createUserDto.branch_id) {
+        const userBranch = this.userBranchRepository.create({
+          userId: user.id,
+          branchId: createUserDto.branch_id,
+        });
+        await this.userBranchRepository.save(userBranch);
+      }
+
       this.logger.debug(`${successUserMessage.USER_CREATED}: ${user.name}`);
       return {
         message: successUserMessage.USER_CREATED,
@@ -148,6 +168,7 @@ export class UsersService {
     try {
       const user = await this.userRepository.findOne({
         where: { id },
+        relations: ['userBranches', 'userBranches.branch'],
       });
       if (!user) {
         throw new HttpException(
@@ -166,6 +187,10 @@ export class UsersService {
           email: user.email,
           role: user.role.name,
           is_verified: user.is_verified,
+          branches: user.userBranches?.map((ub) => ({
+            id: ub.branch.id,
+            name: ub.branch.name,
+          })),
         },
       };
     } catch (error) {

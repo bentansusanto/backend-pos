@@ -189,10 +189,53 @@ export class PaymentsService {
                 relations: ['product', 'branch'],
               });
               if (!productStock) {
-                throw new HttpException(
-                  'Product stock not found',
-                  HttpStatus.NOT_FOUND,
-                );
+                const variantStocks = await stockRepo.find({
+                  where: {
+                    productVariant: { product: { id: item.product.id } },
+                    ...(branchId ? { branch: { id: branchId } } : {}),
+                  },
+                  relations: [
+                    'productVariant',
+                    'branch',
+                    'productVariant.product',
+                  ],
+                });
+                if (!variantStocks.length) {
+                  throw new HttpException(
+                    'Product stock not found',
+                    HttpStatus.NOT_FOUND,
+                  );
+                }
+                let remaining = quantity;
+                for (const variantStock of variantStocks) {
+                  if (remaining <= 0) break;
+                  const available = Number(variantStock.stock ?? 0);
+                  if (!Number.isFinite(available) || available <= 0) {
+                    continue;
+                  }
+                  const deduction = Math.min(available, remaining);
+                  variantStock.stock = available - deduction;
+                  variantStock.updatedAt = new Date();
+                  await stockRepo.save(variantStock);
+                  if (branchId && variantStock.productVariant?.id) {
+                    const movement = movementRepo.create({
+                      productVariant: { id: variantStock.productVariant.id },
+                      branch: { id: branchId },
+                      referenceType: referenceType.SALE,
+                      qty: deduction,
+                      referenceId: order.id,
+                    });
+                    await movementRepo.save(movement);
+                  }
+                  remaining -= deduction;
+                }
+                if (remaining > 0) {
+                  throw new HttpException(
+                    'Product stock is insufficient',
+                    HttpStatus.BAD_REQUEST,
+                  );
+                }
+                continue;
               }
               if (productStock.stock < quantity) {
                 throw new HttpException(

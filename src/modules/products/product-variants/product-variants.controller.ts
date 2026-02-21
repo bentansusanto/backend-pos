@@ -1,11 +1,22 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Roles } from 'src/common/decorator/roles.decorator';
+import { WebResponse } from 'src/types/response/index.type';
 import { CreateProductVariantDto } from '../dto/create-product-variant.dto';
 import { ProductVariantsService } from './product-variants.service';
-import { WebResponse } from 'src/types/response/index.type';
 
-@Controller('product-variants')
+@Controller('variants')
 export class ProductVariantsController {
   constructor(
     private readonly productVariantsService: ProductVariantsService,
@@ -13,13 +24,17 @@ export class ProductVariantsController {
 
   // create product variant
   @Roles('admin', 'owner')
-  @Permissions('create:product-variant')
+  @Permissions('variants:create')
   @Post('create')
-  async screate(
+  @UseInterceptors(FileInterceptor('thumbnail'))
+  @HttpCode(HttpStatus.CREATED)
+  async create(
     @Body() createProductVariantDto: CreateProductVariantDto,
+    @UploadedFile() thumbnailFile: Express.Multer.File,
   ): Promise<WebResponse> {
     const result = await this.productVariantsService.create(
       createProductVariantDto,
+      thumbnailFile,
     );
     return {
       message: result.message,
@@ -29,15 +44,18 @@ export class ProductVariantsController {
 
   // update product variant
   @Roles('admin', 'owner')
-  @Permissions('update:product-variant')
+  @Permissions('variants:update')
   @Post('update/:id')
+  @UseInterceptors(FileInterceptor('thumbnail'))
   async update(
     @Param('id') id: string,
     @Body() updateProductVariantDto: CreateProductVariantDto,
+    @UploadedFile() thumbnailFile?: Express.Multer.File,
   ): Promise<WebResponse> {
     const result = await this.productVariantsService.update(
       id,
       updateProductVariantDto,
+      thumbnailFile,
     );
     return {
       message: result.message,
@@ -47,7 +65,7 @@ export class ProductVariantsController {
 
   // delete product variant
   @Roles('admin', 'owner')
-  @Permissions('delete:product-variant')
+  @Permissions('variants:delete')
   @Post('delete/:id')
   async delete(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productVariantsService.delete(id);
@@ -57,7 +75,7 @@ export class ProductVariantsController {
   }
 
   // get product variant by id
-  @Permissions('read:product-variant')
+  @Permissions('variants:read')
   @Get('get/:id')
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productVariantsService.findOne(id);
@@ -68,7 +86,7 @@ export class ProductVariantsController {
   }
 
   // get all product variant
-  @Permissions('read:product-variant')
+  @Permissions('variants:read')
   @Get('find-all')
   async findAll(): Promise<WebResponse> {
     const result = await this.productVariantsService.findAll();

@@ -1,5 +1,6 @@
-import { ValidationPipe } from '@nestjs/common'; // Added ValidationPipe import
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -9,7 +10,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Setup global guards for RBAC
   const reflector = app.get(Reflector);
@@ -21,7 +22,11 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
   app.useGlobalFilters(new ErrorsService());
-  app.use(cookieParser()); // Existing usage, now with new import style
+  app.use(cookieParser());
+
+  // Set body parser limits using NestExpressApplication
+  app.useBodyParser('json', { limit: '50mb' });
+  app.useBodyParser('urlencoded', { extended: true, limit: '50mb' });
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -34,10 +39,7 @@ async function bootstrap() {
 
   const origins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
-    : [
-        'http://localhost:3000',
-        'http://localhost:3500',
-      ];
+    : ['http://localhost:3000', 'http://localhost:3500'];
 
   app.enableCors({
     origin: (origin, callback) => {

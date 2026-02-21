@@ -29,24 +29,24 @@ export class RolesController {
   @Permissions('roles:read')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll():Promise<WebResponse> {
+  async findAll(): Promise<WebResponse> {
     const result = await this.rolesService.findAll();
-    return{
+    return {
       message: result.message,
       data: result.datas,
-    }
+    };
   }
 
   @Roles('admin', 'owner')
   @Permissions('roles:read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id') id: string):Promise<WebResponse> {
+  async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.rolesService.findOne(id);
-    return{
+    return {
       message: result.message,
       data: result.data,
-    }
+    };
   }
 
   @Patch(':id')

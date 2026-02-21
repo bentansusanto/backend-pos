@@ -21,7 +21,7 @@ export class CategoriesController {
 
   // create category
   @Roles('admin', 'owner')
-  @Permissions('create:category')
+  @Permissions('categories:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -35,7 +35,7 @@ export class CategoriesController {
   }
 
   // find all categories
-  @Permissions('read:category')
+  @Permissions('categories:read')
   @Post('find-all')
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
@@ -47,7 +47,7 @@ export class CategoriesController {
   }
 
   // find category by id
-  @Permissions('read:category')
+  @Permissions('categories:read')
   @Post(':id')
   @HttpCode(HttpStatus.OK)
   async findById(@Param('id') id: string): Promise<WebResponse> {
@@ -60,7 +60,7 @@ export class CategoriesController {
 
   // update category
   @Roles('admin', 'owner')
-  @Permissions('update:category')
+  @Permissions('categories:update')
   @Post(':id/update')
   @HttpCode(HttpStatus.OK)
   async update(
@@ -76,7 +76,7 @@ export class CategoriesController {
 
   // delete category
   @Roles('admin', 'owner')
-  @Permissions('delete:category')
+  @Permissions('categories:delete')
   @Post(':id/delete')
   @HttpCode(HttpStatus.OK)
   async delete(@Param('id') id: string): Promise<WebResponse> {

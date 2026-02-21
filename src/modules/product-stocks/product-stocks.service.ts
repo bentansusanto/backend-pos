@@ -60,6 +60,9 @@ export class ProductStocksService {
         branch: {
           id: branch.data.id,
         },
+        product: {
+          id: productVariant.data.product_id,
+        },
         productVariant: {
           id: productVariant.data.id,
         },
@@ -76,7 +79,7 @@ export class ProductStocksService {
         referenceId: productStock.id,
       });
 
-      this.logger.info(
+      this.logger.debug(
         successProductStockMessage.SUCCESS_CREATE_PRODUCT_STOCK,
         productStock,
       );
@@ -84,8 +87,9 @@ export class ProductStocksService {
         message: successProductStockMessage.SUCCESS_CREATE_PRODUCT_STOCK,
         data: {
           id: productStock.id,
-          variantId: productStock.productVariant.id,
-          branchId: productStock.branch.id,
+          productId: productVariant.data.product_id,
+          variantId: productVariant.data.id,
+          branchId: branch.data.id,
           stock: productStock.stock,
           minStock: productStock.minStock,
           createdAt: productStock.createdAt,
@@ -111,7 +115,7 @@ export class ProductStocksService {
   async findAll(): Promise<ProductStockResponse> {
     try {
       const productStocks = await this.productStockRepository.find({
-        relations: ['branch', 'productVariant'],
+        relations: ['branch', 'productVariant', 'product'],
       });
 
       if (productStocks.length === 0) {
@@ -122,7 +126,7 @@ export class ProductStocksService {
         );
       }
 
-      this.logger.info(
+      this.logger.debug(
         successProductStockMessage.SUCCESS_GET_PRODUCT_STOCKS,
         productStocks,
       );
@@ -130,6 +134,7 @@ export class ProductStocksService {
         message: successProductStockMessage.SUCCESS_GET_PRODUCT_STOCKS,
         datas: productStocks.map((productStock) => ({
           id: productStock.id,
+          productId: productStock.product?.id,
           variantId: productStock.productVariant.id,
           branchId: productStock.branch.id,
           stock: productStock.stock,
@@ -157,7 +162,7 @@ export class ProductStocksService {
         where: {
           id,
         },
-        relations: ['branch', 'productVariant'],
+        relations: ['branch', 'productVariant', 'product'],
       });
       if (!productStock) {
         this.logger.error(errProductStockMessage.ERR_GET_PRODUCT_STOCK);
@@ -166,7 +171,7 @@ export class ProductStocksService {
           HttpStatus.NOT_FOUND,
         );
       }
-      this.logger.info(
+      this.logger.debug(
         successProductStockMessage.SUCCESS_GET_PRODUCT_STOCK,
         productStock,
       );
@@ -174,6 +179,7 @@ export class ProductStocksService {
         message: successProductStockMessage.SUCCESS_GET_PRODUCT_STOCK,
         data: {
           id: productStock.id,
+          productId: productStock.product?.id,
           variantId: productStock.productVariant.id,
           branchId: productStock.branch.id,
           stock: productStock.stock,
@@ -204,7 +210,7 @@ export class ProductStocksService {
         where: {
           id,
         },
-        relations: ['branch', 'productVariant'],
+        relations: ['branch', 'productVariant', 'product'],
       });
       if (!productStock) {
         this.logger.error(errProductStockMessage.ERR_GET_PRODUCT_STOCK);
@@ -218,7 +224,24 @@ export class ProductStocksService {
         minStock: updateProductStockDto.minStock,
         updatedAt: new Date(),
       });
-      this.logger.info(
+
+      // Create stock movement for adjustment if stock changed
+      if (
+        updateProductStockDto.stock !== undefined &&
+        updateProductStockDto.stock !== productStock.stock
+      ) {
+        const diff = updateProductStockDto.stock - productStock.stock;
+        await this.stockMovementsService.create({
+          productId: productStock.product?.id,
+          variantId: productStock.productVariant?.id,
+          branchId: productStock.branch?.id,
+          referenceType: referenceType.ADJUST,
+          qty: diff,
+          referenceId: productStock.id,
+        });
+      }
+
+      this.logger.debug(
         successProductStockMessage.SUCCESS_UPDATE_PRODUCT_STOCK,
         productStock,
       );
@@ -226,6 +249,7 @@ export class ProductStocksService {
         message: successProductStockMessage.SUCCESS_UPDATE_PRODUCT_STOCK,
         data: {
           id: productStock.id,
+          productId: productStock.product?.id,
           variantId: productStock.productVariant.id,
           branchId: productStock.branch.id,
           stock: productStock.stock,
@@ -252,7 +276,7 @@ export class ProductStocksService {
         where: {
           id,
         },
-        relations: ['branch', 'productVariant'],
+        relations: ['branch', 'productVariant', 'product'],
       });
       if (!productStock) {
         this.logger.error(errProductStockMessage.ERR_GET_PRODUCT_STOCK);
@@ -262,7 +286,7 @@ export class ProductStocksService {
         );
       }
       await this.productStockRepository.softDelete(id);
-      this.logger.info(
+      this.logger.debug(
         successProductStockMessage.SUCCESS_DELETE_PRODUCT_STOCK,
         productStock,
       );

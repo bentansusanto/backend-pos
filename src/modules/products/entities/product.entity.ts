@@ -32,8 +32,11 @@ export class Product {
   @Column()
   name_product: string;
 
-  @Column()
+  @Column({ unique: true })
   slug: string;
+
+  @Column({ unique: true })
+  sku: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   price: number;

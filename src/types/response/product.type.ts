@@ -4,11 +4,15 @@ export class ProductData {
   id: string;
   name_product: string;
   category_id: string;
+  category_name?: string;
   price: number;
   description: string;
   slug: string;
+  sku: string;
   thumbnail: string;
   images: string[];
+  stock?: number;
+  variants?: ProductVariantData[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -29,6 +33,7 @@ export class ProductVariantData {
   name_variant: string;
   price: number;
   thumbnail: string;
+  stock?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }

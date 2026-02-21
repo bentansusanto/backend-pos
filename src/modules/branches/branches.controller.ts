@@ -9,18 +9,18 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { Permissions } from 'src/common/decorator/permissions.decorator';
+import { Roles } from 'src/common/decorator/roles.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import { BranchesService } from './branches.service';
 import { CreateBranchDto, UpdateBranchDto } from './dto/create-branch.dto';
-import { Roles } from 'src/common/decorator/roles.decorator';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
 
 @Controller('branches')
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   @Roles('owner')
-  @Permissions('create:branch')
+  @Permissions('branches:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createBranchDto: CreateBranchDto): Promise<WebResponse> {
@@ -31,7 +31,7 @@ export class BranchesController {
     };
   }
 
-  @Permissions('read:branch')
+  @Permissions('branches:read')
   @Get('find-all')
   async findAll(): Promise<WebResponse> {
     const result = await this.branchesService.findAll();
@@ -41,7 +41,7 @@ export class BranchesController {
     };
   }
 
-  @Permissions('read:branch')
+  @Permissions('branches:read')
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.branchesService.findOne(id);
@@ -52,7 +52,7 @@ export class BranchesController {
   }
 
   @Roles('owner')
-  @Permissions('update:branch')
+  @Permissions('branches:update')
   @Patch(':id')
   async update(
     @Param('id') id: string,
@@ -66,10 +66,23 @@ export class BranchesController {
   }
 
   @Roles('owner')
-  @Permissions('delete:branch')
+  @Permissions('branches:delete')
   @Delete('delete/:id')
   async remove(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.branchesService.remove(id);
+    return {
+      message: result.message,
+    };
+  }
+
+  @Roles('owner')
+  @Permissions('branches:update')
+  @Post(':id/assign-user')
+  async assignUser(
+    @Param('id') id: string,
+    @Body('userId') userId: string,
+  ): Promise<WebResponse> {
+    const result = await this.branchesService.assignUser(id, userId);
     return {
       message: result.message,
     };

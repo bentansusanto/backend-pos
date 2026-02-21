@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { AiJobsService } from './ai-jobs.service';
 import { CreateAiJobDto } from './dto/create-ai-job.dto';
 import { UpdateAiJobDto } from './dto/update-ai-job.dto';

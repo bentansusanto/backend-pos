@@ -2,12 +2,15 @@ import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { errBranchMessage } from 'src/libs/errors/error_branch';
+import { successBranchMessage } from 'src/libs/success/success_branch';
+import { BranchResponse } from 'src/types/response/branch.type';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { CreateBranchDto, UpdateBranchDto } from './dto/create-branch.dto';
 import { Branch } from './entities/branch.entity';
-import { successBranchMessage } from 'src/libs/success/success_branch';
-import { BranchResponse } from 'src/types/response/branch.type';
+
+import { UsersService } from '../rbac/users/users.service';
+import { UserBranch } from './entities/user-branch.entity';
 
 @Injectable()
 export class BranchesService {
@@ -15,6 +18,9 @@ export class BranchesService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
+    @InjectRepository(UserBranch)
+    private readonly userBranchRepository: Repository<UserBranch>,
+    private readonly usersService: UsersService,
   ) {}
   private generateCode(name: string): string {
     return name.toLowerCase().replace(/\s+/g, '-');
@@ -70,13 +76,6 @@ export class BranchesService {
   async findAll(): Promise<BranchResponse> {
     try {
       const branches = await this.branchRepository.find();
-      if (branches.length === 0) {
-        this.logger.warn(errBranchMessage.BRANCH_NOT_FOUND);
-        throw new HttpException(
-          errBranchMessage.BRANCH_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
-        );
-      }
       return {
         message: successBranchMessage.BRANCH_FOUND_ALL,
         datas: branches.map((branch) => ({
@@ -211,6 +210,50 @@ export class BranchesService {
         errBranchMessage.BRANCH_FAILED_DELETE,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  // assign user to branch
+  async assignUser(branchId: string, userId: string): Promise<any> {
+    try {
+      // check branch
+      const branch = await this.branchRepository.findOne({
+        where: { id: branchId },
+      });
+      if (!branch) {
+        throw new HttpException(
+          errBranchMessage.BRANCH_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // check user
+      await this.usersService.findOne(userId);
+
+      // check if already assigned
+      const existing = await this.userBranchRepository.findOne({
+        where: { branchId, userId },
+      });
+
+      if (existing) {
+        return {
+          message: 'User already assigned to this branch',
+        };
+      }
+
+      const userBranch = this.userBranchRepository.create({
+        branchId,
+        userId,
+      });
+
+      await this.userBranchRepository.save(userBranch);
+
+      return {
+        message: 'User assigned to branch successfully',
+      };
+    } catch (error) {
+      this.logger.error('Failed to assign user to branch', error);
+      throw error;
     }
   }
 }

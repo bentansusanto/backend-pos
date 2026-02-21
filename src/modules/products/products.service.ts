@@ -13,6 +13,7 @@ import { Logger } from 'winston';
 import { CategoriesService } from './categories/categories.service';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 
+import { ProductVariant } from './entities/product-variant.entity';
 import { Product } from './entities/product.entity';
 
 @Injectable()
@@ -21,6 +22,8 @@ export class ProductsService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductVariant)
+    private readonly productVariantRepository: Repository<ProductVariant>,
     private readonly categoriesService: CategoriesService,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
@@ -28,6 +31,14 @@ export class ProductsService {
   // Helper function to generate slug
   private generateSlug(name: string): string {
     return name.toLowerCase().replace(/\s+/g, '-');
+  }
+
+  // helper function to generate sku like SKU-namesonly 3 characters-4digitrandomnumber
+  // example: SKU-APP-1234
+  private generateSku(name: string): string {
+    return `SKU-${name.substring(0, 4).toUpperCase()}-${Math.floor(
+      1000 + Math.random() * 9000,
+    )}`;
   }
 
   // Helper function to handle file uploads to Cloudinary
@@ -85,10 +96,11 @@ export class ProductsService {
       const newProduct = this.productRepository.create({
         ...createProductDto,
         category: {
-          id: category.data.id,
+          id: createProductDto.category_id,
         },
         slug: this.generateSlug(createProductDto.name_product),
         thumbnail: thumbnailUrl,
+        sku: this.generateSku(createProductDto.name_product),
         images: imageUrls,
       });
       await this.productRepository.save(newProduct);
@@ -105,6 +117,7 @@ export class ProductsService {
           price: newProduct.price,
           category_id: newProduct.category.id,
           slug: newProduct.slug,
+          sku: newProduct.sku,
           description: newProduct.description,
           thumbnail: newProduct.thumbnail,
           images: Array.isArray(newProduct.images) ? newProduct.images : [],
@@ -113,21 +126,33 @@ export class ProductsService {
         },
       };
     } catch (error) {
-      this.logger.error(errProductMessage.ERROR_CREATE_PRODUCT, error.message);
+      const errorMessage =
+        error?.message || errProductMessage.ERROR_CREATE_PRODUCT;
+      this.logger.error(errProductMessage.ERROR_CREATE_PRODUCT, errorMessage);
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        errProductMessage.ERROR_CREATE_PRODUCT,
+        {
+          Error: {
+            field: 'general',
+            body: errorMessage,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  async findAll(): Promise<ProductResponse> {
+  async findAll(branchId?: string): Promise<ProductResponse> {
     try {
       const products = await this.productRepository.find({
-        relations: ['category'],
+        relations: [
+          'category',
+          'productVariants',
+          'productVariants.productStocks',
+          'productVariants.productStocks.branch',
+        ],
       });
       if (!products || products.length === 0) {
         this.logger.error(errProductMessage.ERROR_FIND_ALL_PRODUCT);
@@ -143,18 +168,36 @@ export class ProductsService {
 
       return {
         message: successProductMessage.SUCCESS_FIND_ALL_PRODUCT,
-        datas: products.map((product) => ({
-          id: product.id,
-          name_product: product.name_product,
-          price: product.price,
-          category_id: product.category.id,
-          slug: product.slug,
-          description: product.description,
-          thumbnail: product.thumbnail,
-          images: Array.isArray(product.images) ? product.images : [],
-          createdAt: product.createdAt,
-          updatedAt: product.updatedAt,
-        })),
+        datas: products.map((product) => {
+          let stocks =
+            product.productVariants?.flatMap(
+              (variant) => variant.productStocks || [],
+            ) || [];
+
+          if (branchId) {
+            stocks = stocks.filter(
+              (stock) => stock.branch && stock.branch.id === branchId,
+            );
+          }
+
+          const totalStock = stocks.reduce((acc, curr) => acc + curr.stock, 0);
+
+          return {
+            id: product.id,
+            name_product: product.name_product,
+            price: product.price,
+            category_id: product.category.id,
+            category_name: product.category.name,
+            slug: product.slug,
+            sku: product.sku,
+            description: product.description,
+            thumbnail: product.thumbnail,
+            images: Array.isArray(product.images) ? product.images : [],
+            stock: totalStock,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+          };
+        }),
       };
     } catch (error) {
       this.logger.error(
@@ -173,7 +216,12 @@ export class ProductsService {
     try {
       const product = await this.productRepository.findOne({
         where: { id },
-        relations: ['category'],
+        relations: [
+          'category',
+          'productStocks',
+          'productVariants',
+          'productVariants.productStocks',
+        ],
       });
       if (!product) {
         this.logger.error(
@@ -189,6 +237,36 @@ export class ProductsService {
         `${successProductMessage.SUCCESS_FIND_PRODUCT} with id: ${product.id}`,
       );
 
+      const totalStock = product.productStocks
+        ? product.productStocks.reduce((acc, curr) => acc + curr.stock, 0)
+        : 0;
+
+      const variants =
+        product.productVariants && product.productVariants.length > 0
+          ? product.productVariants.map((variant) => {
+              const variantStock = variant.productStocks
+                ? variant.productStocks.reduce(
+                    (acc, curr) => acc + curr.stock,
+                    0,
+                  )
+                : 0;
+
+              return {
+                id: variant.id,
+                product_id: product.id,
+                sku: variant.sku,
+                weight: variant.weight,
+                color: variant.color,
+                name_variant: variant.name_variant,
+                price: variant.price,
+                thumbnail: variant.thumbnail,
+                stock: variantStock,
+                createdAt: variant.createdAt,
+                updatedAt: variant.updatedAt,
+              };
+            })
+          : [];
+
       return {
         message: successProductMessage.SUCCESS_FIND_PRODUCT,
         data: {
@@ -196,10 +274,14 @@ export class ProductsService {
           name_product: product.name_product,
           price: product.price,
           category_id: product.category.id,
+          category_name: product.category.name,
           slug: product.slug,
+          sku: product.sku,
           description: product.description,
           thumbnail: product.thumbnail,
           images: Array.isArray(product.images) ? product.images : [],
+          stock: totalStock,
+          variants: variants,
           createdAt: product.createdAt,
           updatedAt: product.updatedAt,
         },
@@ -253,8 +335,8 @@ export class ProductsService {
       const { thumbnailUrl, imageUrls } = await this.handleFileUploads(
         thumbnailFile,
         imageFiles,
-        updateProductDto.thumbnail,
-        updateProductDto.images,
+        findProduct.thumbnail,
+        findProduct.images,
       );
 
       // update product
@@ -266,6 +348,7 @@ export class ProductsService {
         },
         slug: this.generateSlug(updateProductDto.name_product),
         description: updateProductDto.description,
+        sku: this.generateSku(updateProductDto.name_product),
         thumbnail: thumbnailUrl,
         images: imageUrls,
       });
@@ -282,6 +365,7 @@ export class ProductsService {
           price: findProduct.price,
           category_id: findProduct.category.id,
           slug: findProduct.slug,
+          sku: findProduct.sku,
           description: findProduct.description,
           thumbnail: findProduct.thumbnail,
           images: Array.isArray(findProduct.images) ? findProduct.images : [],
@@ -315,6 +399,9 @@ export class ProductsService {
           HttpStatus.NOT_FOUND,
         );
       }
+
+      // delete product variants
+      await this.productVariantRepository.softDelete({ product: { id } });
 
       // delete product
       await this.productRepository.softDelete(id);

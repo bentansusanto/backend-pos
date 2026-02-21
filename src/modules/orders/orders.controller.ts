@@ -9,8 +9,10 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
+import { CurrentUser } from 'src/common/decorator/current-user.decorator';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Roles } from 'src/common/decorator/roles.decorator';
+import { User } from 'src/modules/rbac/users/entities/user.entity';
 import { WebResponse } from 'src/types/response/index.type';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -20,11 +22,15 @@ import { OrdersService } from './orders.service';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  @Permissions('create:order')
+  @Roles('cashier', 'admin', 'owner')
+  @Permissions('sales:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createOrderDto: CreateOrderDto): Promise<WebResponse> {
-    const result = await this.ordersService.create(createOrderDto);
+  async create(
+    @CurrentUser() user: User,
+    @Body() createOrderDto: CreateOrderDto,
+  ): Promise<WebResponse> {
+    const result = await this.ordersService.create(createOrderDto, user?.id);
     return {
       message: result.message,
       data: result.data,
@@ -32,11 +38,11 @@ export class OrdersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('read:order')
+  @Permissions('sales:read')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(): Promise<WebResponse> {
-    const result = await this.ordersService.findAll();
+  async findAll(@CurrentUser() user: User): Promise<WebResponse> {
+    const result = await this.ordersService.findAll(user?.id);
     return {
       message: result.message,
       data: result.datas,
@@ -44,7 +50,7 @@ export class OrdersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('read:order')
+  @Permissions('sales:read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string): Promise<WebResponse> {
@@ -55,8 +61,8 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin')
-  @Permissions('update:order')
+  @Roles('cashier', 'admin', 'owner')
+  @Permissions('sales:update')
   @Put(':id')
   async update(
     @Param('id') id: string,
@@ -69,8 +75,8 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin')
-  @Permissions('update:order-quantity-item')
+  @Roles('cashier', 'admin', 'owner')
+  @Permissions('sales:update')
   @Put(':id/items/:orderItemId/quantity')
   async updateQuantity(
     @Param('id') id: string,
@@ -88,8 +94,8 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin')
-  @Permissions('delete:order')
+  @Roles('cashier', 'admin', 'owner')
+  @Permissions('sales:delete')
   @Delete(':id/items/:orderItemId')
   async deleteOrderItems(
     @Param('id') id: string,
@@ -102,8 +108,8 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin')
-  @Permissions('delete:order')
+  @Roles('cashier', 'admin', 'owner')
+  @Permissions('sales:delete')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ordersService.remove(id);

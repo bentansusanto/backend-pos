@@ -82,9 +82,16 @@ export class CreateUserByOwnerDto {
   @IsNotEmpty({ message: 'role is not empty' })
   @IsString({ message: 'role must be a string' })
   role_id: string;
+
+  @ApiProperty({
+    example: 'branch-id-123',
+    description: 'The branch id for the user',
+    required: false,
+  })
+  @IsString({ message: 'branch must be a string' })
+  @IsNotEmpty({ message: 'branch is not empty' })
+  branch_id?: string;
 }
-
-
 
 export class LoginUserDto {
   @ApiProperty({
