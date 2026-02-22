@@ -1,15 +1,16 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
-import { StockMovementsService } from './stock-movements.service';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 import { UpdateStockMovementDto } from './dto/update-stock-movement.dto';
+import { StockMovementsService } from './stock-movements.service';
 
 @Controller('stock-movements')
 export class StockMovementsController {
@@ -21,8 +22,8 @@ export class StockMovementsController {
   }
 
   @Get()
-  findAll() {
-    return this.stockMovementsService.findAll();
+  findAll(@Query('branch_id') branchId?: string) {
+    return this.stockMovementsService.findAll(branchId);
   }
 
   @Get(':id')

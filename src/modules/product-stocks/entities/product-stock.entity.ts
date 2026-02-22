@@ -28,9 +28,10 @@ export class ProductStock {
   @ManyToOne(
     () => ProductVariant,
     (productVariant) => productVariant.productStocks,
+    { nullable: true },
   )
   @JoinColumn({ name: 'variant_id' })
-  productVariant: ProductVariant;
+  productVariant?: ProductVariant;
 
   @ManyToOne(() => Product, (productVariant) => productVariant.productStocks)
   @JoinColumn({ name: 'product_id' })

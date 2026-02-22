@@ -18,12 +18,17 @@ export class ProfilesService {
   ) {}
   // create profile
   async create(
-    userId: string,
+    userId: string, // Keep this as fallback or enforce it via DTO?
     createProfileDto: CreateProfileDto,
   ): Promise<ProfileResponse> {
     try {
+      // Use userId from DTO if provided, otherwise use the passed userId (which might be admin's ID)
+      // BUT WAIT, if admin calls this, userId passed is admin's ID.
+      // DTO's user_id is the target user.
+      const targetUserId = createProfileDto.user_id || userId;
+
       // find user by id
-      const findUser = await this.userService.findOne(userId);
+      const findUser = await this.userService.findOne(targetUserId);
       if (!findUser) {
         throw new HttpException('User not found', HttpStatus.NOT_FOUND);
       }
@@ -41,7 +46,7 @@ export class ProfilesService {
       const profile = this.profileRepository.create({
         ...createProfileDto,
         user: {
-          id: userId,
+          id: targetUserId,
         },
       });
       await this.profileRepository.save(profile);
@@ -133,6 +138,52 @@ export class ProfilesService {
     }
   }
 
+  async findByUserId(userId: string): Promise<ProfileResponse> {
+    try {
+      const profile = await this.profileRepository.findOne({
+        where: { user: { id: userId } },
+        relations: ['user'],
+      });
+      if (!profile) {
+        // Return null or throw 404?
+        // For "Edit Profile" flow, it's better to return null (or check if exists) to decide Create vs Update.
+        // But the current pattern throws 404.
+        // I'll stick to 404 and handle it in frontend.
+        // Wait, if I want to "Create if not exists", fetching should return null, not throw.
+        // But let's stick to existing pattern for now.
+        // Actually, if I throw 404, frontend can catch it.
+        throw new HttpException('Profile not found', HttpStatus.NOT_FOUND);
+      }
+      return {
+        message: 'Profile fetched successfully',
+        data: {
+          id: profile.id,
+          user_id: profile.user.id,
+          address: profile.address,
+          phone: profile.phone,
+          createdAt: profile.createdAt,
+          updatedAt: profile.updatedAt,
+        },
+      };
+    } catch (error) {
+      // Don't log "Profile not found" as error if it's just a check
+      if (
+        error instanceof HttpException &&
+        error.getStatus() === HttpStatus.NOT_FOUND
+      ) {
+        throw error;
+      }
+      this.logger.error('Failed to fetch profile by user id', error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to fetch profile',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async update(
     userId: string,
     id: string,
@@ -147,21 +198,29 @@ export class ProfilesService {
         this.logger.error('Profile not found');
         throw new HttpException('Profile not found', HttpStatus.NOT_FOUND);
       }
-      await this.profileRepository.update(id, {
-        ...updateProfileDto,
-        user: {
-          id: userId,
-        },
+
+      const updatePayload: any = { ...updateProfileDto };
+      if (updateProfileDto.user_id) {
+        updatePayload.user = { id: updateProfileDto.user_id };
+      }
+      delete updatePayload.user_id;
+
+      await this.profileRepository.update(id, updatePayload);
+
+      const updatedProfile = await this.profileRepository.findOne({
+        where: { id },
+        relations: ['user'],
       });
+
       return {
         message: 'Profile updated successfully',
         data: {
-          id: profile.id,
-          user_id: profile.user.id,
-          address: profile.address,
-          phone: profile.phone,
-          createdAt: profile.createdAt,
-          updatedAt: profile.updatedAt,
+          id: updatedProfile.id,
+          user_id: updatedProfile.user.id,
+          address: updatedProfile.address,
+          phone: updatedProfile.phone,
+          createdAt: updatedProfile.createdAt,
+          updatedAt: updatedProfile.updatedAt,
         },
       };
     } catch (error) {

@@ -149,6 +149,14 @@ export class SalesReportsService {
       const averageTransaction =
         totalTransactions > 0 ? totalSales / totalTransactions : 0;
 
+      // Count unique customers
+      const uniqueCustomerIds = new Set(
+        salesData
+          .filter((sale) => sale.customer?.id)
+          .map((sale) => sale.customer.id),
+      );
+      const totalCustomers = uniqueCustomerIds.size;
+
       // Group by payment method
       const paymentMethodSummary = salesData.reduce((acc, sale) => {
         acc[sale.paymentMethod] = (acc[sale.paymentMethod] || 0) + sale.amount;
@@ -159,6 +167,7 @@ export class SalesReportsService {
         totalSales,
         totalTransactions,
         averageTransaction,
+        totalCustomers,
         paymentMethodSummary,
         salesData,
       };

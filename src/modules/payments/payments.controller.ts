@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Roles } from 'src/common/decorator/roles.decorator';
@@ -35,8 +36,8 @@ export class PaymentsController {
 
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(): Promise<WebResponse> {
-    const result = await this.paymentsService.findAll();
+  async findAll(@Query('branch_id') branchId?: string): Promise<WebResponse> {
+    const result = await this.paymentsService.findAll(branchId);
     return {
       message: result.message,
       data: result.datas,

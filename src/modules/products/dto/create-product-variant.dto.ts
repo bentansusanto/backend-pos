@@ -16,14 +16,14 @@ export class CreateProductVariantDto {
   @IsNumber({}, { message: 'Price must be a number' })
   price: number;
 
-  @IsNotEmpty({ message: 'Weight is required' })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber({}, { message: 'Weight must be a number' })
-  weight: number;
+  weight?: number;
 
-  @IsNotEmpty({ message: 'Color is required' })
+  @IsOptional()
   @IsString({ message: 'Color must be a string' })
-  color: string;
+  color?: string;
 
   @IsOptional()
   thumbnail: string;

@@ -34,11 +34,11 @@ export class ProductStocksService {
     createProductStockDto: CreateProductStockDto,
   ): Promise<ProductStockResponse> {
     try {
-      // check branch and product variant exists
-      const [branch, productVariant] = await Promise.all([
-        this.branchService.findOne(createProductStockDto.branchId),
-        this.productVariantService.findOne(createProductStockDto.variantId),
-      ]);
+      // check branch exists
+      const branch = await this.branchService.findOne(
+        createProductStockDto.branchId,
+      );
+
       if (!branch) {
         this.logger.error(errBranchMessage.BRANCH_NOT_FOUND);
         throw new HttpException(
@@ -46,37 +46,54 @@ export class ProductStocksService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      if (!productVariant) {
-        this.logger.error(errProductMessage.ERROR_FIND_VARIANT);
-        throw new HttpException(
-          errProductMessage.ERROR_FIND_VARIANT,
-          HttpStatus.BAD_REQUEST,
+
+      let productVariant;
+      let productId = createProductStockDto.productId;
+
+      // if variantId is provided, check if variant exists
+      if (createProductStockDto.variantId) {
+        productVariant = await this.productVariantService.findOne(
+          createProductStockDto.variantId,
         );
+
+        if (!productVariant) {
+          this.logger.error(errProductMessage.ERROR_FIND_VARIANT);
+          throw new HttpException(
+            errProductMessage.ERROR_FIND_VARIANT,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        productId = productVariant.data.product_id;
       }
 
       // create product stock
-      const productStock = this.productStockRepository.create({
+      const productStockData: any = {
         ...createProductStockDto,
         branch: {
           id: branch.data.id,
         },
         product: {
-          id: productVariant.data.product_id,
+          id: productId,
         },
-        productVariant: {
+      };
+
+      if (productVariant) {
+        productStockData.productVariant = {
           id: productVariant.data.id,
-        },
-      });
+        };
+      }
+
+      const productStock = this.productStockRepository.create(productStockData);
       await this.productStockRepository.save(productStock);
 
       // Create stock movement for adjustment
       await this.stockMovementsService.create({
-        productId: productVariant.data.product_id,
-        variantId: productVariant.data.id,
+        productId: productId,
+        variantId: productVariant?.data?.id || null,
         branchId: createProductStockDto.branchId,
         referenceType: referenceType.ADJUST,
         qty: createProductStockDto.stock,
-        referenceId: productStock.id,
+        referenceId: (productStock as any).id,
       });
 
       this.logger.debug(
@@ -86,14 +103,14 @@ export class ProductStocksService {
       return {
         message: successProductStockMessage.SUCCESS_CREATE_PRODUCT_STOCK,
         data: {
-          id: productStock.id,
-          productId: productVariant.data.product_id,
-          variantId: productVariant.data.id,
+          id: (productStock as any).id,
+          productId: productId,
+          variantId: productVariant?.data?.id || null,
           branchId: branch.data.id,
-          stock: productStock.stock,
-          minStock: productStock.minStock,
-          createdAt: productStock.createdAt,
-          updatedAt: productStock.updatedAt,
+          stock: (productStock as any).stock,
+          minStock: (productStock as any).minStock,
+          createdAt: (productStock as any).createdAt,
+          updatedAt: (productStock as any).updatedAt,
         },
       };
     } catch (error) {
@@ -112,9 +129,10 @@ export class ProductStocksService {
   }
 
   // find all product stocks
-  async findAll(): Promise<ProductStockResponse> {
+  async findAll(branchId?: string): Promise<ProductStockResponse> {
     try {
       const productStocks = await this.productStockRepository.find({
+        where: branchId ? { branch: { id: branchId } } : undefined,
         relations: ['branch', 'productVariant', 'product'],
       });
 

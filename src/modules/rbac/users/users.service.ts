@@ -168,7 +168,7 @@ export class UsersService {
     try {
       const user = await this.userRepository.findOne({
         where: { id },
-        relations: ['userBranches', 'userBranches.branch'],
+        relations: ['userBranches', 'userBranches.branch', 'profile'],
       });
       if (!user) {
         throw new HttpException(
@@ -191,6 +191,12 @@ export class UsersService {
             id: ub.branch.id,
             name: ub.branch.name,
           })),
+          profile: user.profile
+            ? {
+                address: user.profile.address,
+                phone: user.profile.phone,
+              }
+            : null,
         },
       };
     } catch (error) {
@@ -221,7 +227,9 @@ export class UsersService {
   // find all users
   async findAll(): Promise<AuthResponse> {
     try {
-      const users = await this.userRepository.find();
+      const users = await this.userRepository.find({
+        relations: ['profile', 'role'], // Add profile relation
+      });
       return {
         message: successUserMessage.USER_FOUND,
         datas: users.map((user) => ({
@@ -230,6 +238,12 @@ export class UsersService {
           email: user.email,
           role: user.role.name,
           is_verified: user.is_verified,
+          profile: user.profile
+            ? {
+                address: user.profile.address,
+                phone: user.profile.phone,
+              }
+            : null,
         })),
       };
     } catch (error) {

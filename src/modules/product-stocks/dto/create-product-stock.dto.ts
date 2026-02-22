@@ -1,9 +1,13 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsNumber, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateProductStockDto {
+  @IsString({ message: 'productId must be a string' })
+  productId: string;
+
+  @IsOptional()
   @IsString({ message: 'variantId must be a string' })
-  variantId: string;
+  variantId?: string;
 
   @IsString({ message: 'branchId must be a string' })
   branchId: string;

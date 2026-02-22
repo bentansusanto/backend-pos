@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Roles } from 'src/common/decorator/roles.decorator';
@@ -53,7 +54,7 @@ export class BranchesController {
 
   @Roles('owner')
   @Permissions('branches:update')
-  @Patch(':id')
+  @Put('update/:id')
   async update(
     @Param('id') id: string,
     @Body() updateBranchDto: UpdateBranchDto,

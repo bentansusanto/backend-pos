@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import Hashids from 'hashids';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LessThan, Repository } from 'typeorm';
+import { Logger } from 'winston';
 import { AiJob, AiJobStatus } from '../ai-jobs/entities/ai-job.entity';
 import { Order } from '../orders/entities/order.entity';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
@@ -9,39 +12,54 @@ import { AiInsight, InsightType } from './entities/ai-insight.entity';
 
 @Injectable()
 export class AiInsightService {
-  private readonly logger = new Logger(AiInsightService.name);
-
   constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(AiInsight)
-    private aiInsightRepository: Repository<AiInsight>,
+    private readonly aiInsightRepository: Repository<AiInsight>,
     @InjectRepository(AiJob)
-    private aiJobRepository: Repository<AiJob>,
+    private readonly aiJobRepository: Repository<AiJob>,
     @InjectRepository(Order)
-    private orderRepository: Repository<Order>,
+    private readonly orderRepository: Repository<Order>,
     @InjectRepository(ProductStock)
-    private productStockRepository: Repository<ProductStock>,
-    private configService: ConfigService,
+    private readonly productStockRepository: Repository<ProductStock>,
+    private readonly configService: ConfigService,
   ) {}
 
   async findAll(branchId: string) {
-    return this.aiInsightRepository.find({
-      where: { branch: { id: branchId } },
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      return await this.aiInsightRepository.find({
+        where: { branch: { id: branchId } },
+        order: { createdAt: 'DESC' },
+      });
+    } catch (error) {
+      this.logger.error('Error finding all ai insights', error);
+      throw error;
+    }
   }
 
   async findOne(id: string) {
-    return this.aiInsightRepository.findOne({ where: { id } });
+    try {
+      const insight = await this.aiInsightRepository.findOne({ where: { id } });
+      if (!insight) {
+        throw new HttpException('Insight not found', HttpStatus.NOT_FOUND);
+      }
+      return insight;
+    } catch (error) {
+      this.logger.error(`Error finding insight with id ${id}`, error);
+      throw error;
+    }
   }
 
-  async generateInsights(branchId: string) {
-    this.logger.log(`Generating insights for branch ${branchId}...`);
+  async generateInsights(branchId: string, timeRange: string = 'monthly') {
+    this.logger.debug(
+      `Generating insights for branch ${branchId} with range ${timeRange}...`,
+    );
 
     // Create and save job
     const job = new AiJob();
     job.branch = { id: branchId } as any;
     job.status = AiJobStatus.PENDING;
-    job.payload = ['Generate Insights'];
+    job.payload = [`Generate Insights (${timeRange})`];
     job.generateId();
     await this.aiJobRepository.save(job);
 
@@ -50,14 +68,15 @@ export class AiInsightService {
       await this.aiJobRepository.save(job);
 
       // 1. Gather Data
-      const salesData = await this.getSalesData(branchId);
+      const salesData = await this.getSalesData(branchId, timeRange);
       const stockData = await this.getStockData(branchId);
 
       const promptData = {
-        sales_summary_30_days: salesData.dailySales,
+        [`sales_summary_${timeRange}`]: salesData.dailySales,
         top_selling_products: salesData.topProducts,
         low_stock_items: stockData.lowStock,
         overstock_candidates: stockData.highStock, // potential overstock based on high quantity
+        time_range: timeRange,
       };
 
       // 2. Call AI Service
@@ -81,17 +100,49 @@ export class AiInsightService {
       job.result = [error.message];
       await this.aiJobRepository.save(job);
 
-      this.logger.error(
-        `Error generating insights: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error generating insights: ${error.message}`, error);
       throw error;
     }
   }
 
-  private async getSalesData(branchId: string) {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  private mapToInsightType(type: string): InsightType {
+    // Normalize string: lowercase, replace spaces with underscores
+    const normalized = type.toLowerCase().replace(/\s+/g, '_');
+
+    const validTypes = Object.values(InsightType);
+    if (validTypes.includes(normalized as InsightType)) {
+      return normalized as InsightType;
+    }
+
+    // Fallback mapping for common AI hallucinations
+    if (normalized.includes('overstock')) return InsightType.STOCK_SUGGESTION;
+    if (normalized.includes('restock')) return InsightType.STOCK_SUGGESTION;
+    if (normalized.includes('sales')) return InsightType.SALES_TREND;
+    if (normalized.includes('best')) return InsightType.BEST_SELLER;
+    if (normalized.includes('slow')) return InsightType.SLOW_MOVING;
+    if (normalized.includes('low')) return InsightType.LOW_STOCK_ALERT;
+    if (normalized.includes('expiry')) return InsightType.EXPIRY_ALERT;
+    if (normalized.includes('anomaly')) return InsightType.ANOMALY_ALERT;
+
+    // Default fallback
+    return InsightType.REPORT_SUMMARY;
+  }
+
+  private async getSalesData(branchId: string, timeRange: string = 'monthly') {
+    const startDate = new Date();
+
+    switch (timeRange) {
+      case 'weekly':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'yearly':
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      case 'monthly':
+      default:
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+    }
 
     // Daily Sales Trend
     const dailySales = await this.orderRepository
@@ -99,7 +150,7 @@ export class AiInsightService {
       .select("TO_CHAR(order.createdAt, 'YYYY-MM-DD')", 'date')
       .addSelect('SUM(order.subtotal)', 'totalSales')
       .where('order.branch_id = :branchId', { branchId })
-      .andWhere('order.createdAt >= :startDate', { startDate: thirtyDaysAgo })
+      .andWhere('order.createdAt >= :startDate', { startDate })
       .groupBy("TO_CHAR(order.createdAt, 'YYYY-MM-DD')")
       .orderBy('date', 'ASC')
       .getRawMany();
@@ -108,12 +159,13 @@ export class AiInsightService {
     const topProducts = await this.orderRepository
       .createQueryBuilder('order')
       .innerJoin('order.items', 'item')
-      .select('item.product_name', 'productName')
+      .leftJoin('item.product', 'product')
+      .select('product.name_product', 'productName')
       .addSelect('SUM(item.quantity)', 'totalQuantity')
       .addSelect('SUM(item.subtotal)', 'totalRevenue')
       .where('order.branch_id = :branchId', { branchId })
-      .andWhere('order.createdAt >= :startDate', { startDate: thirtyDaysAgo })
-      .groupBy('item.product_name')
+      .andWhere('order.createdAt >= :startDate', { startDate })
+      .groupBy('product.name_product')
       .orderBy('"totalQuantity"', 'DESC')
       .limit(10)
       .getRawMany();
@@ -152,12 +204,12 @@ export class AiInsightService {
 
     return {
       lowStock: criticalStock.map((s) => ({
-        product: s.product.name_product,
+        product: s.product?.name_product || 'Unknown Product',
         stock: s.stock,
         min: s.minStock,
       })),
       highStock: highStock.map((s) => ({
-        product: s.product.name_product,
+        product: s.product?.name_product || 'Unknown Product',
         stock: s.stock,
       })),
     };
@@ -186,13 +238,23 @@ export class AiInsightService {
       1. Identify sales trends (up/down).
       2. Identify fast-moving and slow-moving items.
       3. Recommend restocks for low stock items.
-      4. Identify potential overstock (items with high stock but low sales - cross-reference if possible, or just flag high stock).
-      5. Detect any anomalies (e.g., zero sales on a usually busy day, or sudden spikes).
+      4. Identify potential overstock (items with high stock but low sales).
+      5. Detect any anomalies.
 
-      Output Format: JSON Array of objects with keys:
-      - type: One of ['sales_trend', 'stock_suggestion', 'best_seller', 'slow_moving', 'low_stock_alert', 'anomaly_alert']
+      Output Format: JSON Array of objects.
+      Each object must have:
+      - type: One of ['sales_trend', 'stock_suggestion', 'best_seller', 'slow_moving', 'low_stock_alert', 'anomaly_alert', 'report_summary']
       - summary: Short title/summary.
-      - metadata: Array of strings with details.
+      - metadata: A structured object (not string) containing details.
+
+      Specific Metadata Structures:
+      - For 'stock_suggestion': { "product_name": string, "current_stock": number, "recommended_quantity": number, "priority": "high"|"medium"|"low" }
+      - For 'low_stock_alert', 'anomaly_alert': { "severity": "critical"|"warning"|"info", "message": string, "type": "critical"|"warning"|"info" }
+      - For 'sales_trend': { "trend": "up"|"down"|"stable", "percentage": number, "details": string }
+      - For 'best_seller', 'slow_moving': { "product_name": string, "quantity_sold": number, "revenue": number }
+      - For 'report_summary': { "executive_summary": string, "highlights": string[] }
+
+      Important: For stock suggestions and alerts, generate ONE entry per product/alert so they can be listed individually.
     `;
 
     try {
@@ -241,13 +303,18 @@ export class AiInsightService {
     // For MVP, let's keep history but maybe we want to show only latest?
     // Let's just add new ones.
 
-    const entities = insights.map((insight) => {
+    const hashids = new Hashids(process.env.ID_SECRET, 10);
+    const timestamp = Date.now();
+
+    const entities = insights.map((insight, index) => {
       const entity = new AiInsight();
       entity.branch = { id: branchId } as any;
-      entity.type = insight.type as InsightType;
+      entity.type = this.mapToInsightType(insight.type);
       entity.summary = insight.summary;
       entity.metadata = insight.metadata;
-      entity.generateId(); // Ensure ID is generated
+      // Ensure unique ID for batch processing by adding index offset
+      // This prevents duplicate key errors when Date.now() is identical for all items
+      entity.id = hashids.encode(timestamp + index);
       return entity;
     });
 
@@ -257,14 +324,55 @@ export class AiInsightService {
   private getMockInsights() {
     return [
       {
+        type: 'report_summary',
+        summary: 'Weekly Business Overview',
+        metadata: {
+          executive_summary:
+            'Sales have shown a positive trend this week with a 15% increase compared to last week.',
+          highlights: [
+            'Sales up 15%',
+            'New best seller identified',
+            'Stock levels stable',
+          ],
+        },
+      },
+      {
         type: 'sales_trend',
         summary: 'Sales have increased by 15% this week.',
-        metadata: ['Total sales: $5000', 'Previous week: $4300'],
+        metadata: {
+          trend: 'up',
+          percentage: 15,
+          details: 'Total sales: $5000, Previous week: $4300',
+        },
+      },
+      {
+        type: 'stock_suggestion',
+        summary: 'Restock Coffee Beans',
+        metadata: {
+          product_name: 'Coffee Beans (1kg)',
+          current_stock: 5,
+          recommended_quantity: 20,
+          priority: 'high',
+        },
+      },
+      {
+        type: 'stock_suggestion',
+        summary: 'Restock Milk',
+        metadata: {
+          product_name: 'Fresh Milk (1L)',
+          current_stock: 2,
+          recommended_quantity: 50,
+          priority: 'medium',
+        },
       },
       {
         type: 'low_stock_alert',
-        summary: 'Critical stock levels for 3 items.',
-        metadata: ['Coffee Beans (2kg)', 'Milk (5L)', 'Sugar (1kg)'],
+        summary: 'Critical Low Stock',
+        metadata: {
+          severity: 'critical',
+          message: 'Coffee Beans inventory is critically low.',
+          type: 'critical',
+        },
       },
     ];
   }

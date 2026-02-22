@@ -1,5 +1,6 @@
 import Hashids from 'hashids';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
+import { Product } from 'src/modules/products/entities/product.entity';
 import {
   BeforeInsert,
   Column,
@@ -11,7 +12,6 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Order } from './order.entity';
-import { Product } from 'src/modules/products/entities/product.entity';
 
 @Entity('order_items')
 export class OrderItem {
@@ -24,12 +24,15 @@ export class OrderItem {
       this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
     }
   }
-  @ManyToOne(() => Order, (order) => order.items)
-  @JoinColumn({ name: 'orderId' })
+  @ManyToOne(() => Order, (order) => order.items, {
+    onDelete: 'CASCADE',
+    nullable: false,
+  })
+  @JoinColumn({ name: 'order_id' })
   order: Order;
 
-  @ManyToOne(() => Product, (product) => product.orderItems)
-  @JoinColumn({ name: 'productId' })
+  @ManyToOne(() => Product, (product) => product.orderItems, { nullable: true })
+  @JoinColumn({ name: 'product_id' })
   product: Product;
 
   @ManyToOne(

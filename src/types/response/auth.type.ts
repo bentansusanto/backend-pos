@@ -9,6 +9,10 @@ export class AuthData {
   token?: string;
   session_token?: string;
   branches?: any[];
+  profile?: {
+    address: string;
+    phone: string;
+  } | null;
 }
 
 export class AuthResponse extends ResponseModel<AuthData> {

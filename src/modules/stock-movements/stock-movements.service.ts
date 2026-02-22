@@ -31,9 +31,10 @@ export class StockMovementsService {
     }
   }
 
-  async findAll() {
+  async findAll(branchId?: string) {
     try {
       const stockMovements = await this.stockMovementRepository.find({
+        where: branchId ? { branch: { id: branchId } } : undefined,
         relations: ['product', 'productVariant', 'branch'],
         order: { createdAt: 'DESC' },
       });

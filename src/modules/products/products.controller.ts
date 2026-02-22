@@ -69,8 +69,11 @@ export class ProductsController {
   @Permissions('products:read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  async findOne(@Param('id') id: string): Promise<WebResponse> {
-    const result = await this.productsService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Query('branch_id') branchId?: string,
+  ): Promise<WebResponse> {
+    const result = await this.productsService.findOne(id, branchId);
     return {
       message: result.message,
       data: result.data,

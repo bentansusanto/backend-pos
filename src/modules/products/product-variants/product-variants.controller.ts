@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -88,8 +89,8 @@ export class ProductVariantsController {
   // get all product variant
   @Permissions('variants:read')
   @Get('find-all')
-  async findAll(): Promise<WebResponse> {
-    const result = await this.productVariantsService.findAll();
+  async findAll(@Query('branch_id') branchId?: string): Promise<WebResponse> {
+    const result = await this.productVariantsService.findAll(branchId);
     return {
       message: result.message,
       data: result.datas,

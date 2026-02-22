@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import Hashids from 'hashids';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { errOrderMessage } from 'src/libs/errors/error_order';
 import { successOrderMessage } from 'src/libs/success/success_order';
@@ -32,6 +33,29 @@ export class OrdersService {
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
   ) {}
+
+  private mapOrderItem(item: OrderItem, orderId: string) {
+    const variantId = item.variant?.id ?? '';
+    // Priority: Variant Thumbnail -> Product Thumbnail (fallback) -> First Product Image (fallback)
+    const variantImage =
+      item.variant?.thumbnail ?? item.variant?.product?.thumbnail ?? '';
+    const productImage =
+      item.product?.thumbnail ?? item.product?.images?.[0] ?? '';
+
+    return {
+      id: item.id,
+      order_id: orderId,
+      product_id: variantId ? '' : (item.product?.id ?? ''),
+      variant_id: variantId,
+      product_name:
+        item.product?.name_product ?? item.variant?.product?.name_product ?? '',
+      variant_name: item.variant?.name_variant ?? '',
+      image: variantId ? variantImage : productImage,
+      qty: item.quantity,
+      price: item.price,
+      subtotal: item.subtotal,
+    };
+  }
 
   // create orders
   async create(
@@ -286,7 +310,7 @@ export class OrdersService {
                   : variant?.product;
                 const subtotal = item.quantity * item.price;
                 return orderItemRepo.create({
-                  order: savedOrder,
+                  order: { id: savedOrder.id } as Order,
                   product,
                   variant,
                   quantity: item.quantity,
@@ -310,66 +334,140 @@ export class OrdersService {
             return { order: finalOrder, items: newItems };
           }
 
-          const updatedExistingItems = (existingOrder.items || []).map(
-            (item) => {
-              // Flow B1: If item exists, increase qty and recompute subtotal
-              const key = item.variant?.id
-                ? `variant:${item.variant.id}`
-                : item.product?.id
-                  ? `product:${item.product.id}`
-                  : '';
-              if (!key) {
-                return item;
-              }
-              const incoming = aggregatedItems.get(key);
-              if (!incoming) {
-                return item;
-              }
-              item.quantity = item.quantity + incoming.quantity;
-              item.price = incoming.price;
-              item.subtotal = item.quantity * item.price;
-              aggregatedItems.delete(key);
-              return item;
-            },
-          );
+          const existingItems = await orderItemRepo.find({
+            where: { order: { id: existingOrder.id } },
+            relations: ['product', 'variant', 'variant.product'],
+          });
+          const existingItemsMap = new Map<string, OrderItem>();
+          existingItems.forEach((item) => {
+            const key = item.variant?.id
+              ? `variant:${item.variant.id}`
+              : item.product?.id
+                ? `product:${item.product.id}`
+                : '';
+            if (key) {
+              existingItemsMap.set(key, item);
+            }
+          });
 
-          // Flow B2: Add new items that are not in the order yet
-          const newItems = Array.from(aggregatedItems.values()).map((item) => {
+          // Separate existing items (to update) and new items (to insert)
+          const itemsToUpdate: OrderItem[] = [];
+          const itemsToInsert: OrderItem[] = [];
+
+          aggregatedItems.forEach((item) => {
+            const key = item.variantId
+              ? `variant:${item.variantId}`
+              : item.productId
+                ? `product:${item.productId}`
+                : '';
+            if (!key) {
+              return;
+            }
+            const existingItem = existingItemsMap.get(key);
+            if (existingItem) {
+              existingItem.quantity = existingItem.quantity + item.quantity;
+              existingItem.price = item.price;
+              existingItem.subtotal =
+                existingItem.quantity * existingItem.price;
+              existingItem.order = { id: existingOrder.id } as Order; // Keep explicit reference for update
+              itemsToUpdate.push(existingItem);
+              return;
+            }
             const variant = item.variantId
               ? variantMap.get(item.variantId)
               : undefined;
             const product = item.productId
               ? productMap.get(item.productId)
               : variant?.product;
-            return orderItemRepo.create({
-              order: existingOrder,
+
+            const createdItem = orderItemRepo.create({
+              order: existingOrder, // Force ID for new items
               product,
               variant,
               quantity: item.quantity,
               price: item.price,
               subtotal: item.quantity * item.price,
             });
+            itemsToInsert.push(createdItem);
           });
 
-          const allItems = [...updatedExistingItems, ...newItems];
-          await orderItemRepo.save(allItems);
+          // 1. Update existing items
+          const savedUpdatedItems = await orderItemRepo.save(itemsToUpdate);
+
+          // 2. Insert new items manually to guarantee order_id
+          const savedNewItems: OrderItem[] = [];
+          for (const newItem of itemsToInsert) {
+            // Generate id manually karena BeforeInsert mungkin tidak trigger saat insert raw
+            const newId = new Hashids(process.env.ID_SECRET, 10).encode(
+              Date.now(),
+            );
+
+            await orderItemRepo.insert({
+              id: newId,
+              order: { id: existingOrder.id },
+              product: newItem.product ? { id: newItem.product.id } : null,
+              variant: newItem.variant ? { id: newItem.variant.id } : null,
+              quantity: newItem.quantity,
+              price: newItem.price,
+              subtotal: newItem.subtotal,
+            });
+
+            const savedItem = await orderItemRepo.findOne({
+              where: { id: newId },
+              relations: ['product', 'variant', 'variant.product'],
+            });
+            savedNewItems.push(savedItem);
+          }
+
+          const savedItems = [...savedUpdatedItems, ...savedNewItems];
+          const mergedItems = [...existingItems];
+          savedItems.forEach((savedItem) => {
+            // Find corresponding item in itemsToSave to preserve relations
+            const originalItem = [...itemsToUpdate, ...itemsToInsert].find(
+              (item) => item.id === savedItem.id,
+            );
+
+            // Re-attach relations if missing in savedItem
+            if (originalItem) {
+              if (!savedItem.product && originalItem.product) {
+                savedItem.product = originalItem.product;
+              }
+              if (!savedItem.variant && originalItem.variant) {
+                savedItem.variant = originalItem.variant;
+              }
+            }
+
+            const index = mergedItems.findIndex(
+              (item) => item.id === savedItem.id,
+            );
+            if (index >= 0) {
+              mergedItems[index] = savedItem;
+            } else {
+              mergedItems.push(savedItem);
+            }
+          });
 
           // Recalculate order subtotal after update/insert
-          const subtotal = allItems.reduce(
+          const subtotal = mergedItems.reduce(
             (total, item) => total + item.subtotal,
             0,
           );
-          const updatedOrder = orderRepo.create({
-            ...existingOrder,
+          // Only update specific fields on the order, avoiding the 'items' relation
+          // This prevents TypeORM from trying to cascade save items again
+          await orderRepo.update(existingOrder.id, {
             notes: notes ?? existingOrder.notes,
             user:
               existingOrder.user ??
               (resolvedUserId ? { id: resolvedUserId } : undefined),
             subtotal,
           });
-          const savedOrder = await orderRepo.save(updatedOrder);
 
-          return { order: savedOrder, items: allItems };
+          const savedOrder = await orderRepo.findOne({
+            where: { id: existingOrder.id },
+            relations: ['customer', 'branch', 'user'],
+          });
+
+          return { order: savedOrder, items: mergedItems };
         },
       );
 
@@ -387,15 +485,9 @@ export class OrdersService {
           customer_id: result.order.customer?.id ?? '',
           branch_id: result.order.branch?.id ?? '',
           user_id: result.order.user?.id ?? '',
-          items: result.items.map((item) => ({
-            id: item.id,
-            order_id: result.order.id,
-            product_id: item.product?.id ?? '',
-            variant_id: item.variant?.id ?? '',
-            qty: item.quantity,
-            price: item.price,
-            subtotal: item.subtotal,
-          })),
+          items: result.items.map((item) =>
+            this.mapOrderItem(item, result.order.id),
+          ),
           invoice_number: result.order.invoice_number,
           subtotal: result.order.subtotal ?? 0,
           tax_amount: result.order.tax_amount ?? 0,
@@ -411,20 +503,34 @@ export class OrdersService {
         throw error;
       }
       throw new HttpException(
-        errOrderMessage.ERR_CREATE_ORDER,
+        {
+          Error: {
+            field: 'general',
+            body: error.message || errOrderMessage.ERR_CREATE_ORDER,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  async findAll(userId?: string): Promise<OrderResponse> {
+  async findAll(userId?: string, branchId?: string): Promise<OrderResponse> {
     try {
+      const where: any = {};
+      if (branchId) {
+        where.branch = { id: branchId };
+      } else if (userId) {
+        where.user = { id: userId };
+      }
+
       const orders = await this.orderRepository.find({
-        where: userId ? { user: { id: userId } } : undefined,
+        where,
         relations: [
           'items',
           'items.product',
           'items.variant',
+          'items.variant.product',
+          'items.variant.product.category',
           'customer',
           'branch',
           'user',
@@ -449,15 +555,9 @@ export class OrdersService {
             customer_id: order.customer?.id ?? '',
             branch_id: order.branch?.id ?? '',
             user_id: order.user?.id ?? '',
-            items: (order.items || []).map((item) => ({
-              id: item.id,
-              order_id: order.id,
-              product_id: item.product?.id ?? '',
-              variant_id: item.variant?.id ?? '',
-              qty: item.quantity,
-              price: item.price,
-              subtotal: item.subtotal,
-            })),
+            items: (order.items || []).map((item) =>
+              this.mapOrderItem(item, order.id),
+            ),
             invoice_number: order.invoice_number,
             subtotal: order.subtotal ?? 0,
             tax_amount: order.tax_amount ?? 0,
@@ -488,6 +588,8 @@ export class OrdersService {
           'items',
           'items.product',
           'items.variant',
+          'items.variant.product',
+          'items.variant.product.category',
           'customer',
           'branch',
           'user',
@@ -512,15 +614,9 @@ export class OrdersService {
           customer_id: order.customer?.id ?? '',
           branch_id: order.branch?.id ?? '',
           user_id: order.user?.id ?? '',
-          items: (order.items || []).map((item) => ({
-            id: item.id,
-            order_id: order.id,
-            product_id: item.product?.id ?? '',
-            variant_id: item.variant?.id ?? '',
-            qty: item.quantity,
-            price: item.price,
-            subtotal: item.subtotal,
-          })),
+          items: (order.items || []).map((item) =>
+            this.mapOrderItem(item, order.id),
+          ),
           invoice_number: order.invoice_number,
           subtotal: order.subtotal ?? 0,
           tax_amount: order.tax_amount ?? 0,
@@ -553,6 +649,7 @@ export class OrdersService {
           'items',
           'items.product',
           'items.variant',
+          'items.variant.product',
           'customer',
           'branch',
           'user',
@@ -589,6 +686,7 @@ export class OrdersService {
           'items',
           'items.product',
           'items.variant',
+          'items.variant.product',
           'customer',
           'branch',
           'user',
@@ -613,15 +711,9 @@ export class OrdersService {
           customer_id: updatedOrder.customer?.id ?? '',
           branch_id: updatedOrder.branch?.id ?? '',
           user_id: updatedOrder.user?.id ?? '',
-          items: (updatedOrder.items || []).map((item) => ({
-            id: item.id,
-            order_id: updatedOrder.id,
-            product_id: item.product?.id ?? '',
-            variant_id: item.variant?.id ?? '',
-            qty: item.quantity,
-            price: item.price,
-            subtotal: item.subtotal,
-          })),
+          items: (updatedOrder.items || []).map((item) =>
+            this.mapOrderItem(item, updatedOrder.id),
+          ),
           invoice_number: updatedOrder.invoice_number,
           subtotal: updatedOrder.subtotal ?? 0,
           tax_amount: updatedOrder.tax_amount ?? 0,
@@ -668,6 +760,7 @@ export class OrdersService {
           'items',
           'items.product',
           'items.variant',
+          'items.variant.product',
           'customer',
           'branch',
           'user',
@@ -724,15 +817,9 @@ export class OrdersService {
           customer_id: savedOrder.customer?.id ?? '',
           branch_id: savedOrder.branch?.id ?? '',
           user_id: savedOrder.user?.id ?? '',
-          items: (savedOrder.items || []).map((item) => ({
-            id: item.id,
-            order_id: savedOrder.id,
-            product_id: item.product?.id ?? '',
-            variant_id: item.variant?.id ?? '',
-            qty: item.quantity,
-            price: item.price,
-            subtotal: item.subtotal,
-          })),
+          items: (savedOrder.items || []).map((item) =>
+            this.mapOrderItem(item, savedOrder.id),
+          ),
           invoice_number: savedOrder.invoice_number,
           subtotal: savedOrder.subtotal ?? 0,
           tax_amount: savedOrder.tax_amount ?? 0,
@@ -776,6 +863,7 @@ export class OrdersService {
           'items',
           'items.product',
           'items.variant',
+          'items.variant.product',
           'customer',
           'branch',
           'user',
@@ -831,15 +919,9 @@ export class OrdersService {
           customer_id: savedOrder.customer?.id ?? '',
           branch_id: savedOrder.branch?.id ?? '',
           user_id: savedOrder.user?.id ?? '',
-          items: (savedOrder.items || []).map((item) => ({
-            id: item.id,
-            order_id: savedOrder.id,
-            product_id: item.product?.id ?? '',
-            variant_id: item.variant?.id ?? '',
-            qty: item.quantity,
-            price: item.price,
-            subtotal: item.subtotal,
-          })),
+          items: (savedOrder.items || []).map((item) =>
+            this.mapOrderItem(item, savedOrder.id),
+          ),
           invoice_number: savedOrder.invoice_number,
           subtotal: savedOrder.subtotal ?? 0,
           tax_amount: savedOrder.tax_amount ?? 0,

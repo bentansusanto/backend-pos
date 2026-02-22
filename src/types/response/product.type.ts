@@ -12,6 +12,7 @@ export class ProductData {
   thumbnail: string;
   images: string[];
   stock?: number;
+  product_stock?: number;
   variants?: ProductVariantData[];
   createdAt?: Date;
   updatedAt?: Date;

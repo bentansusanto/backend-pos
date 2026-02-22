@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
@@ -41,8 +42,11 @@ export class OrdersController {
   @Permissions('sales:read')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(@CurrentUser() user: User): Promise<WebResponse> {
-    const result = await this.ordersService.findAll(user?.id);
+  async findAll(
+    @CurrentUser() user: User,
+    @Query('branch_id') branchId?: string,
+  ): Promise<WebResponse> {
+    const result = await this.ordersService.findAll(user?.id, branchId);
     return {
       message: result.message,
       data: result.datas,
@@ -62,7 +66,7 @@ export class OrdersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:update')
+  @Permissions('sales:create')
   @Put(':id')
   async update(
     @Param('id') id: string,
@@ -76,8 +80,9 @@ export class OrdersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:update')
+  @Permissions('sales:create')
   @Put(':id/items/:orderItemId/quantity')
+  @HttpCode(HttpStatus.OK)
   async updateQuantity(
     @Param('id') id: string,
     @Param('orderItemId') orderItemId: string,
@@ -95,7 +100,7 @@ export class OrdersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:delete')
+  @Permissions('sales:create')
   @Delete(':id/items/:orderItemId')
   async deleteOrderItems(
     @Param('id') id: string,
@@ -109,7 +114,7 @@ export class OrdersController {
   }
 
   @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:delete')
+  @Permissions('sales:create')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ordersService.remove(id);

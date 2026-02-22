@@ -18,6 +18,7 @@ import { UsersModule } from './modules/rbac/users/users.module';
 import { SeederModule } from './modules/seeder/seeder.module';
 import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
 import { SalesReportsModule } from './modules/sales-reports/sales-reports.module';
+import { AiInsightModule } from './modules/ai-insight/ai-insight.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SalesReportsModule } from './modules/sales-reports/sales-reports.module
     OrdersModule,
     PaymentsModule,
     SalesReportsModule,
+    AiInsightModule,
   ],
   controllers: [AppController],
   providers: [AppService],

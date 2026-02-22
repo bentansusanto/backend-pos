@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Roles } from 'src/common/decorator/roles.decorator';
@@ -42,8 +43,8 @@ export class ProductStocksController {
   @Permissions('read_product_stock')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(): Promise<WebResponse> {
-    const result = await this.productStocksService.findAll();
+  async findAll(@Query('branch_id') branchId?: string): Promise<WebResponse> {
+    const result = await this.productStocksService.findAll(branchId);
     return {
       message: result.message,
       data: result.datas,

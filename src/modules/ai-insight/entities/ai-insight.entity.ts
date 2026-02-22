@@ -45,7 +45,7 @@ export class AiInsight {
   summary: string;
 
   @Column({ type: 'json' })
-  metadata: string[];
+  metadata: any;
 
   @CreateDateColumn()
   createdAt: Date;

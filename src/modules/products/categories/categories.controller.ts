@@ -35,7 +35,6 @@ export class CategoriesController {
   }
 
   // find all categories
-  @Permissions('categories:read')
   @Post('find-all')
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
@@ -47,7 +46,6 @@ export class CategoriesController {
   }
 
   // find category by id
-  @Permissions('categories:read')
   @Post(':id')
   @HttpCode(HttpStatus.OK)
   async findById(@Param('id') id: string): Promise<WebResponse> {

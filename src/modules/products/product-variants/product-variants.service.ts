@@ -24,19 +24,24 @@ export class ProductVariantsService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
+  // Helper function to generate sku like SKU-namesonly 3 characters-4digitrandomnumber
+  // example: SKU-APP-1234
   private generateSku(
     slug: string,
     productId: string,
     nameVariant: string,
-    color: string,
-    weight: number,
+    color?: string,
+    weight?: number,
   ): string {
-    const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toUpperCase();
+    const norm = (s: string) =>
+      s ? s.replace(/[^a-z0-9]/gi, '').toUpperCase() : '';
     const prod = norm(slug).slice(0, 8);
     const varc = norm(nameVariant).slice(0, 3);
     const col = norm(color).slice(0, 3);
-    const wcode = Math.round(weight).toString().padStart(3, '0');
-    const seed = `${productId}${color}${weight}`;
+    const wcode = Math.round(weight || 0)
+      .toString()
+      .padStart(3, '0');
+    const seed = `${productId}${color || ''}${weight || 0}`;
     let h = 0;
     for (let i = 0; i < seed.length; i++) {
       h = (h * 31 + seed.charCodeAt(i)) >>> 0;
@@ -203,8 +208,8 @@ export class ProductVariantsService {
       await this.productVariantRepository.update(id, {
         product: { id: updateProductVariantDto.productId },
         name_variant: updateProductVariantDto.name_variant,
-        price: Number(updateProductVariantDto.price),
-        weight: Number(updateProductVariantDto.weight),
+        price: Number(updateProductVariantDto.price || 0),
+        weight: Number(updateProductVariantDto.weight || 0),
         color: updateProductVariantDto.color,
         thumbnail: thumbnailUrl,
         sku,
@@ -226,8 +231,16 @@ export class ProductVariantsService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_UPDATE_VARIANT, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
-        errProductMessage.ERROR_UPDATE_VARIANT,
+        {
+          Error: {
+            field: 'general',
+            body: error.message || errProductMessage.ERROR_UPDATE_VARIANT,
+          },
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -302,11 +315,16 @@ export class ProductVariantsService {
   }
 
   // find all product variant
-  async findAll(): Promise<ProductVariantResponse> {
+  async findAll(branchId?: string): Promise<ProductVariantResponse> {
     try {
       // check product variant is exist
+      const whereCondition = branchId
+        ? { productStocks: { branch: { id: branchId } } }
+        : {};
+
       const productVariants = await this.productVariantRepository.find({
-        relations: ['product'],
+        where: whereCondition,
+        relations: ['product', 'productStocks', 'productStocks.branch'],
       });
       if (!productVariants) {
         this.logger.error(errProductMessage.ERROR_VARIANT_NOT_FOUND);

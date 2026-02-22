@@ -18,7 +18,7 @@ export class OrderData {
 export class OrderItemData {
   id: string;
   order_id: string;
-  product_id: string;
+  product_id?: string;
   variant_id?: string;
   qty: number;
   price: number;

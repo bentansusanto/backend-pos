@@ -123,6 +123,11 @@ export class SeederService implements OnModuleInit {
         action: 'users:assign_roles',
         description: 'Assign roles to users',
       },
+      // Profiles
+      { action: 'profiles:create', description: 'Create user profiles' },
+      { action: 'profiles:read', description: 'View user profiles' },
+      { action: 'profiles:update', description: 'Update user profiles' },
+      { action: 'profiles:delete', description: 'Delete user profiles' },
       // Customers
       { action: 'customers:create', description: 'Create customers' },
       { action: 'customers:read', description: 'View customers' },
@@ -144,6 +149,9 @@ export class SeederService implements OnModuleInit {
       { action: 'branches:read', description: 'View branches' },
       { action: 'branches:update', description: 'Update branches' },
       { action: 'branches:delete', description: 'Delete branches' },
+      // AI Insight
+      { action: 'ai_insight:generate', description: 'Generate AI Insight' },
+      { action: 'ai_insight:read', description: 'View AI Insight' },
 
       // Reports
       { action: 'reports:sales', description: 'View sales reports' },
@@ -321,9 +329,12 @@ export class SeederService implements OnModuleInit {
         (p) =>
           p.action === 'dashboard:view' ||
           (p.action.startsWith('products:') && p.action.includes('read')) ||
+          (p.action.startsWith('variants:') && p.action.includes('read')) ||
           (p.action.startsWith('sales:') &&
-            ['create', 'read', 'refund'].some((a) => p.action.endsWith(a))) ||
-          (p.action.startsWith('inventory:') && p.action.endsWith('read')),
+            ['create', 'read', 'update', 'refund'].some((a) =>
+              p.action.endsWith(a),
+            )) ||
+          (p.action.startsWith('inventory:') && p.action.endsWith('read')) || (p.action.startsWith('customers:') && ['create', 'read', 'update', 'delete']) || (p.action.startsWith('payments:') && ['create', 'read']),
       );
       for (const permission of cashierPermissions) {
         await this.assignPermissionToRole(cashier.id, permission.id);

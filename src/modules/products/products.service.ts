@@ -152,6 +152,8 @@ export class ProductsService {
           'productVariants',
           'productVariants.productStocks',
           'productVariants.productStocks.branch',
+          'productStocks', // Add this relation to fetch direct product stocks
+          'productStocks.branch', // Add this relation to fetch branch info for direct stocks
         ],
       });
       if (!products || products.length === 0) {
@@ -174,13 +176,26 @@ export class ProductsService {
               (variant) => variant.productStocks || [],
             ) || [];
 
+          let directStocks = product.productStocks || [];
+
           if (branchId) {
             stocks = stocks.filter(
               (stock) => stock.branch && stock.branch.id === branchId,
             );
+            directStocks = directStocks.filter(
+              (stock) => stock.branch && stock.branch.id === branchId,
+            );
+          }
+
+          if (directStocks.length) {
+            stocks = [...stocks, ...directStocks];
           }
 
           const totalStock = stocks.reduce((acc, curr) => acc + curr.stock, 0);
+          const totalDirectStock = directStocks.reduce(
+            (acc, curr) => acc + curr.stock,
+            0,
+          );
 
           return {
             id: product.id,
@@ -194,6 +209,7 @@ export class ProductsService {
             thumbnail: product.thumbnail,
             images: Array.isArray(product.images) ? product.images : [],
             stock: totalStock,
+            product_stock: totalDirectStock,
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
           };
@@ -212,15 +228,18 @@ export class ProductsService {
   }
 
   // find product by id
-  async findOne(id: string): Promise<ProductResponse> {
+  async findOne(id: string, branchId?: string): Promise<ProductResponse> {
     try {
+      // check product is exist
       const product = await this.productRepository.findOne({
         where: { id },
         relations: [
           'category',
-          'productStocks',
           'productVariants',
           'productVariants.productStocks',
+          'productVariants.productStocks.branch',
+          'productStocks', // Add relation for direct product stocks
+          'productStocks.branch',
         ],
       });
       if (!product) {
@@ -233,23 +252,21 @@ export class ProductsService {
         );
       }
 
-      this.logger.debug(
-        `${successProductMessage.SUCCESS_FIND_PRODUCT} with id: ${product.id}`,
-      );
-
-      const totalStock = product.productStocks
-        ? product.productStocks.reduce((acc, curr) => acc + curr.stock, 0)
-        : 0;
-
       const variants =
         product.productVariants && product.productVariants.length > 0
           ? product.productVariants.map((variant) => {
-              const variantStock = variant.productStocks
-                ? variant.productStocks.reduce(
-                    (acc, curr) => acc + curr.stock,
-                    0,
-                  )
-                : 0;
+              let stocks = variant.productStocks || [];
+
+              if (branchId) {
+                stocks = stocks.filter(
+                  (stock) => stock.branch && stock.branch.id === branchId,
+                );
+              }
+
+              const variantStock = stocks.reduce(
+                (acc, curr) => acc + curr.stock,
+                0,
+              );
 
               return {
                 id: variant.id,
@@ -267,6 +284,28 @@ export class ProductsService {
             })
           : [];
 
+      // Calculate variant stocks
+      const totalVariantStock = variants.reduce(
+        (acc, curr) => acc + curr.stock,
+        0,
+      );
+
+      // Calculate direct product stocks
+      let directStocks = product.productStocks || [];
+      if (branchId) {
+        directStocks = directStocks.filter(
+          (stock) => stock.branch && stock.branch.id === branchId,
+        );
+      }
+      const totalDirectStock = directStocks.reduce(
+        (acc, curr) => acc + curr.stock,
+        0,
+      );
+
+      // Total stock is sum of variant stocks and direct stocks
+      // Note: A product usually has EITHER variants OR direct stock, but this handles both safely
+      const totalStock = totalVariantStock + totalDirectStock;
+
       return {
         message: successProductMessage.SUCCESS_FIND_PRODUCT,
         data: {
@@ -281,6 +320,7 @@ export class ProductsService {
           thumbnail: product.thumbnail,
           images: Array.isArray(product.images) ? product.images : [],
           stock: totalStock,
+          product_stock: totalDirectStock,
           variants: variants,
           createdAt: product.createdAt,
           updatedAt: product.updatedAt,

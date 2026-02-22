@@ -1,9 +1,12 @@
 import Hashids from 'hashids';
+import { Order } from 'src/modules/orders/entities/order.entity';
 import {
   BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -33,6 +36,10 @@ export class Payment {
 
   @Column()
   orderId: string;
+
+  @ManyToOne(() => Order)
+  @JoinColumn({ name: 'orderId' })
+  order: Order;
 
   @Column({
     type: 'enum',

@@ -38,11 +38,11 @@ export class ProductVariant {
   @Column()
   sku: string;
 
-  @Column()
-  weight: number;
+  @Column({ nullable: true })
+  weight?: number;
 
-  @Column()
-  color: string;
+  @Column({ nullable: true })
+  color?: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   price: number;

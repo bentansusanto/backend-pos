@@ -294,9 +294,16 @@ export class PaymentsService {
     }
   }
 
-  async findAll(): Promise<PaymentResponse> {
+  async findAll(branchId?: string): Promise<PaymentResponse> {
     try {
-      const payments = await this.paymentRepository.find();
+      const whereCondition = branchId
+        ? { order: { branch: { id: branchId } } }
+        : {};
+
+      const payments = await this.paymentRepository.find({
+        where: whereCondition,
+        relations: ['order', 'order.branch'],
+      });
       if (!payments || payments.length === 0) {
         throw new HttpException(
           errorPaymentMessage.ERROR_GET_PAYMENTS,
