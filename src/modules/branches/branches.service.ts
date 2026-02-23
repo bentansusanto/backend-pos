@@ -92,6 +92,9 @@ export class BranchesService {
       };
     } catch (error) {
       this.logger.error(errBranchMessage.BRANCH_FAILED_CREATE, error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errBranchMessage.BRANCH_FAILED_CREATE,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -129,6 +132,9 @@ export class BranchesService {
       };
     } catch (error) {
       this.logger.error(errBranchMessage.BRANCH_FAILED_CREATE, error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errBranchMessage.BRANCH_FAILED_CREATE,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -169,6 +175,9 @@ export class BranchesService {
       };
     } catch (error) {
       this.logger.error(errBranchMessage.BRANCH_FAILED_UPDATE, error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errBranchMessage.BRANCH_FAILED_UPDATE,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -206,6 +215,9 @@ export class BranchesService {
       };
     } catch (error) {
       this.logger.error(errBranchMessage.BRANCH_FAILED_DELETE, error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errBranchMessage.BRANCH_FAILED_DELETE,
         HttpStatus.INTERNAL_SERVER_ERROR,

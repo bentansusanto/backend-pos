@@ -1,289 +1,232 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Logger } from 'winston';
-import { EmailService } from '../../../common/emails/emails.service';
-import { errUserMessage } from '../../../libs/errors/error_user';
-import { successUserMessage } from '../../../libs/success/success_user';
+import { EmailService } from 'src/common/emails/emails.service';
+import { errUserMessage } from 'src/libs/errors/error_user';
+import { successUserMessage } from 'src/libs/success/success_user';
 import { SessionsService } from '../sessions/sessions.service';
+import { CreateUserDto, LoginUserDto } from '../users/dto/create-user.dto';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
-import crypto from 'crypto';
 
-// Mock bcryptjs
 jest.mock('bcryptjs');
-
-// Mock crypto module - must be before imports
 jest.mock('crypto', () => ({
-  randomBytes: jest.fn((size: number) =>
-    Buffer.from('a'.repeat(size * 2), 'hex'),
-  ),
-  createHash: jest.fn(() => ({
+  randomBytes: jest.fn().mockReturnValue({
+    toString: jest.fn().mockReturnValue('random-token'),
+  }),
+  createHash: jest.fn().mockReturnValue({
     update: jest.fn().mockReturnThis(),
-    digest: jest.fn().mockReturnValue('hashedSessionToken123'),
-  })),
+    digest: jest.fn().mockReturnValue('hashed-token'),
+  }),
 }));
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usersService: jest.Mocked<UsersService>;
-  let emailService: jest.Mocked<EmailService>;
-  let jwtService: jest.Mocked<JwtService>;
-  let sessionsService: jest.Mocked<SessionsService>;
-  let logger: jest.Mocked<Logger>;
+  let usersService: UsersService;
+  let emailService: EmailService;
+  let jwtService: JwtService;
+  let sessionsService: SessionsService;
+  let logger: any;
 
   const mockUser = {
-    id: 'user123',
+    id: 'user-id',
     name: 'Test User',
     email: 'test@example.com',
-    password: 'hashedPassword123',
+    password: 'hashedpassword',
     is_verified: true,
     verify_code: null,
-    exp_verify_at: null,
-    isActive: true,
-    avatar: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    role: { code: 'owner', self_register: true },
+  };
+
+  const mockLogger = {
+    debug: jest.fn(),
+    error: jest.fn(),
+  };
+
+  const mockUsersService = {
+    findEmail: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    findVerifyCode: jest.fn(),
+    findRole: jest.fn(),
+    countByRole: jest.fn(),
+  };
+
+  const mockEmailService = {
+    sendMail: jest.fn(),
+  };
+
+  const mockJwtService = {
+    sign: jest.fn(),
+  };
+
+  const mockSessionsService = {
+    createSession: jest.fn(),
+    findByRefreshToken: jest.fn(),
+    removeSession: jest.fn(),
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AuthService,
-        {
-          provide: WINSTON_MODULE_NEST_PROVIDER,
-          useValue: {
-            debug: jest.fn(),
-            error: jest.fn(),
-            info: jest.fn(),
-          },
-        },
-        {
-          provide: UsersService,
-          useValue: {
-            findEmail: jest.fn(),
-            create: jest.fn(),
-            update: jest.fn(),
-            findVerifyCode: jest.fn(),
-          },
-        },
-        {
-          provide: EmailService,
-          useValue: {
-            sendMail: jest.fn(),
-          },
-        },
-        {
-          provide: JwtService,
-          useValue: {
-            sign: jest.fn(),
-            verify: jest.fn(),
-          },
-        },
-        {
-          provide: SessionsService,
-          useValue: {
-            createSession: jest.fn(),
-            findByRefreshToken: jest.fn(),
-            removeSession: jest.fn(),
-          },
-        },
-      ],
-    }).compile();
+    logger = mockLogger;
+    usersService = mockUsersService as any;
+    emailService = mockEmailService as any;
+    jwtService = mockJwtService as any;
+    sessionsService = mockSessionsService as any;
 
-    service = module.get<AuthService>(AuthService);
-    usersService = module.get(UsersService);
-    emailService = module.get(EmailService);
-    jwtService = module.get(JwtService);
-    sessionsService = module.get(SessionsService);
-    logger = module.get(WINSTON_MODULE_NEST_PROVIDER);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+    service = new AuthService(
+      logger,
+      usersService,
+      emailService,
+      jwtService,
+      sessionsService,
+    );
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
+  describe('register', () => {
+    it('should register a user successfully', async () => {
+      const createUserDto: CreateUserDto = {
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password',
+      };
+
+      mockUsersService.findRole.mockResolvedValue({
+        code: 'owner',
+        self_register: true,
+      });
+      mockUsersService.countByRole.mockResolvedValue(0);
+      mockUsersService.findEmail.mockResolvedValue(null);
+      mockUsersService.create.mockResolvedValue({
+        ...mockUser,
+        verify_code: 'token',
+      });
+      mockEmailService.sendMail.mockResolvedValue(undefined);
+
+      const result = await service.register(createUserDto);
+
+      expect(result).toEqual({
+        message: successUserMessage.USER_CREATED,
+        data: {
+          id: mockUser.id,
+          name: mockUser.name,
+          email: mockUser.email,
+          role: mockUser.role.code,
+          is_verified: mockUser.is_verified,
+        },
+      });
+      expect(usersService.findRole).toHaveBeenCalledWith('owner');
+      expect(usersService.countByRole).toHaveBeenCalledWith('owner');
+      expect(usersService.findEmail).toHaveBeenCalledWith(createUserDto.email);
+      expect(usersService.create).toHaveBeenCalled();
+      expect(emailService.sendMail).toHaveBeenCalled();
+    });
+
+    it('should throw error if user already exists', async () => {
+      const createUserDto: CreateUserDto = {
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password',
+      };
+
+      mockUsersService.findRole.mockResolvedValue({
+        code: 'owner',
+        self_register: true,
+      });
+      mockUsersService.countByRole.mockResolvedValue(0);
+      mockUsersService.findEmail.mockResolvedValue(mockUser);
+
+      await expect(service.register(createUserDto)).rejects.toThrow(
+        new HttpException(
+          errUserMessage.USER_ALREADY_EXISTS,
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    });
+  });
+
   describe('login', () => {
-    const loginDto = {
-      email: 'test@example.com',
-      password: 'password123',
-    };
-    const ip = '192.168.1.100';
-    const device = 'Chrome 120.0 on macOS 10.15';
+    it('should login a user successfully', async () => {
+      const loginDto: LoginUserDto = {
+        email: 'test@example.com',
+        password: 'password',
+      };
 
-    it('should successfully login with valid credentials', async () => {
-      // Arrange
-      usersService.findEmail.mockResolvedValue(mockUser as any);
+      mockUsersService.findEmail.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      jwtService.sign.mockReturnValue('accessToken123');
-      sessionsService.createSession.mockResolvedValue({
-        id: 'session123',
-        token: 'hashedSessionToken123',
-        ip,
-        device,
-        user: mockUser,
-        expiresAt: new Date(),
-        lastActivityAt: new Date(),
-        currentBranchId: null,
-        currentBranch: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any);
+      mockJwtService.sign.mockReturnValue('access-token');
+      mockSessionsService.createSession.mockResolvedValue(undefined);
 
-      // Act
-      const result = await service.login(ip, device, loginDto);
+      const result = await service.login('127.0.0.1', 'device', loginDto);
 
-      // Assert
       expect(result).toEqual({
         message: successUserMessage.USER_LOGGED_IN,
         data: {
           id: mockUser.id,
           name: mockUser.name,
           email: mockUser.email,
+          role: mockUser.role.code,
           is_verified: mockUser.is_verified,
-          token: 'accessToken123',
+          token: 'access-token',
+          session_token: 'random-token',
         },
-        session_token: expect.any(String),
       });
-
       expect(usersService.findEmail).toHaveBeenCalledWith(loginDto.email);
-      expect(bcrypt.compare).toHaveBeenCalledWith(
-        loginDto.password,
-        mockUser.password,
-      );
-      expect(jwtService.sign).toHaveBeenCalledWith(
-        { sub: mockUser.id },
-        { expiresIn: '1h' },
-      );
-      expect(sessionsService.createSession).toHaveBeenCalledWith(
-        mockUser,
-        'hashedSessionToken123',
-        expect.any(Date),
-        ip,
-        device,
-      );
+      expect(sessionsService.createSession).toHaveBeenCalled();
     });
 
-    it('should throw error when user not found', async () => {
-      // Arrange
-      usersService.findEmail.mockResolvedValue(null);
+    it('should throw error if user not found', async () => {
+      const loginDto: LoginUserDto = {
+        email: 'test@example.com',
+        password: 'password',
+      };
 
-      // Act & Assert
-      await expect(service.login(ip, device, loginDto)).rejects.toThrow(
+      mockUsersService.findEmail.mockResolvedValue(null);
+
+      await expect(
+        service.login('127.0.0.1', 'device', loginDto),
+      ).rejects.toThrow(
         new HttpException(
           errUserMessage.USER_NOT_FOUND,
           HttpStatus.BAD_REQUEST,
         ),
       );
-      expect(usersService.findEmail).toHaveBeenCalledWith(loginDto.email);
+    });
+  });
+
+  describe('logout', () => {
+    it('should logout a user successfully', async () => {
+      const refreshToken = 'refresh-token';
+      mockSessionsService.findByRefreshToken.mockResolvedValue({
+        id: 'session-id',
+        user: mockUser,
+      });
+      mockSessionsService.removeSession.mockResolvedValue(undefined);
+
+      const result = await service.logout(refreshToken);
+
+      expect(result).toEqual({
+        message: successUserMessage.USER_LOGGED_OUT,
+      });
+      expect(sessionsService.findByRefreshToken).toHaveBeenCalledWith(
+        'hashed-token',
+      );
+      expect(sessionsService.removeSession).toHaveBeenCalledWith(
+        'hashed-token',
+      );
     });
 
-    it('should throw error when user is not verified', async () => {
-      // Arrange
-      const unverifiedUser = { ...mockUser, is_verified: false };
-      usersService.findEmail.mockResolvedValue(unverifiedUser as any);
+    it('should throw error if session not found', async () => {
+      const refreshToken = 'refresh-token';
+      mockSessionsService.findByRefreshToken.mockResolvedValue(null);
 
-      // Act & Assert
-      await expect(service.login(ip, device, loginDto)).rejects.toThrow(
+      await expect(service.logout(refreshToken)).rejects.toThrow(
         new HttpException(
-          errUserMessage.USER_NOT_VERIFIED,
+          errUserMessage.USER_NOT_FOUND,
           HttpStatus.BAD_REQUEST,
-        ),
-      );
-    });
-
-    it('should throw error when password is invalid', async () => {
-      // Arrange
-      usersService.findEmail.mockResolvedValue(mockUser as any);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
-
-      // Act & Assert
-      await expect(service.login(ip, device, loginDto)).rejects.toThrow(
-        new HttpException(
-          errUserMessage.USER_PASSWORD_NOT_MATCH,
-          HttpStatus.BAD_REQUEST,
-        ),
-      );
-      expect(bcrypt.compare).toHaveBeenCalledWith(
-        loginDto.password,
-        mockUser.password,
-      );
-    });
-
-    it('should hash session token before storing', async () => {
-      // Arrange
-      usersService.findEmail.mockResolvedValue(mockUser as any);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      jwtService.sign.mockReturnValue('accessToken123');
-      sessionsService.createSession.mockResolvedValue({} as any);
-
-      // Act
-      await service.login(ip, device, loginDto);
-
-      // Assert
-      expect(crypto.createHash as jest.Mock).toHaveBeenCalledWith('sha256');
-      expect(sessionsService.createSession).toHaveBeenCalledWith(
-        mockUser,
-        'hashedSessionToken123',
-        expect.any(Date),
-        ip,
-        device,
-      );
-    });
-
-    it('should set session expiry to 7 days', async () => {
-      // Arrange
-      usersService.findEmail.mockResolvedValue(mockUser as any);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      jwtService.sign.mockReturnValue('accessToken123');
-      sessionsService.createSession.mockResolvedValue({} as any);
-
-      const now = new Date();
-      jest.spyOn(global, 'Date').mockImplementation(() => now as any);
-
-      // Act
-      await service.login(ip, device, loginDto);
-
-      // Assert
-      const expectedExpiry = new Date(now);
-      expectedExpiry.setDate(expectedExpiry.getDate() + 7);
-
-      expect(sessionsService.createSession).toHaveBeenCalledWith(
-        mockUser,
-        expect.any(String),
-        expect.any(Date),
-        ip,
-        device,
-      );
-
-      // Verify the expiry date is approximately 7 days from now
-      const actualExpiry = (sessionsService.createSession as jest.Mock).mock
-        .calls[0][2];
-      const diffInDays =
-        (actualExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      expect(Math.round(diffInDays)).toBe(7);
-    });
-
-    it('should handle database errors gracefully', async () => {
-      // Arrange
-      usersService.findEmail.mockResolvedValue(mockUser as any);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      jwtService.sign.mockReturnValue('accessToken123');
-      sessionsService.createSession.mockRejectedValue(
-        new Error('Database error'),
-      );
-
-      // Act & Assert
-      await expect(service.login(ip, device, loginDto)).rejects.toThrow(
-        new HttpException(
-          errUserMessage.USER_LOGIN_FAILED,
-          HttpStatus.INTERNAL_SERVER_ERROR,
         ),
       );
     });

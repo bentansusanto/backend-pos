@@ -327,7 +327,7 @@ export class OrdersService {
               0,
             );
             savedOrder.subtotal = subtotal;
-            savedOrder.tax_amount = savedOrder.tax_amount ?? 0;
+            savedOrder.tax_amount = subtotal * 0.05;
             savedOrder.discount_amount = savedOrder.discount_amount ?? 0;
             const finalOrder = await orderRepo.save(savedOrder);
 
@@ -460,6 +460,7 @@ export class OrdersService {
               existingOrder.user ??
               (resolvedUserId ? { id: resolvedUserId } : undefined),
             subtotal,
+            tax_amount: subtotal * 0.05,
           });
 
           const savedOrder = await orderRepo.findOne({
@@ -803,6 +804,7 @@ export class OrdersService {
         (total, item) => total + item.subtotal,
         0,
       );
+      order.tax_amount = order.subtotal * 0.05;
       const savedOrder = await this.orderRepository.save(order);
 
       const totalAmount =
@@ -905,6 +907,7 @@ export class OrdersService {
         (total, item) => total + item.subtotal,
         0,
       );
+      order.tax_amount = order.subtotal * 0.05;
 
       const savedOrder = await this.orderRepository.save(order);
       const totalAmount =

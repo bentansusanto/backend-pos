@@ -171,7 +171,7 @@ describe('SeederService', () => {
       expect(mockRoleRepository.save).not.toHaveBeenCalled();
     });
 
-    it('should create all 5 roles', async () => {
+    it('should create all 8 roles', async () => {
       mockRoleRepository.findOne.mockResolvedValue(null);
       mockRoleRepository.create.mockImplementation((role) => role);
       mockRoleRepository.save.mockImplementation((role) =>
@@ -180,9 +180,9 @@ describe('SeederService', () => {
 
       await (service as any).seedRoles();
 
-      // Should create 5 roles
-      expect(mockRoleRepository.create).toHaveBeenCalledTimes(5);
-      expect(mockRoleRepository.save).toHaveBeenCalledTimes(5);
+      // Should create 8 roles
+      expect(mockRoleRepository.create).toHaveBeenCalledTimes(8);
+      expect(mockRoleRepository.save).toHaveBeenCalledTimes(8);
 
       // Verify role names
       const roleNames = mockRoleRepository.create.mock.calls.map(
@@ -206,12 +206,12 @@ describe('SeederService', () => {
     };
 
     const mockPermissions = [
-      { id: 'p1', module: 'dashboard', action: 'view' },
-      { id: 'p2', module: 'products', action: 'read' },
-      { id: 'p3', module: 'sales', action: 'create' },
-      { id: 'p4', module: 'inventory', action: 'read' },
-      { id: 'p5', module: 'settings', action: 'update' },
-      { id: 'p6', module: 'branches', action: 'create' },
+      { id: 'p1', action: 'dashboard:view', description: 'View dashboard' },
+      { id: 'p2', action: 'products:read', description: 'View products' },
+      { id: 'p3', action: 'sales:create', description: 'Create sales' },
+      { id: 'p4', action: 'inventory:read', description: 'View inventory' },
+      { id: 'p5', action: 'settings:update', description: 'Update settings' },
+      { id: 'p6', action: 'branches:create', description: 'Create branches' },
     ];
 
     beforeEach(() => {
@@ -309,7 +309,7 @@ describe('SeederService', () => {
   describe('assignPermissionToRole', () => {
     it('should create role-permission mapping if it does not exist', async () => {
       const mockRole = { id: '1', name: 'super_admin' };
-      const mockPermission = { id: 'p1', module: 'dashboard', action: 'view' };
+      const mockPermission = { id: 'p1', action: 'dashboard:view' };
 
       mockRolePermissionRepository.findOne.mockResolvedValue(null);
       mockRoleRepository.findOne.mockResolvedValue(mockRole);

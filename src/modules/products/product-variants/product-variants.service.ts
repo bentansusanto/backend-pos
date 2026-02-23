@@ -268,6 +268,9 @@ export class ProductVariantsService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_DELETE_VARIANT, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_DELETE_VARIANT,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -307,6 +310,9 @@ export class ProductVariantsService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_FIND_VARIANT, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_FIND_VARIANT,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -350,6 +356,9 @@ export class ProductVariantsService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_FIND_VARIANT, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_FIND_VARIANT,
         HttpStatus.INTERNAL_SERVER_ERROR,

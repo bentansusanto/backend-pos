@@ -280,6 +280,9 @@ export class ProductStocksService {
         errProductStockMessage.ERR_UPDATE_PRODUCT_STOCK,
         error.stack,
       );
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductStockMessage.ERR_UPDATE_PRODUCT_STOCK,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -325,6 +328,9 @@ export class ProductStocksService {
         errProductStockMessage.ERR_DELETE_PRODUCT_STOCK,
         error.stack,
       );
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductStockMessage.ERR_DELETE_PRODUCT_STOCK,
         HttpStatus.INTERNAL_SERVER_ERROR,

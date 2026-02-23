@@ -415,6 +415,9 @@ export class ProductsService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_UPDATE_PRODUCT, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_UPDATE_PRODUCT,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -455,6 +458,9 @@ export class ProductsService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_DELETE_PRODUCT, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_DELETE_PRODUCT,
         HttpStatus.INTERNAL_SERVER_ERROR,

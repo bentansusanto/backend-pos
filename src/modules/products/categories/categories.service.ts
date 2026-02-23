@@ -193,6 +193,9 @@ export class CategoriesService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_UPDATE_CATEGORY, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_UPDATE_CATEGORY,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -226,6 +229,9 @@ export class CategoriesService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_DELETE_CATEGORY, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_DELETE_CATEGORY,
         HttpStatus.INTERNAL_SERVER_ERROR,

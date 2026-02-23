@@ -61,7 +61,14 @@ export class Payment {
   reference_number: string;
 
   @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
     default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   amount: number;
 
