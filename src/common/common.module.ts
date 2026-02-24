@@ -61,17 +61,18 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         host: configService.get<string>('DB_HOST'),
-        port: Number(configService.get<string>('DB_PORT')),
+        port: Number(configService.get<string>('DB_PORT')), // 6543 kalau pooler
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASS'),
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
-        charset: 'utf8mb4',
+        // ssl: {
+        //   rejectUnauthorized: false,
+        // },
         ssl: false,
         extra: {
-          connectionLimit: 10,
-          ssl: false,
+          connectionLimit: 15,
         },
         connectTimeout: 60000,
         logging: false,

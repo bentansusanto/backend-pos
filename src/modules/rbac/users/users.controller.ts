@@ -95,7 +95,7 @@ export class UsersController {
   }
 
   // soft delete user
-  @Roles('super_admin', 'owner')
+  @Roles('owner')
   @Permissions('users:delete')
   @Delete('delete/:id')
   @HttpCode(HttpStatus.OK)

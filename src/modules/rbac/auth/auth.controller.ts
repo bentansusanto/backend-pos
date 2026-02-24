@@ -121,14 +121,15 @@ export class AuthController {
   }
 
   // refresh token
-  // @Public()
+  @Public()
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
   async refreshToken(
-    @CurrentToken() token: string,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<WebResponse> {
-    const result = await this.authService.refreshToken(token);
+    const sessionToken = req.cookies['session_pos'];
+    const result = await this.authService.refreshToken(sessionToken);
     res.cookie('session_pos', result.data.session_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

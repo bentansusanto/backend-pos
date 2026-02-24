@@ -39,7 +39,11 @@ async function bootstrap() {
 
   const origins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',')
-    : ['http://localhost:3000', 'http://localhost:3500'];
+    : [
+        'https://aipos.online',
+        'https://www.aipos.online',
+        'http://localhost:3500',
+      ];
 
   app.enableCors({
     origin: (origin, callback) => {

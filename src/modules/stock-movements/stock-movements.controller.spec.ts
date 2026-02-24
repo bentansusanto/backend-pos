@@ -6,7 +6,7 @@ describe('StockMovementsController', () => {
   let controller: StockMovementsController;
   let service: StockMovementsService;
 
-  const mockStockMovement = {
+  const mockStockMovement: any = {
     id: 'movement-id',
     productId: 'product-id',
     variantId: 'variant-id',
@@ -17,11 +17,11 @@ describe('StockMovementsController', () => {
   };
 
   const mockStockMovementsService = {
-    create: jest.fn(),
-    findAll: jest.fn(),
-    findOne: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
+    create: jest.fn().mockResolvedValue(mockStockMovement),
+    findAll: jest.fn().mockResolvedValue([mockStockMovement]),
+    findOne: jest.fn().mockResolvedValue(mockStockMovement),
+    update: jest.fn().mockResolvedValue(mockStockMovement),
+    remove: jest.fn().mockResolvedValue(mockStockMovement),
   };
 
   beforeEach(async () => {
@@ -45,71 +45,77 @@ describe('StockMovementsController', () => {
 
   describe('create', () => {
     it('should create a stock movement', async () => {
-      const createDto: any = {
+      const createDto = {
         productId: 'product-id',
         branchId: 'branch-id',
         quantity: 10,
         type: 'IN',
-      };
-
-      mockStockMovementsService.create.mockResolvedValue(mockStockMovement);
+      } as any;
 
       const result = await controller.create(createDto);
 
-      expect(result).toEqual(mockStockMovement);
+      expect(result).toEqual({
+        message: 'Stock movement created successfully',
+        data: mockStockMovement,
+      });
       expect(service.create).toHaveBeenCalledWith(createDto);
     });
   });
 
   describe('findAll', () => {
     it('should return all stock movements', async () => {
-      mockStockMovementsService.findAll.mockResolvedValue([mockStockMovement]);
-
       const result = await controller.findAll();
 
-      expect(result).toEqual([mockStockMovement]);
+      expect(result).toEqual({
+        message: 'Stock movements retrieved successfully',
+        data: [mockStockMovement],
+      });
       expect(service.findAll).toHaveBeenCalledWith(undefined);
     });
 
     it('should return stock movements filtered by branchId', async () => {
-      mockStockMovementsService.findAll.mockResolvedValue([mockStockMovement]);
-
       const result = await controller.findAll('branch-id');
 
-      expect(result).toEqual([mockStockMovement]);
+      expect(result).toEqual({
+        message: 'Stock movements retrieved successfully',
+        data: [mockStockMovement],
+      });
       expect(service.findAll).toHaveBeenCalledWith('branch-id');
     });
   });
 
   describe('findOne', () => {
     it('should return a stock movement by id', async () => {
-      mockStockMovementsService.findOne.mockResolvedValue(mockStockMovement);
-
       const result = await controller.findOne('movement-id');
 
-      expect(result).toEqual(mockStockMovement);
+      expect(result).toEqual({
+        message: 'Stock movement retrieved successfully',
+        data: mockStockMovement,
+      });
       expect(service.findOne).toHaveBeenCalledWith('movement-id');
     });
   });
 
   describe('update', () => {
     it('should update a stock movement', async () => {
-      mockStockMovementsService.update.mockReturnValue('update message');
-
       const result = await controller.update('1', {} as any);
 
-      expect(result).toEqual('update message');
+      expect(result).toEqual({
+        message: 'Stock movement updated successfully',
+        data: mockStockMovement,
+      });
       expect(service.update).toHaveBeenCalledWith(1, {});
     });
   });
 
   describe('remove', () => {
     it('should remove a stock movement', async () => {
-      mockStockMovementsService.remove.mockReturnValue('remove message');
-
       const result = await controller.remove('1');
 
-      expect(result).toEqual('remove message');
+      expect(result).toEqual({
+        message: 'Stock movement deleted successfully',
+        data: mockStockMovement,
+      });
       expect(service.remove).toHaveBeenCalledWith(1);
     });
   });
