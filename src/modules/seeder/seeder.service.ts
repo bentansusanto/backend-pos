@@ -1,9 +1,9 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Permission } from '../rbac/roles/entities/permission.entity';
+import { Permission } from '../rbac/permissions/entities/permission.entity';
+import { RolePermission } from '../rbac/role-permissions/entities/role_permission.entity';
 import { Role } from '../rbac/roles/entities/role.entity';
-import { RolePermission } from '../rbac/roles/entities/role_permission.entity';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
@@ -334,7 +334,14 @@ export class SeederService implements OnModuleInit {
             ['create', 'read', 'update', 'refund'].some((a) =>
               p.action.endsWith(a),
             )) ||
-          (p.action.startsWith('inventory:') && p.action.endsWith('read')) || (p.action.startsWith('customers:') && ['create', 'read', 'update', 'delete']) || (p.action.startsWith('payments:') && ['create', 'read']),
+          (p.action.startsWith('inventory:') && p.action.endsWith('read')) ||
+          (p.action.startsWith('customers:') && [
+            'create',
+            'read',
+            'update',
+            'delete',
+          ]) ||
+          (p.action.startsWith('payments:') && ['create', 'read']),
       );
       for (const permission of cashierPermissions) {
         await this.assignPermissionToRole(cashier.id, permission.id);

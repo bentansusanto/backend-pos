@@ -1,15 +1,13 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { CreateRoleDto } from './dto/create-role.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
-import { AuthResponse } from 'src/types/response/auth.type';
-import { Logger, loggers } from 'winston';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Role } from './entities/role.entity';
-import { Repository } from 'typeorm';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { errorRoleMessage } from 'src/libs/errors/error_role';
 import { successRoleMessage } from 'src/libs/success/success_role';
 import { RoleResponse } from 'src/types/response/role.type';
+import { Repository } from 'typeorm';
+import { Logger } from 'winston';
+import { CreateRoleDto, UpdateRoleDto } from './dto/create-role.dto';
+import { Role } from './entities/role.entity';
 
 @Injectable()
 export class RolesService {
@@ -18,8 +16,51 @@ export class RolesService {
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
   ) {}
-  create(createRoleDto: CreateRoleDto) {
-    return 'This action adds a new role';
+  // create role
+  async create(createRoleDto: CreateRoleDto): Promise<RoleResponse> {
+    try {
+      // check if role code already exists
+      const roleCode = await this.roleRepository.findOne({
+        where: { code: createRoleDto.code },
+      });
+      if (roleCode) {
+        this.logger.warn(
+          errorRoleMessage.ERROR_CREATE_ROLE,
+          'Role code already exists',
+        );
+        throw new HttpException(
+          errorRoleMessage.ERROR_CREATE_ROLE,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      // create role
+      const role = this.roleRepository.create({
+        ...createRoleDto,
+      });
+      await this.roleRepository.save(role);
+      this.logger.debug(successRoleMessage.SUCCESS_CREATE_ROLE);
+      return {
+        message: successRoleMessage.SUCCESS_CREATE_ROLE,
+        data: {
+          id: role.id,
+          name: role.name,
+          code: role.code,
+          description: role.description,
+          self_registered: role.self_registered,
+          createdAt: role.createdAt,
+          updatedAt: role.updatedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error(errorRoleMessage.ERROR_CREATE_ROLE, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        errorRoleMessage.ERROR_CREATE_ROLE,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   // find all roles
@@ -104,11 +145,63 @@ export class RolesService {
     }
   }
 
-  update(id: number, updateRoleDto: UpdateRoleDto) {
-    return `This action updates a #${id} role`;
+  // update role
+  async update(
+    id: string,
+    updateRoleDto: UpdateRoleDto,
+  ): Promise<RoleResponse> {
+    try {
+      // check if role exists
+      const role = await this.findOne(id);
+      // update role
+      await this.roleRepository.update(id, {
+        ...updateRoleDto,
+      });
+      this.logger.debug(successRoleMessage.SUCCESS_UPDATE_ROLE);
+      return {
+        message: successRoleMessage.SUCCESS_UPDATE_ROLE,
+        data: {
+          id: role.data.id,
+          name: role.data.name,
+          code: role.data.code,
+          description: role.data.description,
+          self_registered: role.data.self_registered,
+          createdAt: role.data.createdAt,
+          updatedAt: role.data.updatedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error(errorRoleMessage.ERROR_UPDATE_ROLE, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        errorRoleMessage.ERROR_UPDATE_ROLE,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} role`;
+  // remove role
+  async remove(id: string): Promise<RoleResponse> {
+    try {
+      // check if role exists
+      const role = await this.findOne(id);
+      // remove role
+      await this.roleRepository.delete(id);
+      this.logger.debug(successRoleMessage.SUCCESS_DELETE_ROLE, role.data.id);
+      return {
+        message: successRoleMessage.SUCCESS_DELETE_ROLE,
+      };
+    } catch (error) {
+      this.logger.error(errorRoleMessage.ERROR_DELETE_ROLE, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        errorRoleMessage.ERROR_DELETE_ROLE,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }

@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Permission } from '../rbac/roles/entities/permission.entity';
+import { Permission } from '../rbac/permissions/entities/permission.entity';
+import { RolePermission } from '../rbac/role-permissions/entities/role_permission.entity';
 import { Role } from '../rbac/roles/entities/role.entity';
-import { RolePermission } from '../rbac/roles/entities/role_permission.entity';
 import { SeederService } from './seeder.service';
 
 describe('SeederService', () => {

@@ -8,7 +8,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { RolePermission } from './role_permission.entity';
+import { RolePermission } from '../../role-permissions/entities/role_permission.entity';
 
 @Entity()
 export class Permission {
@@ -21,6 +21,9 @@ export class Permission {
       this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
     }
   }
+
+  @Column({ nullable: true })
+  module: string;
 
   @Column({ unique: true })
   action: string;

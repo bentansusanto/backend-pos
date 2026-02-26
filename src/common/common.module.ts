@@ -21,10 +21,10 @@ import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.
 import { Category } from 'src/modules/products/entities/category.entities';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
+import { Permission } from 'src/modules/rbac/permissions/entities/permission.entity';
 import { Profile } from 'src/modules/rbac/profiles/entities/profile.entity';
-import { Permission } from 'src/modules/rbac/roles/entities/permission.entity';
+import { RolePermission } from 'src/modules/rbac/role-permissions/entities/role_permission.entity';
 import { Role } from 'src/modules/rbac/roles/entities/role.entity';
-import { RolePermission } from 'src/modules/rbac/roles/entities/role_permission.entity';
 import { Session } from 'src/modules/rbac/sessions/entities/session.entity';
 import { SessionsModule } from 'src/modules/rbac/sessions/sessions.module';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
@@ -66,11 +66,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         password: configService.get<string>('DB_PASS'),
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
+        synchronize: configService.get<string>('NODE_ENV') !== 'production', // mode development
+        // synchronize: configService.get<string>('NODE_ENV') !== 'development', // mode production
         // ssl: {
-        //   rejectUnauthorized: false,
+        //   rejectUnauthorized: false, // mode production
         // },
-        ssl: false,
+        ssl: false, // mode development
         extra: {
           connectionLimit: 15,
         },

@@ -8,8 +8,8 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { RolePermission } from '../../role-permissions/entities/role_permission.entity';
 import { User } from '../../users/entities/user.entity';
-import { RolePermission } from './role_permission.entity';
 
 @Entity('roles')
 export class Role {
