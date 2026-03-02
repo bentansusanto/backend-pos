@@ -8,6 +8,7 @@ export class RoleData {
   self_registered: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+  permissions?: { id: string; action: string; description?: string }[];
 }
 
 export class RoleResponse extends ResponseModel<RoleData> {

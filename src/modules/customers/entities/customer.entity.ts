@@ -56,4 +56,3 @@ export class Customer {
   @DeleteDateColumn({ nullable: true })
   deletedAt: Date;
 }
-

@@ -19,6 +19,9 @@ import { SeederModule } from './modules/seeder/seeder.module';
 import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
 import { SalesReportsModule } from './modules/sales-reports/sales-reports.module';
 import { AiInsightModule } from './modules/ai-insight/ai-insight.module';
+import { PermissionsModule } from './modules/rbac/permissions/permissions.module';
+import { RolePermissionsModule } from './modules/rbac/role-permissions/role-permissions.module';
+import { DiscountsModule } from './modules/discounts/discounts.module';
 
 @Module({
   imports: [
@@ -40,6 +43,9 @@ import { AiInsightModule } from './modules/ai-insight/ai-insight.module';
     PaymentsModule,
     SalesReportsModule,
     AiInsightModule,
+    PermissionsModule,
+    RolePermissionsModule,
+    DiscountsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

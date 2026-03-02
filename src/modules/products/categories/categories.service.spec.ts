@@ -67,7 +67,9 @@ describe('CategoriesService', () => {
 
       const result = await service.create(createCategoryDto);
 
-      expect(result.message).toEqual(successProductMessage.SUCCESS_CREATE_CATEGORY);
+      expect(result.message).toEqual(
+        successProductMessage.SUCCESS_CREATE_CATEGORY,
+      );
       expect(result.data.id).toEqual(mockCategory.id);
       expect(categoryRepository.create).toHaveBeenCalledWith(createCategoryDto);
     });
@@ -77,7 +79,10 @@ describe('CategoriesService', () => {
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(mockCategory);
 
       await expect(service.create(createCategoryDto)).rejects.toThrow(
-        new HttpException(errProductMessage.ERROR_CATEGORY_NAME_EXIST, HttpStatus.BAD_REQUEST),
+        new HttpException(
+          errProductMessage.ERROR_CATEGORY_NAME_EXIST,
+          HttpStatus.BAD_REQUEST,
+        ),
       );
     });
   });
@@ -88,7 +93,9 @@ describe('CategoriesService', () => {
 
       const result = await service.findAll();
 
-      expect(result.message).toEqual(successProductMessage.SUCCESS_FIND_ALL_CATEGORY);
+      expect(result.message).toEqual(
+        successProductMessage.SUCCESS_FIND_ALL_CATEGORY,
+      );
       expect(result.datas.length).toBe(1);
     });
   });
@@ -99,7 +106,9 @@ describe('CategoriesService', () => {
 
       const result = await service.findOne('category-id');
 
-      expect(result.message).toEqual(successProductMessage.SUCCESS_FIND_CATEGORY);
+      expect(result.message).toEqual(
+        successProductMessage.SUCCESS_FIND_CATEGORY,
+      );
       expect(result.data.id).toEqual(mockCategory.id);
     });
 
@@ -107,7 +116,10 @@ describe('CategoriesService', () => {
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.findOne('invalid-id')).rejects.toThrow(
-        new HttpException(errProductMessage.ERROR_FIND_CATEGORY, HttpStatus.NOT_FOUND),
+        new HttpException(
+          errProductMessage.ERROR_FIND_CATEGORY,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });
@@ -116,11 +128,15 @@ describe('CategoriesService', () => {
     it('should update a category successfully', async () => {
       const updateCategoryDto = { name: 'Updated Category' };
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(mockCategory);
-      jest.spyOn(categoryRepository, 'update').mockResolvedValue({ affected: 1 });
+      jest
+        .spyOn(categoryRepository, 'update')
+        .mockResolvedValue({ affected: 1 });
 
       const result = await service.update('category-id', updateCategoryDto);
 
-      expect(result.message).toEqual(successProductMessage.SUCCESS_UPDATE_CATEGORY);
+      expect(result.message).toEqual(
+        successProductMessage.SUCCESS_UPDATE_CATEGORY,
+      );
       expect(result.data.id).toEqual(mockCategory.id);
     });
 
@@ -128,7 +144,10 @@ describe('CategoriesService', () => {
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.update('invalid-id', {})).rejects.toThrow(
-        new HttpException(errProductMessage.ERROR_FIND_CATEGORY, HttpStatus.NOT_FOUND),
+        new HttpException(
+          errProductMessage.ERROR_FIND_CATEGORY,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });
@@ -136,18 +155,25 @@ describe('CategoriesService', () => {
   describe('remove', () => {
     it('should delete a category successfully', async () => {
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(mockCategory);
-      jest.spyOn(categoryRepository, 'delete').mockResolvedValue({ affected: 1 });
+      jest
+        .spyOn(categoryRepository, 'delete')
+        .mockResolvedValue({ affected: 1 });
 
       const result = await service.remove('category-id');
 
-      expect(result.message).toEqual(successProductMessage.SUCCESS_DELETE_CATEGORY);
+      expect(result.message).toEqual(
+        successProductMessage.SUCCESS_DELETE_CATEGORY,
+      );
     });
 
     it('should throw an error if category not found for deletion', async () => {
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.remove('invalid-id')).rejects.toThrow(
-        new HttpException(errProductMessage.ERROR_FIND_CATEGORY, HttpStatus.NOT_FOUND),
+        new HttpException(
+          errProductMessage.ERROR_FIND_CATEGORY,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });

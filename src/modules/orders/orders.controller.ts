@@ -10,9 +10,8 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
+import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
 import { WebResponse } from 'src/types/response/index.type';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -23,8 +22,6 @@ import { OrdersService } from './orders.service';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -38,14 +35,14 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:read')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
   async findAll(
     @CurrentUser() user: User,
-    @Query('branch_id') branchId?: string,
+    @Query('branch_id') queryBranchId?: string,
+    @CurrentBranchId() headerBranchId?: string,
   ): Promise<WebResponse> {
+    const branchId = queryBranchId || headerBranchId;
     const result = await this.ordersService.findAll(user?.id, branchId);
     return {
       message: result.message,
@@ -53,8 +50,6 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string): Promise<WebResponse> {
@@ -65,8 +60,6 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:create')
   @Put(':id')
   async update(
     @Param('id') id: string,
@@ -79,8 +72,6 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:create')
   @Put(':id/items/:orderItemId/quantity')
   @HttpCode(HttpStatus.OK)
   async updateQuantity(
@@ -99,8 +90,6 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:create')
   @Delete(':id/items/:orderItemId')
   async deleteOrderItems(
     @Param('id') id: string,
@@ -113,8 +102,6 @@ export class OrdersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('sales:create')
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ordersService.remove(id);

@@ -57,7 +57,7 @@ export class CustomersService {
       };
     } catch (error) {
       this.logger.error(errCustomerMessage.ERR_CUSTOMER_CREATE, error.message);
-      if (error instanceof Error) {
+      if (error instanceof HttpException) {
         throw new Error(error.message);
       }
       throw new HttpException(
@@ -68,7 +68,7 @@ export class CustomersService {
   }
 
   // find all customers
-  async findAll(): Promise<CustomerResponse> {
+  async findAll(_branchId?: string): Promise<CustomerResponse> {
     try {
       // find all customers
       const customers = await this.customersRepository.find();

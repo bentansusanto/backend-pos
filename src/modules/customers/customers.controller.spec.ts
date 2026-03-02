@@ -65,7 +65,9 @@ describe('CustomersController', () => {
 
       const result = await controller.create(createCustomerDto);
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_CREATE);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_CREATE,
+      );
       expect(result.data).toEqual(mockCustomer);
       expect(service.create).toHaveBeenCalledWith(createCustomerDto);
     });
@@ -80,7 +82,9 @@ describe('CustomersController', () => {
 
       const result = await controller.findAll();
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_FIND_ALL);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_FIND_ALL,
+      );
       expect(result.data).toEqual([mockCustomer]);
     });
   });
@@ -94,7 +98,9 @@ describe('CustomersController', () => {
 
       const result = await controller.findOne('customer-id');
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_FIND_ID);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_FIND_ID,
+      );
       expect(result.data).toEqual(mockCustomer);
     });
   });
@@ -110,9 +116,14 @@ describe('CustomersController', () => {
 
       const result = await controller.update('customer-id', updateCustomerDto);
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_UPDATE);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_UPDATE,
+      );
       expect(result.data).toEqual(mockCustomer);
-      expect(service.update).toHaveBeenCalledWith('customer-id', updateCustomerDto);
+      expect(service.update).toHaveBeenCalledWith(
+        'customer-id',
+        updateCustomerDto,
+      );
     });
   });
 
@@ -124,7 +135,9 @@ describe('CustomersController', () => {
 
       const result = await controller.remove('customer-id');
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_REMOVE);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_REMOVE,
+      );
     });
   });
 });

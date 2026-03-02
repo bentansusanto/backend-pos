@@ -73,7 +73,7 @@ export class CategoriesService {
   }
 
   // find all categories
-  async findAll(): Promise<CategoryResponse> {
+  async findAll(_branchId?: string): Promise<CategoryResponse> {
     try {
       // check category is exist
       const categories = await this.categoryRepository.find();

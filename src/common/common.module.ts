@@ -35,6 +35,7 @@ import { JwtAuthGuard, PermissionsGuard, RolesGuard } from './guards';
 import { UserContextMiddleware } from './middlewares/user-context.middleware';
 import { RbacService } from './services/rbac.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { Discount } from 'src/modules/discounts/entities/discount.entity';
 
 @Module({
   imports: [
@@ -99,6 +100,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       Payment,
       AiJob,
       AiInsight,
+      Discount
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

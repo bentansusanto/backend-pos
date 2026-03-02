@@ -49,6 +49,10 @@ export class SalesReportsService {
 
       const payments = await query.getMany();
 
+      if (payments.length === 0) {
+        return [];
+      }
+
       // Get all order IDs from payments
       const orderIds = payments.map((p) => p.orderId);
 
@@ -82,13 +86,21 @@ export class SalesReportsService {
       // Format data untuk response
       return filteredPayments.map((payment) => {
         const order = ordersMap.get(payment.orderId);
+        if (!order) {
+          this.logger.warn(`Order not found for payment ID: ${payment.id}`);
+        }
         return {
           paymentId: payment.id,
           orderId: payment.orderId,
-          amount: payment.amount,
+          amount: payment.amount ? Number(payment.amount) : 0,
           paymentMethod: payment.method,
           status: payment.status,
-          paidAt: payment.paid_at,
+          paidAt:
+            payment.paid_at instanceof Date
+              ? payment.paid_at
+              : payment.paid_at
+                ? new Date(payment.paid_at)
+                : new Date(),
           branch: order?.branch
             ? {
                 id: order.branch.id,
@@ -114,22 +126,27 @@ export class SalesReportsService {
               variantId: item.variant?.id,
               variantName: item.variant?.name_variant,
               quantity: item.quantity,
-              price: item.price,
-              subtotal: item.subtotal,
+              price: item.price ? Number(item.price) : 0,
+              subtotal: item.subtotal ? Number(item.subtotal) : 0,
             })) || [],
-          subtotal: order?.subtotal,
-          taxAmount: order?.tax_amount,
-          discountAmount: order?.discount_amount,
-          totalAmount: payment.amount,
+          subtotal: order?.subtotal ? Number(order.subtotal) : 0,
+          taxAmount: order?.tax_amount ? Number(order.tax_amount) : 0,
+          discountAmount: order?.discount_amount
+            ? Number(order.discount_amount)
+            : 0,
+          totalAmount: Number(payment.amount),
         };
       });
     } catch (error) {
-      this.logger.error('Error getting sales report', error.stack);
+      this.logger.error(
+        'Error getting sales report',
+        error instanceof Error ? error.stack : error,
+      );
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        'Failed to get sales report',
+        `Failed to get sales report: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -144,7 +161,10 @@ export class SalesReportsService {
     try {
       const salesData = await this.getSalesReport(filters);
 
-      const totalSales = salesData.reduce((sum, sale) => sum + sale.amount, 0);
+      const totalSales = salesData.reduce(
+        (sum, sale) => sum + (sale.amount || 0),
+        0,
+      );
       const totalTransactions = salesData.length;
       const averageTransaction =
         totalTransactions > 0 ? totalSales / totalTransactions : 0;
@@ -159,7 +179,8 @@ export class SalesReportsService {
 
       // Group by payment method
       const paymentMethodSummary = salesData.reduce((acc, sale) => {
-        acc[sale.paymentMethod] = (acc[sale.paymentMethod] || 0) + sale.amount;
+        const method = sale.paymentMethod || 'unknown';
+        acc[method] = (acc[method] || 0) + (sale.amount || 0);
         return acc;
       }, {});
 
@@ -172,12 +193,15 @@ export class SalesReportsService {
         salesData,
       };
     } catch (error) {
-      this.logger.error('Error getting sales summary', error.stack);
+      this.logger.error(
+        'Error getting sales summary',
+        error instanceof Error ? error.stack : error,
+      );
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        'Failed to get sales summary',
+        `Failed to get sales summary: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -197,12 +221,18 @@ export class SalesReportsService {
 
       // Group by day
       const dailySales = salesData.reduce((acc, sale) => {
-        const day = sale.paidAt.toISOString().split('T')[0];
-        acc[day] = (acc[day] || 0) + sale.amount;
+        const day =
+          sale.paidAt instanceof Date && !isNaN(sale.paidAt.getTime())
+            ? sale.paidAt.toISOString().split('T')[0]
+            : 'unknown';
+        acc[day] = (acc[day] || 0) + (sale.amount || 0);
         return acc;
       }, {});
 
-      const totalSales = salesData.reduce((sum, sale) => sum + sale.amount, 0);
+      const totalSales = salesData.reduce(
+        (sum, sale) => sum + (sale.amount || 0),
+        0,
+      );
       const totalTransactions = salesData.length;
 
       return {
@@ -217,12 +247,15 @@ export class SalesReportsService {
         salesData,
       };
     } catch (error) {
-      this.logger.error('Error getting weekly sales report', error.stack);
+      this.logger.error(
+        'Error getting weekly sales report',
+        error instanceof Error ? error.stack : error,
+      );
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        'Failed to get weekly sales report',
+        `Failed to get weekly sales report: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -242,12 +275,18 @@ export class SalesReportsService {
 
       // Group by day
       const dailySales = salesData.reduce((acc, sale) => {
-        const day = sale.paidAt.toISOString().split('T')[0];
-        acc[day] = (acc[day] || 0) + sale.amount;
+        const day =
+          sale.paidAt instanceof Date && !isNaN(sale.paidAt.getTime())
+            ? sale.paidAt.toISOString().split('T')[0]
+            : 'unknown';
+        acc[day] = (acc[day] || 0) + (sale.amount || 0);
         return acc;
       }, {});
 
-      const totalSales = salesData.reduce((sum, sale) => sum + sale.amount, 0);
+      const totalSales = salesData.reduce(
+        (sum, sale) => sum + (sale.amount || 0),
+        0,
+      );
       const totalTransactions = salesData.length;
 
       return {
@@ -262,12 +301,15 @@ export class SalesReportsService {
         salesData,
       };
     } catch (error) {
-      this.logger.error('Error getting monthly sales report', error.stack);
+      this.logger.error(
+        'Error getting monthly sales report',
+        error instanceof Error ? error.stack : error,
+      );
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        'Failed to get monthly sales report',
+        `Failed to get monthly sales report: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -287,12 +329,17 @@ export class SalesReportsService {
 
       // Group by month
       const monthlySales = salesData.reduce((acc, sale) => {
-        const month = sale.paidAt.toISOString().substring(0, 7); // YYYY-MM
-        acc[month] = (acc[month] || 0) + sale.amount;
+        const month = sale.paidAt
+          ? sale.paidAt.toISOString().substring(0, 7)
+          : 'unknown'; // YYYY-MM
+        acc[month] = (acc[month] || 0) + (sale.amount || 0);
         return acc;
       }, {});
 
-      const totalSales = salesData.reduce((sum, sale) => sum + sale.amount, 0);
+      const totalSales = salesData.reduce(
+        (sum, sale) => sum + (sale.amount || 0),
+        0,
+      );
       const totalTransactions = salesData.length;
 
       return {
@@ -307,12 +354,15 @@ export class SalesReportsService {
         salesData,
       };
     } catch (error) {
-      this.logger.error('Error getting yearly sales report', error.stack);
+      this.logger.error(
+        'Error getting yearly sales report',
+        error instanceof Error ? error.stack : error,
+      );
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException(
-        'Failed to get yearly sales report',
+        `Failed to get yearly sales report: ${error instanceof Error ? error.message : 'Unknown error'}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

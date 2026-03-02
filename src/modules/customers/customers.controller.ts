@@ -8,9 +8,9 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
+import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import { CustomersService } from './customers.service';
 import {
@@ -22,8 +22,6 @@ import {
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('customers:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -36,20 +34,20 @@ export class CustomersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('customers:read')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(): Promise<WebResponse> {
-    const result = await this.customersService.findAll();
+  async findAll(
+    @Query('branch_id') queryBranchId?: string,
+    @CurrentBranchId() headerBranchId?: string,
+  ): Promise<WebResponse> {
+    const branchId = queryBranchId || headerBranchId;
+    const result = await this.customersService.findAll(branchId);
     return {
       message: result.message,
       data: result.datas,
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('customers:read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string): Promise<WebResponse> {
@@ -60,8 +58,6 @@ export class CustomersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('customers:update')
   @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(
@@ -75,8 +71,6 @@ export class CustomersController {
     };
   }
 
-  @Roles('cashier', 'admin', 'owner')
-  @Permissions('customers:delete')
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string): Promise<WebResponse> {

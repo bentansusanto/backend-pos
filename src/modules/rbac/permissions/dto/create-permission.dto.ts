@@ -1,5 +1,5 @@
-import { PartialType } from "@nestjs/mapped-types";
-import { IsString } from "class-validator";
+import { PartialType } from '@nestjs/mapped-types';
+import { IsString } from 'class-validator';
 
 export class CreatePermissionDto {
   @IsString({ message: 'Module must be a string' })

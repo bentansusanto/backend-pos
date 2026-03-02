@@ -6,12 +6,9 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  Patch,
   Post,
   Put,
 } from '@nestjs/common';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import { BranchesService } from './branches.service';
 import { CreateBranchDto, UpdateBranchDto } from './dto/create-branch.dto';
@@ -20,8 +17,6 @@ import { CreateBranchDto, UpdateBranchDto } from './dto/create-branch.dto';
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
-  @Roles('owner')
-  @Permissions('branches:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createBranchDto: CreateBranchDto): Promise<WebResponse> {
@@ -32,7 +27,6 @@ export class BranchesController {
     };
   }
 
-  @Permissions('branches:read')
   @Get('find-all')
   async findAll(): Promise<WebResponse> {
     const result = await this.branchesService.findAll();
@@ -42,7 +36,6 @@ export class BranchesController {
     };
   }
 
-  @Permissions('branches:read')
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.branchesService.findOne(id);
@@ -52,8 +45,6 @@ export class BranchesController {
     };
   }
 
-  @Roles('owner')
-  @Permissions('branches:update')
   @Put('update/:id')
   async update(
     @Param('id') id: string,
@@ -66,8 +57,6 @@ export class BranchesController {
     };
   }
 
-  @Roles('owner')
-  @Permissions('branches:delete')
   @Delete('delete/:id')
   async remove(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.branchesService.remove(id);
@@ -76,8 +65,6 @@ export class BranchesController {
     };
   }
 
-  @Roles('owner')
-  @Permissions('branches:update')
   @Post(':id/assign-user')
   async assignUser(
     @Param('id') id: string,

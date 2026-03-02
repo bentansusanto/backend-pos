@@ -11,8 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
+import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import { CreateProductVariantDto } from '../dto/create-product-variant.dto';
 import { ProductVariantsService } from './product-variants.service';
@@ -24,8 +23,6 @@ export class ProductVariantsController {
   ) {}
 
   // create product variant
-  @Roles('admin', 'owner')
-  @Permissions('variants:create')
   @Post('create')
   @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.CREATED)
@@ -44,8 +41,6 @@ export class ProductVariantsController {
   }
 
   // update product variant
-  @Roles('admin', 'owner')
-  @Permissions('variants:update')
   @Post('update/:id')
   @UseInterceptors(FileInterceptor('thumbnail'))
   async update(
@@ -65,8 +60,6 @@ export class ProductVariantsController {
   }
 
   // delete product variant
-  @Roles('admin', 'owner')
-  @Permissions('variants:delete')
   @Post('delete/:id')
   async delete(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productVariantsService.delete(id);
@@ -76,7 +69,6 @@ export class ProductVariantsController {
   }
 
   // get product variant by id
-  @Permissions('variants:read')
   @Get('get/:id')
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productVariantsService.findOne(id);
@@ -87,9 +79,12 @@ export class ProductVariantsController {
   }
 
   // get all product variant
-  @Permissions('variants:read')
   @Get('find-all')
-  async findAll(@Query('branch_id') branchId?: string): Promise<WebResponse> {
+  async findAll(
+    @Query('branch_id') queryBranchId?: string,
+    @CurrentBranchId() headerBranchId?: string,
+  ): Promise<WebResponse> {
+    const branchId = queryBranchId || headerBranchId;
     const result = await this.productVariantsService.findAll(branchId);
     return {
       message: result.message,

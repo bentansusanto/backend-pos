@@ -10,8 +10,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
+import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import {
   CreateProductStockDto,
@@ -23,8 +22,6 @@ import { ProductStocksService } from './product-stocks.service';
 export class ProductStocksController {
   constructor(private readonly productStocksService: ProductStocksService) {}
 
-  @Roles('admin', 'staff', 'owner')
-  @Permissions('stock:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -39,11 +36,13 @@ export class ProductStocksController {
     };
   }
 
-  @Roles('admin', 'staff', 'owner')
-  @Permissions('read_product_stock')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(@Query('branch_id') branchId?: string): Promise<WebResponse> {
+  async findAll(
+    @Query('branch_id') queryBranchId?: string,
+    @CurrentBranchId() headerBranchId?: string,
+  ): Promise<WebResponse> {
+    const branchId = queryBranchId || headerBranchId;
     const result = await this.productStocksService.findAll(branchId);
     return {
       message: result.message,
@@ -51,8 +50,6 @@ export class ProductStocksController {
     };
   }
 
-  @Roles('admin', 'staff', 'owner')
-  @Permissions('read_product_stock')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string): Promise<WebResponse> {
@@ -63,8 +60,6 @@ export class ProductStocksController {
     };
   }
 
-  @Roles('admin', 'staff', 'owner')
-  @Permissions('update_product_stock')
   @Put('update/:id')
   @HttpCode(HttpStatus.OK)
   async update(
@@ -81,8 +76,6 @@ export class ProductStocksController {
     };
   }
 
-  @Roles('admin', 'staff', 'owner')
-  @Permissions('delete_product_stock')
   @Delete('delete/:id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string): Promise<WebResponse> {

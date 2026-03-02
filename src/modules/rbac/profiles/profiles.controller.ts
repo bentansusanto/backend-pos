@@ -9,8 +9,6 @@ import {
   Put,
 } from '@nestjs/common';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import { User } from '../users/entities/user.entity';
 import { CreateProfileDto, UpdateProfileDto } from './dto/create-profile.dto';
@@ -20,8 +18,6 @@ import { ProfilesService } from './profiles.service';
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
-  @Roles('admin', 'owner')
-  @Permissions('profiles:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -35,16 +31,6 @@ export class ProfilesController {
     };
   }
 
-  // @Get('find-all')
-  // @HttpCode(HttpStatus.OK)
-  // async findAll():Promise<WebResponse> {
-  //   const result = await this.profilesService.findAll();
-  //   return {
-  //     message: result.message,
-  //     data: result.data,
-  //   }
-  // }
-
   @Get('me')
   @HttpCode(HttpStatus.OK)
   async findOne(@CurrentUser() user: User): Promise<WebResponse> {
@@ -55,8 +41,6 @@ export class ProfilesController {
     };
   }
 
-  @Roles('admin', 'owner')
-  @Permissions('profiles:read')
   @Get('user/:userId')
   @HttpCode(HttpStatus.OK)
   async findByUserId(@Param('userId') userId: string): Promise<WebResponse> {
@@ -67,8 +51,6 @@ export class ProfilesController {
     };
   }
 
-  @Roles('admin', 'owner')
-  @Permissions('profiles:update')
   @Put('update/:id')
   @HttpCode(HttpStatus.OK)
   async update(
@@ -86,9 +68,4 @@ export class ProfilesController {
       data: result.data,
     };
   }
-
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.profilesService.remove(id);
-  // }
 }

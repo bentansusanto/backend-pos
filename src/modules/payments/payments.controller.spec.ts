@@ -60,7 +60,9 @@ describe('PaymentsController', () => {
 
       const result = await controller.create(createPaymentDto);
 
-      expect(result.message).toEqual(successPaymentMessage.SUCCESS_CREATE_PAYMENT);
+      expect(result.message).toEqual(
+        successPaymentMessage.SUCCESS_CREATE_PAYMENT,
+      );
       expect(result.data).toEqual(mockPayment);
       expect(service.create).toHaveBeenCalledWith(createPaymentDto);
     });
@@ -75,7 +77,9 @@ describe('PaymentsController', () => {
 
       const result = await controller.findAll();
 
-      expect(result.message).toEqual(successPaymentMessage.SUCCESS_GET_PAYMENTS);
+      expect(result.message).toEqual(
+        successPaymentMessage.SUCCESS_GET_PAYMENTS,
+      );
       expect(result.data).toEqual([mockPayment]);
     });
   });

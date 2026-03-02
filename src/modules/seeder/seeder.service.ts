@@ -35,139 +35,350 @@ export class SeederService implements OnModuleInit {
 
     const permissions = [
       // Dashboard
-      { action: 'dashboard:view', description: 'View dashboard' },
       {
+        module: 'dashboard',
+        action: 'dashboard:view',
+        description: 'View dashboard',
+      },
+      {
+        module: 'dashboard',
         action: 'dashboard:analytics',
         description: 'View analytics',
       },
 
       // Products
-      { action: 'products:create', description: 'Create products' },
-      { action: 'products:read', description: 'View products' },
-      { action: 'products:update', description: 'Update products' },
-      { action: 'products:delete', description: 'Delete products' },
-      { action: 'products:import', description: 'Import products' },
-      { action: 'products:export', description: 'Export products' },
-      // Variants
-      { action: 'variants:create', description: 'Create product variants' },
-      { action: 'variants:read', description: 'View product variants' },
-      { action: 'variants:update', description: 'Update product variants' },
-      { action: 'variants:delete', description: 'Delete product variants' },
-      // Categories
-      { action: 'categories:create', description: 'Create categories' },
-      { action: 'categories:read', description: 'View categories' },
-      { action: 'categories:update', description: 'Update categories' },
-      { action: 'categories:delete', description: 'Delete categories' },
-      // Product Stock
-      { action: 'stock:create', description: 'Create product stock' },
-      { action: 'stock:read', description: 'View product stock' },
-      { action: 'stock:update', description: 'Update product stock' },
-      { action: 'stock:adjust', description: 'Adjust product stock' },
-      // Sales
       {
-        action: 'sales:create',
-        description: 'Create sales transactions',
+        module: 'products',
+        action: 'products:create',
+        description: 'Create products',
       },
       {
-        action: 'sales:read',
-        description: 'View sales transactions',
+        module: 'products',
+        action: 'products:read',
+        description: 'View products',
       },
       {
-        action: 'sales:update',
-        description: 'Update sales transactions',
+        module: 'products',
+        action: 'products:update',
+        description: 'Update products',
       },
       {
-        action: 'sales:delete',
-        description: 'Delete sales transactions',
+        module: 'products',
+        action: 'products:delete',
+        description: 'Delete products',
       },
       {
-        action: 'sales:void',
-        description: 'Void sales transactions',
+        module: 'products',
+        action: 'products:import',
+        description: 'Import products',
       },
-      { action: 'sales:refund', description: 'Process refunds' },
-      // payments
-      { action: 'payments:create', description: 'Create payment methods' },
-      { action: 'payments:read', description: 'View payment methods' },
-      { action: 'payments:update', description: 'Update payment methods' },
-      { action: 'payments:delete', description: 'Delete payment methods' },
+      {
+        module: 'products',
+        action: 'products:export',
+        description: 'Export products',
+      },
 
-      // Inventory
+      // Variants
       {
-        action: 'inventory:create',
-        description: 'Create inventory records',
-      },
-      { action: 'inventory:read', description: 'View inventory' },
-      {
-        action: 'inventory:update',
-        description: 'Update inventory',
+        module: 'variants',
+        action: 'variants:create',
+        description: 'Create product variants',
       },
       {
-        action: 'inventory:delete',
-        description: 'Delete inventory records',
+        module: 'variants',
+        action: 'variants:read',
+        description: 'View product variants',
       },
       {
-        action: 'inventory:adjust',
-        description: 'Adjust inventory levels',
+        module: 'variants',
+        action: 'variants:update',
+        description: 'Update product variants',
       },
       {
-        action: 'inventory:transfer',
-        description: 'Transfer inventory between branches',
+        module: 'variants',
+        action: 'variants:delete',
+        description: 'Delete product variants',
+      },
+
+      // Categories
+      {
+        module: 'categories',
+        action: 'categories:create',
+        description: 'Create categories',
+      },
+      {
+        module: 'categories',
+        action: 'categories:read',
+        description: 'View categories',
+      },
+      {
+        module: 'categories',
+        action: 'categories:update',
+        description: 'Update categories',
+      },
+      {
+        module: 'categories',
+        action: 'categories:delete',
+        description: 'Delete categories',
+      },
+
+      // Product Stocks
+      {
+        module: 'product_stocks',
+        action: 'product_stocks:create',
+        description: 'Create product stock',
+      },
+      {
+        module: 'product_stocks',
+        action: 'product_stocks:read',
+        description: 'View product stock',
+      },
+      {
+        module: 'product_stocks',
+        action: 'product_stocks:update',
+        description: 'Update product stock',
+      },
+      {
+        module: 'product_stocks',
+        action: 'product_stocks:delete',
+        description: 'Delete product stock',
+      },
+
+      // Stock Movements
+      {
+        module: 'stock_movements',
+        action: 'stock_movements:create',
+        description: 'Create stock movements',
+      },
+      {
+        module: 'stock_movements',
+        action: 'stock_movements:read',
+        description: 'View stock movements',
+      },
+      {
+        module: 'stock_movements',
+        action: 'stock_movements:update',
+        description: 'Update stock movements',
+      },
+      {
+        module: 'stock_movements',
+        action: 'stock_movements:delete',
+        description: 'Delete stock movements',
+      },
+
+      // Orders (formerly Sales)
+      {
+        module: 'orders',
+        action: 'orders:create',
+        description: 'Create orders',
+      },
+      {
+        module: 'orders',
+        action: 'orders:read',
+        description: 'View orders',
+      },
+      {
+        module: 'orders',
+        action: 'orders:update',
+        description: 'Update orders',
+      },
+      {
+        module: 'orders',
+        action: 'orders:delete',
+        description: 'Delete orders',
+      },
+
+      // Payments
+      {
+        module: 'payments',
+        action: 'payments:create',
+        description: 'Create payment methods',
+      },
+      {
+        module: 'payments',
+        action: 'payments:read',
+        description: 'View payment methods',
+      },
+      {
+        module: 'payments',
+        action: 'payments:update',
+        description: 'Update payment methods',
+      },
+      {
+        module: 'payments',
+        action: 'payments:delete',
+        description: 'Delete payment methods',
+      },
+      {
+        module: 'payments',
+        action: 'payments:verifyPayment',
+        description: 'Verify payment',
+      },
+
+      // Customers
+      {
+        module: 'customers',
+        action: 'customers:create',
+        description: 'Create customers',
+      },
+      {
+        module: 'customers',
+        action: 'customers:read',
+        description: 'View customers',
+      },
+      {
+        module: 'customers',
+        action: 'customers:update',
+        description: 'Update customers',
+      },
+      {
+        module: 'customers',
+        action: 'customers:delete',
+        description: 'Delete customers',
       },
 
       // Users
-      { action: 'users:create', description: 'Create users' },
-      { action: 'users:read', description: 'View users' },
-      { action: 'users:update', description: 'Update users' },
-      { action: 'users:delete', description: 'Delete users' },
+      { module: 'users', action: 'users:create', description: 'Create users' },
+      { module: 'users', action: 'users:read', description: 'View users' },
+      { module: 'users', action: 'users:update', description: 'Update users' },
+      { module: 'users', action: 'users:delete', description: 'Delete users' },
       {
+        module: 'users',
         action: 'users:assign_roles',
         description: 'Assign roles to users',
       },
-      // Profiles
-      { action: 'profiles:create', description: 'Create user profiles' },
-      { action: 'profiles:read', description: 'View user profiles' },
-      { action: 'profiles:update', description: 'Update user profiles' },
-      { action: 'profiles:delete', description: 'Delete user profiles' },
-      // Customers
-      { action: 'customers:create', description: 'Create customers' },
-      { action: 'customers:read', description: 'View customers' },
-      { action: 'customers:update', description: 'Update customers' },
-      { action: 'customers:delete', description: 'Delete customers' },
 
-      // Roles & Permissions
-      { action: 'roles:create', description: 'Create roles' },
-      { action: 'roles:read', description: 'View roles' },
-      { action: 'roles:update', description: 'Update roles' },
-      { action: 'roles:delete', description: 'Delete roles' },
+      // Profiles
       {
-        action: 'roles:assign_permissions',
+        module: 'profiles',
+        action: 'profiles:create',
+        description: 'Create user profiles',
+      },
+      {
+        module: 'profiles',
+        action: 'profiles:read',
+        description: 'View user profiles',
+      },
+      {
+        module: 'profiles',
+        action: 'profiles:update',
+        description: 'Update user profiles',
+      },
+
+      // Roles
+      { module: 'roles', action: 'roles:create', description: 'Create roles' },
+      { module: 'roles', action: 'roles:read', description: 'View roles' },
+      { module: 'roles', action: 'roles:update', description: 'Update roles' },
+      { module: 'roles', action: 'roles:delete', description: 'Delete roles' },
+
+      // Permissions
+      {
+        module: 'permissions',
+        action: 'permissions:create',
+        description: 'Create permissions',
+      },
+      {
+        module: 'permissions',
+        action: 'permissions:read',
+        description: 'View permissions',
+      },
+      {
+        module: 'permissions',
+        action: 'permissions:update',
+        description: 'Update permissions',
+      },
+      {
+        module: 'permissions',
+        action: 'permissions:delete',
+        description: 'Delete permissions',
+      },
+
+      // Role Permissions
+      {
+        module: 'role_permissions',
+        action: 'role_permissions:assign_permissions',
         description: 'Assign permissions to roles',
       },
 
       // Branches
-      { action: 'branches:create', description: 'Create branches' },
-      { action: 'branches:read', description: 'View branches' },
-      { action: 'branches:update', description: 'Update branches' },
-      { action: 'branches:delete', description: 'Delete branches' },
-      // AI Insight
-      { action: 'ai_insight:generate', description: 'Generate AI Insight' },
-      { action: 'ai_insight:read', description: 'View AI Insight' },
+      {
+        module: 'branches',
+        action: 'branches:create',
+        description: 'Create branches',
+      },
+      {
+        module: 'branches',
+        action: 'branches:read',
+        description: 'View branches',
+      },
+      {
+        module: 'branches',
+        action: 'branches:update',
+        description: 'Update branches',
+      },
+      {
+        module: 'branches',
+        action: 'branches:delete',
+        description: 'Delete branches',
+      },
 
-      // Reports
-      { action: 'reports:sales', description: 'View sales reports' },
+      // Sales Reports
       {
-        action: 'reports:inventory',
-        description: 'View inventory reports',
+        module: 'sales_reports',
+        action: 'sales_reports:read',
+        description: 'View sales reports',
       },
       {
-        action: 'reports:financial',
-        description: 'View financial reports',
+        module: 'sales_reports',
+        action: 'sales_reports:export',
+        description: 'Export sales reports',
       },
-      { action: 'reports:export', description: 'Export reports' },
+
+      // AI Insight
+      {
+        module: 'ai_insight',
+        action: 'ai_insight:generate',
+        description: 'Generate AI Insight',
+      },
+      {
+        module: 'ai_insight',
+        action: 'ai_insight:read',
+        description: 'View AI Insight',
+      },
+
+      // AI Jobs
+      {
+        module: 'ai_jobs',
+        action: 'ai_jobs:create',
+        description: 'Create AI jobs',
+      },
+      {
+        module: 'ai_jobs',
+        action: 'ai_jobs:read',
+        description: 'View AI jobs',
+      },
+      {
+        module: 'ai_jobs',
+        action: 'ai_jobs:update',
+        description: 'Update AI jobs',
+      },
+      {
+        module: 'ai_jobs',
+        action: 'ai_jobs:delete',
+        description: 'Delete AI jobs',
+      },
 
       // Settings
-      { action: 'settings:read', description: 'View settings' },
-      { action: 'settings:update', description: 'Update settings' },
+      {
+        module: 'settings',
+        action: 'settings:read',
+        description: 'View settings',
+      },
+      {
+        module: 'settings',
+        action: 'settings:update',
+        description: 'Update settings',
+      },
     ];
 
     for (const perm of permissions) {
@@ -181,6 +392,12 @@ export class SeederService implements OnModuleInit {
         });
         await this.permissionRepository.save(permission);
         console.log(`  ✓ Created permission: ${perm.action}`);
+      } else {
+        // Update existing permission to ensure module and description are set
+        exists.module = perm.module;
+        exists.description = perm.description;
+        await this.permissionRepository.save(exists);
+        // console.log(`  ✓ Updated permission: ${perm.action}`);
       }
     }
 
@@ -330,17 +547,14 @@ export class SeederService implements OnModuleInit {
           p.action === 'dashboard:view' ||
           (p.action.startsWith('products:') && p.action.includes('read')) ||
           (p.action.startsWith('variants:') && p.action.includes('read')) ||
-          (p.action.startsWith('sales:') &&
-            ['create', 'read', 'update', 'refund'].some((a) =>
+          (p.action.startsWith('orders:') &&
+            ['create', 'read', 'update'].some((a) => p.action.endsWith(a))) ||
+          (p.action.startsWith('product_stocks:') &&
+            p.action.endsWith('read')) ||
+          (p.action.startsWith('customers:') &&
+            ['create', 'read', 'update', 'delete'].some((a) =>
               p.action.endsWith(a),
             )) ||
-          (p.action.startsWith('inventory:') && p.action.endsWith('read')) ||
-          (p.action.startsWith('customers:') && [
-            'create',
-            'read',
-            'update',
-            'delete',
-          ]) ||
           (p.action.startsWith('payments:') && ['create', 'read']),
       );
       for (const permission of cashierPermissions) {
@@ -356,7 +570,8 @@ export class SeederService implements OnModuleInit {
           p.action === 'dashboard:view' ||
           (p.action.startsWith('products:') &&
             ['create', 'read', 'update'].some((a) => p.action.endsWith(a))) ||
-          p.action.startsWith('inventory:') ||
+          p.action.startsWith('product_stocks:') ||
+          p.action.startsWith('stock_movements:') ||
           p.action === 'reports:inventory',
       );
       for (const permission of inventoryPermissions) {
@@ -370,7 +585,7 @@ export class SeederService implements OnModuleInit {
       const accountantPermissions = allPermissions.filter(
         (p) =>
           p.action.startsWith('dashboard:') ||
-          (p.action.startsWith('sales:') && p.action.endsWith('read')) ||
+          (p.action.startsWith('orders:') && p.action.endsWith('read')) ||
           p.action.startsWith('reports:'),
       );
       for (const permission of accountantPermissions) {

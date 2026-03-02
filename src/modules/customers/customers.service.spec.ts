@@ -80,7 +80,9 @@ describe('CustomersService', () => {
 
       const result = await service.create(createCustomerDto);
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_CREATE);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_CREATE,
+      );
       expect(result.data.id).toEqual(mockCustomer.id);
       expect(customerRepository.create).toHaveBeenCalledWith(createCustomerDto);
     });
@@ -89,7 +91,10 @@ describe('CustomersService', () => {
       jest.spyOn(customerRepository, 'findOne').mockResolvedValue(mockCustomer);
 
       await expect(service.create(createCustomerDto)).rejects.toThrow(
-        new HttpException(errCustomerMessage.ERR_CUSTOMER_ALREADY_EXISTS, HttpStatus.BAD_REQUEST),
+        new HttpException(
+          errCustomerMessage.ERR_CUSTOMER_ALREADY_EXISTS,
+          HttpStatus.BAD_REQUEST,
+        ),
       );
     });
   });
@@ -100,7 +105,9 @@ describe('CustomersService', () => {
 
       const result = await service.findAll();
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_FIND_ALL);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_FIND_ALL,
+      );
       expect(result.datas.length).toBe(1);
     });
   });
@@ -111,7 +118,9 @@ describe('CustomersService', () => {
 
       const result = await service.findOne('customer-id');
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_FIND_ID);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_FIND_ID,
+      );
       expect(result.data.id).toEqual(mockCustomer.id);
     });
 
@@ -119,7 +128,10 @@ describe('CustomersService', () => {
       jest.spyOn(customerRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.findOne('invalid-id')).rejects.toThrow(
-        new HttpException(errCustomerMessage.ERR_CUSTOMER_NOT_FOUND, HttpStatus.NOT_FOUND),
+        new HttpException(
+          errCustomerMessage.ERR_CUSTOMER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });
@@ -131,19 +143,28 @@ describe('CustomersService', () => {
 
     it('should update a customer successfully', async () => {
       jest.spyOn(customerRepository, 'findOne').mockResolvedValue(mockCustomer);
-      jest.spyOn(customerRepository, 'update').mockResolvedValue({ affected: 1 });
+      jest
+        .spyOn(customerRepository, 'update')
+        .mockResolvedValue({ affected: 1 });
 
       const result = await service.update('customer-id', updateCustomerDto);
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_UPDATE);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_UPDATE,
+      );
       expect(result.data.id).toEqual(mockCustomer.id);
     });
 
     it('should throw error if customer not found for update', async () => {
       jest.spyOn(customerRepository, 'findOne').mockResolvedValue(null);
 
-      await expect(service.update('invalid-id', updateCustomerDto)).rejects.toThrow(
-        new HttpException(errCustomerMessage.ERR_CUSTOMER_NOT_FOUND, HttpStatus.NOT_FOUND),
+      await expect(
+        service.update('invalid-id', updateCustomerDto),
+      ).rejects.toThrow(
+        new HttpException(
+          errCustomerMessage.ERR_CUSTOMER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });
@@ -151,18 +172,25 @@ describe('CustomersService', () => {
   describe('remove', () => {
     it('should remove a customer successfully', async () => {
       jest.spyOn(customerRepository, 'findOne').mockResolvedValue(mockCustomer);
-      jest.spyOn(customerRepository, 'softDelete').mockResolvedValue({ affected: 1 });
+      jest
+        .spyOn(customerRepository, 'softDelete')
+        .mockResolvedValue({ affected: 1 });
 
       const result = await service.remove('customer-id');
 
-      expect(result.message).toEqual(successCustomerMessage.SUCCESS_CUSTOMER_REMOVE);
+      expect(result.message).toEqual(
+        successCustomerMessage.SUCCESS_CUSTOMER_REMOVE,
+      );
     });
 
     it('should throw error if customer not found for deletion', async () => {
       jest.spyOn(customerRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.remove('invalid-id')).rejects.toThrow(
-        new HttpException(errCustomerMessage.ERR_CUSTOMER_NOT_FOUND, HttpStatus.NOT_FOUND),
+        new HttpException(
+          errCustomerMessage.ERR_CUSTOMER_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });

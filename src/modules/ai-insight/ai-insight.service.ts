@@ -174,18 +174,7 @@ export class AiInsightService {
   }
 
   private async getStockData(branchId: string) {
-    // Low Stock (stock <= minStock)
-    const lowStock = await this.productStockRepository.find({
-      where: {
-        branch: { id: branchId },
-        stock: LessThan(10), // Fallback if minStock is 0, or use Raw query for stock <= minStock
-      },
-      relations: ['product'],
-      take: 20,
-    });
-
-    // For more accurate "stock <= minStock", we can filter in JS or use QueryBuilder
-    // Let's refine this to use QueryBuilder for stock <= minStock comparison
+    // Critical Stock (stock <= minStock) using QueryBuilder
     const criticalStock = await this.productStockRepository
       .createQueryBuilder('stock')
       .leftJoinAndSelect('stock.product', 'product')

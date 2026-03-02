@@ -5,6 +5,7 @@ export class AuthData {
   name: string;
   email: string;
   is_verified: boolean;
+  isActive?: boolean;
   role: string;
   token?: string;
   session_token?: string;

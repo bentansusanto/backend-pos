@@ -5,9 +5,9 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
+import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import {
   CreateCategoryDto,
@@ -20,8 +20,6 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   // create category
-  @Roles('admin', 'owner')
-  @Permissions('categories:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -37,8 +35,12 @@ export class CategoriesController {
   // find all categories
   @Post('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(): Promise<WebResponse> {
-    const result = await this.categoriesService.findAll();
+  async findAll(
+    @Query('branch_id') queryBranchId?: string,
+    @CurrentBranchId() headerBranchId?: string,
+  ): Promise<WebResponse> {
+    const branchId = queryBranchId || headerBranchId;
+    const result = await this.categoriesService.findAll(branchId);
     return {
       message: result.message,
       data: result.datas,
@@ -57,8 +59,6 @@ export class CategoriesController {
   }
 
   // update category
-  @Roles('admin', 'owner')
-  @Permissions('categories:update')
   @Post(':id/update')
   @HttpCode(HttpStatus.OK)
   async update(
@@ -73,8 +73,6 @@ export class CategoriesController {
   }
 
   // delete category
-  @Roles('admin', 'owner')
-  @Permissions('categories:delete')
   @Post(':id/delete')
   @HttpCode(HttpStatus.OK)
   async delete(@Param('id') id: string): Promise<WebResponse> {

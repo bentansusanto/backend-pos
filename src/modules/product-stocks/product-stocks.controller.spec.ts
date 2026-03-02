@@ -62,7 +62,9 @@ describe('ProductStocksController', () => {
 
       const result = await controller.create(createDto);
 
-      expect(result.message).toEqual(successProductStockMessage.SUCCESS_CREATE_PRODUCT_STOCK);
+      expect(result.message).toEqual(
+        successProductStockMessage.SUCCESS_CREATE_PRODUCT_STOCK,
+      );
       expect(result.data).toEqual(mockProductStock);
       expect(service.create).toHaveBeenCalledWith(createDto);
     });
@@ -77,7 +79,9 @@ describe('ProductStocksController', () => {
 
       const result = await controller.findAll();
 
-      expect(result.message).toEqual(successProductStockMessage.SUCCESS_GET_PRODUCT_STOCKS);
+      expect(result.message).toEqual(
+        successProductStockMessage.SUCCESS_GET_PRODUCT_STOCKS,
+      );
       expect(result.data).toEqual([mockProductStock]);
     });
   });
@@ -91,7 +95,9 @@ describe('ProductStocksController', () => {
 
       const result = await controller.findOne('stock-id');
 
-      expect(result.message).toEqual(successProductStockMessage.SUCCESS_GET_PRODUCT_STOCK);
+      expect(result.message).toEqual(
+        successProductStockMessage.SUCCESS_GET_PRODUCT_STOCK,
+      );
       expect(result.data).toEqual(mockProductStock);
     });
   });
@@ -110,7 +116,9 @@ describe('ProductStocksController', () => {
 
       const result = await controller.update('stock-id', updateDto);
 
-      expect(result.message).toEqual(successProductStockMessage.SUCCESS_UPDATE_PRODUCT_STOCK);
+      expect(result.message).toEqual(
+        successProductStockMessage.SUCCESS_UPDATE_PRODUCT_STOCK,
+      );
       expect(result.data).toEqual(mockProductStock);
       expect(service.update).toHaveBeenCalledWith('stock-id', updateDto);
     });
@@ -124,7 +132,9 @@ describe('ProductStocksController', () => {
 
       const result = await controller.remove('stock-id');
 
-      expect(result.message).toEqual(successProductStockMessage.SUCCESS_DELETE_PRODUCT_STOCK);
+      expect(result.message).toEqual(
+        successProductStockMessage.SUCCESS_DELETE_PRODUCT_STOCK,
+      );
     });
   });
 });

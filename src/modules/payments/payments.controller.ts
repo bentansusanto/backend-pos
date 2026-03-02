@@ -10,8 +10,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
+import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentsService } from './payments.service';
@@ -20,8 +19,6 @@ import { PaymentsService } from './payments.service';
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  @Roles('admin', 'cashier', 'owner')
-  @Permissions('payments:create')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -36,7 +33,11 @@ export class PaymentsController {
 
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(@Query('branch_id') branchId?: string): Promise<WebResponse> {
+  async findAll(
+    @Query('branch_id') queryBranchId?: string,
+    @CurrentBranchId() headerBranchId?: string,
+  ): Promise<WebResponse> {
+    const branchId = queryBranchId || headerBranchId;
     const result = await this.paymentsService.findAll(branchId);
     return {
       message: result.message,
@@ -54,8 +55,6 @@ export class PaymentsController {
     };
   }
 
-  @Roles('admin', 'cashier', 'owner')
-  @Permissions('payments:update')
   @Put('verify-payment/:id')
   @HttpCode(HttpStatus.OK)
   async verifyPayment(@Param('id') id: string): Promise<WebResponse> {

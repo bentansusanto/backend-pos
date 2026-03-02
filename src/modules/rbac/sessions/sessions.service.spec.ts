@@ -106,8 +106,12 @@ describe('SessionsService', () => {
 
   describe('createSession', () => {
     it('should create and save a session', async () => {
-      jest.spyOn(sessionRepository, 'create').mockReturnValue(mockSession as any);
-      jest.spyOn(sessionRepository, 'save').mockResolvedValue(mockSession as any);
+      jest
+        .spyOn(sessionRepository, 'create')
+        .mockReturnValue(mockSession as any);
+      jest
+        .spyOn(sessionRepository, 'save')
+        .mockResolvedValue(mockSession as any);
 
       const result = await service.createSession(
         mockSession.user as any,

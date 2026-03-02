@@ -371,7 +371,7 @@ export class PaymentsService {
     }
   }
 
-  update(id: string, updatePaymentDto: UpdatePaymentDto) {
+  update(id: string, _updatePaymentDto: UpdatePaymentDto) {
     return `This action updates a #${id} payment`;
   }
 

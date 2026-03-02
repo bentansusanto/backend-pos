@@ -65,11 +65,11 @@ export class StockMovementsService {
     }
   }
 
-  update(id: number, updateStockMovementDto: UpdateStockMovementDto) {
+  update(id: string, _updateStockMovementDto: UpdateStockMovementDto) {
     return `This action updates a #${id} stockMovement`;
   }
 
-  remove(id: number) {
+  remove(id: string) {
     return `This action removes a #${id} stockMovement`;
   }
 }

@@ -114,7 +114,10 @@ describe('BranchesService', () => {
       jest.spyOn(branchRepository, 'findOne').mockResolvedValue(mockBranch);
 
       await expect(service.create(createBranchDto)).rejects.toThrow(
-        new HttpException(errBranchMessage.BRANCH_CODE_ALREADY_EXISTS, HttpStatus.BAD_REQUEST),
+        new HttpException(
+          errBranchMessage.BRANCH_CODE_ALREADY_EXISTS,
+          HttpStatus.BAD_REQUEST,
+        ),
       );
     });
   });
@@ -144,7 +147,10 @@ describe('BranchesService', () => {
       jest.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.findOne('invalid-id')).rejects.toThrow(
-        new HttpException(errBranchMessage.BRANCH_NOT_FOUND, HttpStatus.NOT_FOUND),
+        new HttpException(
+          errBranchMessage.BRANCH_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });
@@ -167,8 +173,13 @@ describe('BranchesService', () => {
     it('should throw error if branch not found for update', async () => {
       jest.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
 
-      await expect(service.update('invalid-id', updateBranchDto)).rejects.toThrow(
-        new HttpException(errBranchMessage.BRANCH_NOT_FOUND, HttpStatus.NOT_FOUND),
+      await expect(
+        service.update('invalid-id', updateBranchDto),
+      ).rejects.toThrow(
+        new HttpException(
+          errBranchMessage.BRANCH_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });
@@ -187,7 +198,10 @@ describe('BranchesService', () => {
       jest.spyOn(branchRepository, 'findOne').mockResolvedValue(null);
 
       await expect(service.remove('invalid-id')).rejects.toThrow(
-        new HttpException(errBranchMessage.BRANCH_NOT_FOUND, HttpStatus.NOT_FOUND),
+        new HttpException(
+          errBranchMessage.BRANCH_NOT_FOUND,
+          HttpStatus.NOT_FOUND,
+        ),
       );
     });
   });

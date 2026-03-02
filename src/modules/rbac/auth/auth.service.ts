@@ -325,6 +325,11 @@ export class AuthService {
         device,
       );
 
+      // update status active user
+      await this.usersService.update(user.id, {
+        isActive: true
+      });
+
       this.logger.debug(`${successUserMessage.USER_LOGGED_IN}: ${user.name}`);
 
       return {
@@ -383,6 +388,11 @@ export class AuthService {
 
       // Delete session
       await this.sessionsService.removeSession(tokenHash);
+      
+      // update status active user
+      await this.usersService.update(session.user.id, {
+        isActive: false
+      });
 
       this.logger.debug(
         `${successUserMessage.USER_LOGGED_OUT}: ${session.user.name}`,
@@ -468,7 +478,7 @@ export class AuthService {
           id: session.user.id,
           name: session.user.name,
           email: session.user.email,
-          role: session.user.role.name,
+          role: session.user.role.code,
           is_verified: session.user.is_verified,
           token: accessToken,
           session_token: sessionToken,

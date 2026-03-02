@@ -63,8 +63,9 @@ export class OrdersService {
     currentUserId?: string,
   ): Promise<OrderResponse> {
     try {
-      const { items, notes, order_id, branch_id, user_id, customer_id } =
+      const { notes, order_id, branch_id, user_id, customer_id } =
         createOrderDto;
+      const items = createOrderDto.items || [];
       const resolvedUserId = user_id || currentUserId;
       // Step 1: Normalize items so each product/variant has a single entry
       const aggregatedItems = new Map<
@@ -946,7 +947,25 @@ export class OrdersService {
     }
   }
 
-  remove(id: string) {
-    return `This action removes a #${id} order`;
+  async remove(id: string): Promise<void> {
+    try {
+      const order = await this.orderRepository.findOne({ where: { id } });
+      if (!order) {
+        throw new HttpException(
+          errOrderMessage.ERR_GET_ORDER,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+      await this.orderRepository.delete(id);
+    } catch (error) {
+      this.logger.error(errOrderMessage.ERR_DELETE_ORDER_ITEMS, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        errOrderMessage.ERR_DELETE_ORDER_ITEMS,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }

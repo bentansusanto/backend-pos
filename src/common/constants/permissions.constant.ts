@@ -1,12 +1,15 @@
 export enum Permission {
   // Dashboard
   DASHBOARD_VIEW = 'dashboard:view',
+  DASHBOARD_ANALYTICS = 'dashboard:analytics',
 
   // Products
   PRODUCTS_CREATE = 'products:create',
   PRODUCTS_READ = 'products:read',
   PRODUCTS_UPDATE = 'products:update',
   PRODUCTS_DELETE = 'products:delete',
+  PRODUCTS_IMPORT = 'products:import',
+  PRODUCTS_EXPORT = 'products:export',
 
   // Product Variants
   VARIANTS_CREATE = 'variants:create',
@@ -15,16 +18,12 @@ export enum Permission {
   VARIANTS_DELETE = 'variants:delete',
 
   // Product Stocks
-  STOCK_CREATE = 'stock:create',
-  // Standardizing these to match the pattern (although code uses snake_case currently, we should map them correctly)
-  // Current code uses: read_product_stock, update_product_stock, delete_product_stock
-  // We will keep them as is to avoid breaking existing DB permissions unless we migrate DB too.
-  // Ideally these should be stock:read, stock:update, etc.
-  STOCK_READ = 'read_product_stock',
-  STOCK_UPDATE = 'update_product_stock',
-  STOCK_DELETE = 'delete_product_stock',
+  PRODUCT_STOCKS_CREATE = 'product_stocks:create',
+  PRODUCT_STOCKS_READ = 'product_stocks:read',
+  PRODUCT_STOCKS_UPDATE = 'product_stocks:update',
+  PRODUCT_STOCKS_DELETE = 'product_stocks:delete',
 
-  // Stock Movements (New)
+  // Stock Movements
   STOCK_MOVEMENTS_CREATE = 'stock_movements:create',
   STOCK_MOVEMENTS_READ = 'stock_movements:read',
   STOCK_MOVEMENTS_UPDATE = 'stock_movements:update',
@@ -32,20 +31,22 @@ export enum Permission {
 
   // Categories
   CATEGORIES_CREATE = 'categories:create',
-  CATEGORIES_READ = 'categories:read', // Implied
+  CATEGORIES_READ = 'categories:read',
   CATEGORIES_UPDATE = 'categories:update',
   CATEGORIES_DELETE = 'categories:delete',
 
-  // Sales / Orders
-  SALES_CREATE = 'sales:create',
-  SALES_READ = 'sales:read',
-  SALES_UPDATE = 'sales:update', // Implied
-  SALES_REFUND = 'sales:refund',
+  // Orders (formerly Sales)
+  ORDERS_CREATE = 'orders:create',
+  ORDERS_READ = 'orders:read',
+  ORDERS_UPDATE = 'orders:update',
+  ORDERS_DELETE = 'orders:delete',
 
   // Payments
   PAYMENTS_CREATE = 'payments:create',
   PAYMENTS_READ = 'payments:read',
   PAYMENTS_UPDATE = 'payments:update',
+  PAYMENTS_DELETE = 'payments:delete',
+  PAYMENTS_VERIFY = 'payments:verifyPayment',
 
   // Customers
   CUSTOMERS_CREATE = 'customers:create',
@@ -64,9 +65,23 @@ export enum Permission {
   USERS_READ = 'users:read',
   USERS_UPDATE = 'users:update',
   USERS_DELETE = 'users:delete',
+  USERS_ASSIGN_ROLES = 'users:assign_roles',
 
   // Roles
+  ROLES_CREATE = 'roles:create',
   ROLES_READ = 'roles:read',
+  ROLES_UPDATE = 'roles:update',
+  ROLES_DELETE = 'roles:delete',
+  ROLES_ASSIGN_PERMISSIONS = 'roles:assign_permissions',
+
+  // Permissions
+  PERMISSIONS_CREATE = 'permissions:create',
+  PERMISSIONS_READ = 'permissions:read',
+  PERMISSIONS_UPDATE = 'permissions:update',
+  PERMISSIONS_DELETE = 'permissions:delete',
+
+  // Role Permissions
+  ROLE_PERMISSIONS_ASSIGN = 'role_permissions:assign_permissions',
 
   // Profiles
   PROFILES_CREATE = 'profiles:create',
@@ -76,4 +91,14 @@ export enum Permission {
   // AI Insight
   AI_INSIGHT_GENERATE = 'ai_insight:generate',
   AI_INSIGHT_READ = 'ai_insight:read',
+
+  // Reports
+  REPORTS_SALES = 'reports:sales',
+  REPORTS_INVENTORY = 'reports:inventory',
+  REPORTS_FINANCIAL = 'reports:financial',
+  REPORTS_EXPORT = 'reports:export',
+
+  // Settings
+  SETTINGS_READ = 'settings:read',
+  SETTINGS_UPDATE = 'settings:update',
 }

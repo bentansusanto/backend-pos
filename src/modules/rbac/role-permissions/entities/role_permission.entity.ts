@@ -19,7 +19,8 @@ export class RolePermission {
   @BeforeInsert()
   generateId() {
     if (!this.id) {
-      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
+      const unique = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+      this.id = new Hashids(process.env.ID_SECRET, 10).encode(unique);
     }
   }
 

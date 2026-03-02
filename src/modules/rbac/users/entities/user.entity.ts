@@ -59,7 +59,7 @@ export class User {
   })
   sessions: any[];
 
-  @Column({ default: true })
+  @Column({ default: false })
   isActive: boolean;
 
   @OneToOne(() => Profile, (profile) => profile.user)
@@ -83,6 +83,6 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @DeleteDateColumn({nullable:true})
+  @DeleteDateColumn({ nullable: true })
   deletedAt: Date;
 }

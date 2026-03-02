@@ -13,19 +13,15 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
+import { WebResponse } from 'src/types/response/index.type';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 import { ProductsService } from './products.service';
-
-import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Roles } from 'src/common/decorator/roles.decorator';
-import { WebResponse } from 'src/types/response/index.type';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  @Roles('admin', 'owner')
-  @Permissions('products:create')
   @Post('create')
   @UseInterceptors(
     FileFieldsInterceptor([
@@ -54,10 +50,13 @@ export class ProductsController {
   }
 
   // get all products
-  @Permissions('products:read')
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
-  async findAll(@Query('branch_id') branchId?: string): Promise<WebResponse> {
+  async findAll(
+    @Query('branch_id') queryBranchId?: string,
+    @CurrentBranchId() headerBranchId?: string,
+  ): Promise<WebResponse> {
+    const branchId = queryBranchId || headerBranchId;
     const result = await this.productsService.findAll(branchId);
     return {
       message: result.message,
@@ -66,13 +65,14 @@ export class ProductsController {
   }
 
   // get product by id
-  @Permissions('products:read')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(
     @Param('id') id: string,
-    @Query('branch_id') branchId?: string,
+    @Query('branch_id') queryBranchId?: string,
+    @CurrentBranchId() headerBranchId?: string,
   ): Promise<WebResponse> {
+    const branchId = queryBranchId || headerBranchId;
     const result = await this.productsService.findOne(id, branchId);
     return {
       message: result.message,
@@ -81,8 +81,6 @@ export class ProductsController {
   }
 
   // update product by id
-  @Roles('admin', 'owner')
-  @Permissions('products:update')
   @Put('update/:id')
   @UseInterceptors(
     FileFieldsInterceptor([
@@ -112,8 +110,6 @@ export class ProductsController {
   }
 
   // delete product by id
-  @Roles('admin', 'owner')
-  @Permissions('products:delete')
   @Delete('delete/:id')
   async remove(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productsService.remove(id);

@@ -119,7 +119,7 @@ export class PermissionsService {
   }
 
   // find one permissions
-  async findOne(id: string):Promise<PermissionResponse> {
+  async findOne(id: string): Promise<PermissionResponse> {
     try {
       // find one permission
       const permission = await this.permissionRepository.findOne({
@@ -171,7 +171,10 @@ export class PermissionsService {
   }
 
   // update permission
-  async update(id: string, updatePermissionDto: UpdatePermissionDto):Promise<PermissionResponse> {
+  async update(
+    id: string,
+    updatePermissionDto: UpdatePermissionDto,
+  ): Promise<PermissionResponse> {
     try {
       // find one permission
       const permission = await this.findOne(id);
@@ -202,7 +205,7 @@ export class PermissionsService {
   }
 
   // delete permission
-  async remove(id: string):Promise<PermissionResponse> {
+  async remove(id: string): Promise<PermissionResponse> {
     try {
       // find one permission
       const permission = await this.findOne(id);

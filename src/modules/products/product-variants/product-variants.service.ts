@@ -27,21 +27,21 @@ export class ProductVariantsService {
   // Helper function to generate sku like SKU-namesonly 3 characters-4digitrandomnumber
   // example: SKU-APP-1234
   private generateSku(
-    slug: string,
-    productId: string,
-    nameVariant: string,
-    color?: string,
-    weight?: number,
+    _slug: string,
+    _productId: string,
+    _nameVariant: string,
+    _color?: string,
+    _weight?: number,
   ): string {
     const norm = (s: string) =>
       s ? s.replace(/[^a-z0-9]/gi, '').toUpperCase() : '';
-    const prod = norm(slug).slice(0, 8);
-    const varc = norm(nameVariant).slice(0, 3);
-    const col = norm(color).slice(0, 3);
-    const wcode = Math.round(weight || 0)
+    const prod = norm(_slug).slice(0, 8);
+    const varc = norm(_nameVariant).slice(0, 3);
+    const col = norm(_color).slice(0, 3);
+    const wcode = Math.round(_weight || 0)
       .toString()
       .padStart(3, '0');
-    const seed = `${productId}${color || ''}${weight || 0}`;
+    const seed = `${_productId}${_color || ''}${_weight || 0}`;
     let h = 0;
     for (let i = 0; i < seed.length; i++) {
       h = (h * 31 + seed.charCodeAt(i)) >>> 0;

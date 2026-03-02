@@ -51,7 +51,9 @@ describe('SalesReportsController', () => {
 
   describe('getWeeklyReport', () => {
     it('should return weekly report', async () => {
-      mockSalesReportsService.getWeeklySalesReport.mockResolvedValue(mockReport);
+      mockSalesReportsService.getWeeklySalesReport.mockResolvedValue(
+        mockReport,
+      );
       const result = await controller.getWeeklyReport('branch-id');
       expect(result).toEqual(mockReport);
       expect(service.getWeeklySalesReport).toHaveBeenCalledWith('branch-id');
@@ -60,7 +62,9 @@ describe('SalesReportsController', () => {
 
   describe('getMonthlyReport', () => {
     it('should return monthly report', async () => {
-      mockSalesReportsService.getMonthlySalesReport.mockResolvedValue(mockReport);
+      mockSalesReportsService.getMonthlySalesReport.mockResolvedValue(
+        mockReport,
+      );
       const result = await controller.getMonthlyReport('branch-id');
       expect(result).toEqual(mockReport);
       expect(service.getMonthlySalesReport).toHaveBeenCalledWith('branch-id');
@@ -69,7 +73,9 @@ describe('SalesReportsController', () => {
 
   describe('getYearlyReport', () => {
     it('should return yearly report', async () => {
-      mockSalesReportsService.getYearlySalesReport.mockResolvedValue(mockReport);
+      mockSalesReportsService.getYearlySalesReport.mockResolvedValue(
+        mockReport,
+      );
       const result = await controller.getYearlyReport('branch-id');
       expect(result).toEqual(mockReport);
       expect(service.getYearlySalesReport).toHaveBeenCalledWith('branch-id');

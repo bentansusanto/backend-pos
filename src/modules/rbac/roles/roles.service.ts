@@ -109,6 +109,7 @@ export class RolesService {
         where: {
           id,
         },
+        relations: ['rolePermissions', 'rolePermissions.permission'],
       });
       if (!role) {
         this.logger.warn(
@@ -121,6 +122,14 @@ export class RolesService {
         );
       }
       this.logger.debug(successRoleMessage.SUCCESS_FIND_ROLE);
+
+      const permissions =
+        role.rolePermissions?.map((rp) => ({
+          id: rp.permission.id,
+          action: rp.permission.action,
+          description: rp.permission.description,
+        })) || [];
+
       return {
         message: successRoleMessage.SUCCESS_FIND_ROLE,
         data: {
@@ -131,6 +140,7 @@ export class RolesService {
           self_registered: role.self_registered,
           createdAt: role.createdAt,
           updatedAt: role.updatedAt,
+          permissions: permissions,
         },
       };
     } catch (error) {
