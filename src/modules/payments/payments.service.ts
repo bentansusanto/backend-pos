@@ -11,7 +11,7 @@ import { OrdersService } from '../orders/orders.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { SalesReportsService } from '../sales-reports/sales-reports.service';
 import {
-  referenceType,
+  ReferenceType,
   StockMovement,
 } from '../stock-movements/entities/stock-movement.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -118,7 +118,7 @@ export class PaymentsService {
           // Load order and ensure it is still pending
           const order = await orderRepo.findOne({
             where: { id: payment.orderId },
-            relations: ['items', 'items.product', 'items.variant', 'branch'],
+            relations: ['items', 'items.variant', 'branch'],
           });
           if (!order) {
             throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
@@ -170,83 +170,12 @@ export class PaymentsService {
                 const movement = movementRepo.create({
                   productVariant: { id: item.variant.id },
                   branch: { id: branchId },
-                  referenceType: referenceType.SALE,
+                  referenceType: ReferenceType.SALE,
                   qty: quantity,
                   referenceId: order.id,
                 });
                 await movementRepo.save(movement);
               }
-              continue;
-            }
-
-            if (item.product?.id) {
-              // Handle product stock updates
-              const productStock = await stockRepo.findOne({
-                where: {
-                  product: { id: item.product.id },
-                  ...(branchId ? { branch: { id: branchId } } : {}),
-                },
-                relations: ['product', 'branch'],
-              });
-              if (!productStock) {
-                const variantStocks = await stockRepo.find({
-                  where: {
-                    productVariant: { product: { id: item.product.id } },
-                    ...(branchId ? { branch: { id: branchId } } : {}),
-                  },
-                  relations: [
-                    'productVariant',
-                    'branch',
-                    'productVariant.product',
-                  ],
-                });
-                if (!variantStocks.length) {
-                  throw new HttpException(
-                    'Product stock not found',
-                    HttpStatus.NOT_FOUND,
-                  );
-                }
-                let remaining = quantity;
-                for (const variantStock of variantStocks) {
-                  if (remaining <= 0) break;
-                  const available = Number(variantStock.stock ?? 0);
-                  if (!Number.isFinite(available) || available <= 0) {
-                    continue;
-                  }
-                  const deduction = Math.min(available, remaining);
-                  variantStock.stock = available - deduction;
-                  variantStock.updatedAt = new Date();
-                  await stockRepo.save(variantStock);
-                  if (branchId && variantStock.productVariant?.id) {
-                    const movement = movementRepo.create({
-                      productVariant: { id: variantStock.productVariant.id },
-                      branch: { id: branchId },
-                      referenceType: referenceType.SALE,
-                      qty: deduction,
-                      referenceId: order.id,
-                    });
-                    await movementRepo.save(movement);
-                  }
-                  remaining -= deduction;
-                }
-                if (remaining > 0) {
-                  throw new HttpException(
-                    'Product stock is insufficient',
-                    HttpStatus.BAD_REQUEST,
-                  );
-                }
-                continue;
-              }
-              if (productStock.stock < quantity) {
-                throw new HttpException(
-                  'Product stock is insufficient',
-                  HttpStatus.BAD_REQUEST,
-                );
-              }
-              // Update stock quantity
-              productStock.stock = productStock.stock - quantity;
-              productStock.updatedAt = new Date();
-              await stockRepo.save(productStock);
             }
           }
 

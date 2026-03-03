@@ -12,6 +12,8 @@ import { successDiscountMessage } from 'src/libs/success/success_discount';
 import { DiscountResponse } from 'src/types/response/discount.type';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
+import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
+import { UserLogsService } from '../user_logs/user_logs.service';
 import {
   CreateDiscountDto,
   UpdateDiscountDto,
@@ -24,10 +26,12 @@ export class DiscountsService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(Discount)
     private readonly discountRepository: Repository<Discount>,
+    private readonly userLogsService: UserLogsService,
   ) {}
   // create discount
   async create(
     createDiscountDto: CreateDiscountDto,
+    userId?: string,
   ): Promise<DiscountResponse> {
     try {
       // find discount by name
@@ -48,6 +52,15 @@ export class DiscountsService {
         ...createDiscountDto,
       });
       await this.discountRepository.save(discount);
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.CREATE,
+        entityType: EntityType.SALE,
+        entityId: discount.id,
+        description: `Discount "${discount.name}" created (${discount.type} - ${discount.value})`,
+        metadata: { type: discount.type, value: discount.value },
+      });
       return {
         message: successDiscountMessage.SUCCESS_DISCOUNT_CREATED,
       };
@@ -149,12 +162,28 @@ export class DiscountsService {
   }
 
   // update discount
-  async update(id: string, updateDiscountDto: UpdateDiscountDto):Promise<DiscountResponse> {
+  async update(
+    id: string,
+    updateDiscountDto: UpdateDiscountDto,
+    userId?: string,
+  ): Promise<DiscountResponse> {
     try {
       // find discount by id
       const findDiscount = await this.findOne(id);
       // update discount
       await this.discountRepository.update(id, updateDiscountDto);
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.UPDATE,
+        entityType: EntityType.SALE,
+        entityId: id,
+        description: `Discount "${findDiscount.data?.name}" updated`,
+        metadata: {
+          name: updateDiscountDto.name,
+          value: updateDiscountDto.value,
+        },
+      });
       return {
         message: successDiscountMessage.SUCCESS_DISCOUNT_UPDATED,
         data: {
@@ -183,12 +212,20 @@ export class DiscountsService {
   }
 
   // delete discount
-  async remove(id: string): Promise<DiscountResponse> {
+  async remove(id: string, userId?: string): Promise<DiscountResponse> {
     try {
       // find discount by id
       const findDiscount = await this.findOne(id);
       // delete discount
       await this.discountRepository.softDelete(id);
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.DELETE,
+        entityType: EntityType.SALE,
+        entityId: id,
+        description: `Discount "${findDiscount.data?.name}" deleted`,
+      });
       return {
         message: successDiscountMessage.SUCCESS_DISCOUNT_DELETED,
       };

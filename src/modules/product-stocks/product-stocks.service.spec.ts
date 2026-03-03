@@ -8,7 +8,7 @@ import { errProductStockMessage } from 'src/libs/errors/error_product_stock';
 import { successProductStockMessage } from 'src/libs/success/success_product_stock';
 import { BranchesService } from '../branches/branches.service';
 import { ProductVariantsService } from '../products/product-variants/product-variants.service';
-import { referenceType } from '../stock-movements/entities/stock-movement.entity';
+import { ReferenceType } from '../stock-movements/entities/stock-movement.entity';
 import { StockMovementsService } from '../stock-movements/stock-movements.service';
 import { ProductStock } from './entities/product-stock.entity';
 import { ProductStocksService } from './product-stocks.service';
@@ -142,7 +142,7 @@ describe('ProductStocksService', () => {
         productId: 'product-id',
         variantId: 'variant-id',
         branchId: 'branch-id',
-        referenceType: referenceType.ADJUST,
+        referenceType: ReferenceType.ADJUST,
         qty: 10,
         referenceId: mockProductStock.id,
       });
@@ -264,7 +264,7 @@ describe('ProductStocksService', () => {
         productId: mockProductStock.product.id,
         variantId: mockProductStock.productVariant.id,
         branchId: mockProductStock.branch.id,
-        referenceType: referenceType.ADJUST,
+        referenceType: ReferenceType.ADJUST,
         qty: 10, // 20 - 10
         referenceId: mockProductStock.id,
       });

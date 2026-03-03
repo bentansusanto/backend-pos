@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CloudinaryModule } from 'src/common/cloudinary/cloudinary.module';
+import { UserLogsModule } from '../user_logs/user_logs.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductVariant } from './entities/product-variant.entity';
 import { Product } from './entities/product.entity';
@@ -16,6 +17,7 @@ import { ProductsService } from './products.service';
     CategoriesModule,
     forwardRef(() => ProductVariantsModule),
     CloudinaryModule,
+    UserLogsModule,
   ],
   exports: [ProductsService],
 })

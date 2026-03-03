@@ -15,6 +15,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Product } from './product.entity';
+import { CostLayer } from 'src/modules/cost_layers/entities/cost_layer.entity';
+import { PurchaseReceivingItem } from 'src/modules/purchase_receivings/entities/purchase_receiving_item.entity';
 
 @Entity('product_variants')
 export class ProductVariant {
@@ -61,6 +63,12 @@ export class ProductVariant {
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.variant)
   orderItems: OrderItem[];
+
+  @OneToMany(() => CostLayer, (costLayer) => costLayer.productVariant)
+  costLayers: CostLayer[];
+
+  @OneToMany(() => PurchaseReceivingItem, (purchaseReceivingItem) => purchaseReceivingItem.productVariant)
+  purchaseReceivingItems: PurchaseReceivingItem[];
 
   @CreateDateColumn()
   createdAt: Date;

@@ -13,7 +13,11 @@ import { AiInsight } from 'src/modules/ai-insight/entities/ai-insight.entity';
 import { AiJob } from 'src/modules/ai-jobs/entities/ai-job.entity';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { UserBranch } from 'src/modules/branches/entities/user-branch.entity';
+import { CostLayer } from 'src/modules/cost_layers/entities/cost_layer.entity';
 import { Customer } from 'src/modules/customers/entities/customer.entity';
+import { Discount } from 'src/modules/discounts/entities/discount.entity';
+import { ExpenseCategory } from 'src/modules/expenses/entities/expense-categories.entity';
+import { Expense } from 'src/modules/expenses/entities/expense.entity';
 import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
 import { Order } from 'src/modules/orders/entities/order.entity';
 import { Payment } from 'src/modules/payments/entities/payment.entity';
@@ -21,6 +25,10 @@ import { ProductStock } from 'src/modules/product-stocks/entities/product-stock.
 import { Category } from 'src/modules/products/entities/category.entities';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
+import { PurchaseReceiving } from 'src/modules/purchase_receivings/entities/purchase_receiving.entity';
+import { PurchaseReceivingItem } from 'src/modules/purchase_receivings/entities/purchase_receiving_item.entity';
+import { PurchaseItems } from 'src/modules/purchases/entities/purchase-items.entity';
+import { Purchase } from 'src/modules/purchases/entities/purchase.entity';
 import { Permission } from 'src/modules/rbac/permissions/entities/permission.entity';
 import { Profile } from 'src/modules/rbac/profiles/entities/profile.entity';
 import { RolePermission } from 'src/modules/rbac/role-permissions/entities/role_permission.entity';
@@ -29,13 +37,15 @@ import { Session } from 'src/modules/rbac/sessions/entities/session.entity';
 import { SessionsModule } from 'src/modules/rbac/sessions/sessions.module';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
 import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
+import { Supplier } from 'src/modules/supplier/entities/supplier.entity';
+import { Tax } from 'src/modules/tax/entities/tax.entity';
 import * as winston from 'winston';
 import { ErrorsService } from './errors/errors.service';
 import { JwtAuthGuard, PermissionsGuard, RolesGuard } from './guards';
 import { UserContextMiddleware } from './middlewares/user-context.middleware';
 import { RbacService } from './services/rbac.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { Discount } from 'src/modules/discounts/entities/discount.entity';
+import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
 
 @Module({
   imports: [
@@ -100,7 +110,17 @@ import { Discount } from 'src/modules/discounts/entities/discount.entity';
       Payment,
       AiJob,
       AiInsight,
-      Discount
+      Discount,
+      Purchase,
+      Supplier,
+      PurchaseItems,
+      Tax,
+      ExpenseCategory,
+      Expense,
+      CostLayer,
+      PurchaseReceiving,
+      PurchaseReceivingItem,
+      UserLog
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

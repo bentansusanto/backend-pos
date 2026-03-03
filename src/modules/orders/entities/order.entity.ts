@@ -1,11 +1,14 @@
 import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { Customer } from 'src/modules/customers/entities/customer.entity';
+import { Discount } from 'src/modules/discounts/entities/discount.entity';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
+import { Tax } from 'src/modules/tax/entities/tax.entity';
 import {
   BeforeInsert,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -93,6 +96,14 @@ export class Order {
   @Column({ default: OrderStatus.PENDING })
   status: OrderStatus;
 
+  @ManyToOne(() => Tax, (tax) => tax.orders, { nullable: true })
+  @JoinColumn({ name: 'tax_id' })
+  tax?: Tax;
+
+  @ManyToOne(() => Discount, (discount) => discount.orders, { nullable: true })
+  @JoinColumn({ name: 'discount_id' })
+  discount?: Discount;
+
   @Column({ nullable: true })
   notes: string;
 
@@ -101,4 +112,7 @@ export class Order {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deletedAt?: Date;
 }

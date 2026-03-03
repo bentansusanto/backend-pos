@@ -10,6 +10,8 @@ import { successProductMessage } from 'src/libs/success/success_product';
 import { ProductResponse } from 'src/types/response/product.type';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
+import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
+import { UserLogsService } from '../user_logs/user_logs.service';
 import { CategoriesService } from './categories/categories.service';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 
@@ -26,6 +28,7 @@ export class ProductsService {
     private readonly productVariantRepository: Repository<ProductVariant>,
     private readonly categoriesService: CategoriesService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   // Helper function to generate slug
@@ -71,6 +74,7 @@ export class ProductsService {
     createProductDto: CreateProductDto,
     thumbnailFile?: MulterFile,
     imageFiles?: MulterFile[],
+    userId?: string,
   ): Promise<ProductResponse> {
     try {
       // check category is exist
@@ -104,6 +108,20 @@ export class ProductsService {
         images: imageUrls,
       });
       await this.productRepository.save(newProduct);
+
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.CREATE,
+        entityType: EntityType.PRODUCT,
+        entityId: newProduct.id,
+        description: `Product "${newProduct.name_product}" created (SKU: ${newProduct.sku})`,
+        metadata: {
+          sku: newProduct.sku,
+          price: newProduct.price,
+          category_id: createProductDto.category_id,
+        },
+      });
 
       this.logger.debug(
         `${successProductMessage.SUCCESS_CREATE_PRODUCT} with id: ${newProduct.id}`,
@@ -152,8 +170,6 @@ export class ProductsService {
           'productVariants',
           'productVariants.productStocks',
           'productVariants.productStocks.branch',
-          'productStocks', // Add this relation to fetch direct product stocks
-          'productStocks.branch', // Add this relation to fetch branch info for direct stocks
         ],
       });
       if (!products || products.length === 0) {
@@ -176,26 +192,13 @@ export class ProductsService {
               (variant) => variant.productStocks || [],
             ) || [];
 
-          let directStocks = product.productStocks || [];
-
           if (branchId) {
             stocks = stocks.filter(
               (stock) => stock.branch && stock.branch.id === branchId,
             );
-            directStocks = directStocks.filter(
-              (stock) => stock.branch && stock.branch.id === branchId,
-            );
-          }
-
-          if (directStocks.length) {
-            stocks = [...stocks, ...directStocks];
           }
 
           const totalStock = stocks.reduce((acc, curr) => acc + curr.stock, 0);
-          const totalDirectStock = directStocks.reduce(
-            (acc, curr) => acc + curr.stock,
-            0,
-          );
 
           return {
             id: product.id,
@@ -209,7 +212,6 @@ export class ProductsService {
             thumbnail: product.thumbnail,
             images: Array.isArray(product.images) ? product.images : [],
             stock: totalStock,
-            product_stock: totalDirectStock,
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
           };
@@ -238,8 +240,6 @@ export class ProductsService {
           'productVariants',
           'productVariants.productStocks',
           'productVariants.productStocks.branch',
-          'productStocks', // Add relation for direct product stocks
-          'productStocks.branch',
         ],
       });
       if (!product) {
@@ -285,26 +285,7 @@ export class ProductsService {
           : [];
 
       // Calculate variant stocks
-      const totalVariantStock = variants.reduce(
-        (acc, curr) => acc + curr.stock,
-        0,
-      );
-
-      // Calculate direct product stocks
-      let directStocks = product.productStocks || [];
-      if (branchId) {
-        directStocks = directStocks.filter(
-          (stock) => stock.branch && stock.branch.id === branchId,
-        );
-      }
-      const totalDirectStock = directStocks.reduce(
-        (acc, curr) => acc + curr.stock,
-        0,
-      );
-
-      // Total stock is sum of variant stocks and direct stocks
-      // Note: A product usually has EITHER variants OR direct stock, but this handles both safely
-      const totalStock = totalVariantStock + totalDirectStock;
+      const totalStock = variants.reduce((acc, curr) => acc + curr.stock, 0);
 
       return {
         message: successProductMessage.SUCCESS_FIND_PRODUCT,
@@ -320,7 +301,6 @@ export class ProductsService {
           thumbnail: product.thumbnail,
           images: Array.isArray(product.images) ? product.images : [],
           stock: totalStock,
-          product_stock: totalDirectStock,
           variants: variants,
           createdAt: product.createdAt,
           updatedAt: product.updatedAt,
@@ -341,6 +321,7 @@ export class ProductsService {
     updateProductDto: UpdateProductDto,
     thumbnailFile?: MulterFile,
     imageFiles?: MulterFile[],
+    userId?: string,
   ): Promise<ProductResponse> {
     try {
       // find product and category
@@ -393,6 +374,19 @@ export class ProductsService {
         images: imageUrls,
       });
 
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.UPDATE,
+        entityType: EntityType.PRODUCT,
+        entityId: id,
+        description: `Product "${updateProductDto.name_product}" updated`,
+        metadata: {
+          price: updateProductDto.price,
+          category_id: updateProductDto.category_id,
+        },
+      });
+
       this.logger.debug(
         `${successProductMessage.SUCCESS_UPDATE_PRODUCT} with id: ${findProduct.id}`,
       );
@@ -426,7 +420,7 @@ export class ProductsService {
   }
 
   // delete product
-  async remove(id: string): Promise<ProductResponse> {
+  async remove(id: string, userId?: string): Promise<ProductResponse> {
     try {
       // check product is exist
       const product = await this.productRepository.findOne({
@@ -448,6 +442,15 @@ export class ProductsService {
 
       // delete product
       await this.productRepository.softDelete(id);
+
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.DELETE,
+        entityType: EntityType.PRODUCT,
+        entityId: id,
+        description: `Product ${id} deleted`,
+      });
 
       this.logger.debug(
         `${successProductMessage.SUCCESS_DELETE_PRODUCT} with id: ${product.id}`,

@@ -15,6 +15,7 @@ import {
 import { Profile } from '../../profiles/entities/profile.entity';
 import { Role } from '../../roles/entities/role.entity';
 import { Order } from 'src/modules/orders/entities/order.entity';
+import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
 
 @Entity('users')
 export class User {
@@ -76,6 +77,9 @@ export class User {
 
   @OneToMany(() => Order, (order) => order.user)
   orders: Order[];
+
+  @OneToMany(() => UserLog, (userLog) => userLog.user)
+  userLogs: UserLog[];
 
   @CreateDateColumn()
   createdAt: Date;

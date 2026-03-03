@@ -4,43 +4,53 @@ import {
   Delete,
   Get,
   Param,
-  Patch,
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
+import { CurrentUser } from 'src/common/decorator/current-user.decorator';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { User } from 'src/modules/rbac/users/entities/user.entity';
+import { WebResponse } from 'src/types/response/index.type';
 import { DiscountsService } from './discounts.service';
 import {
   CreateDiscountDto,
   UpdateDiscountDto,
 } from './dto/create-discount.dto';
-import { WebResponse } from 'src/types/response/index.type';
-import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 
+@UseGuards(JwtAuthGuard)
 @Controller('discounts')
 export class DiscountsController {
   constructor(private readonly discountsService: DiscountsService) {}
 
   @Post('create')
-  async create(@Body() createDiscountDto: CreateDiscountDto):Promise<WebResponse> {
-    const result = await this.discountsService.create(createDiscountDto);
-    return{
+  async create(
+    @Body() createDiscountDto: CreateDiscountDto,
+    @CurrentUser() currentUser: User,
+  ): Promise<WebResponse> {
+    const result = await this.discountsService.create(
+      createDiscountDto,
+      currentUser?.id,
+    );
+    return {
       message: result.message,
       data: result.data,
-    }
+    };
   }
 
   @Get('find-all')
   async findAll(
     @Query('branch_id') queryBranchId?: string,
     @CurrentBranchId() headerBranchId?: string,
-  ):Promise<WebResponse> {
+  ): Promise<WebResponse> {
     const branchId = queryBranchId || headerBranchId;
     const result = await this.discountsService.findAll(branchId);
-    return{
+    return {
       message: result.message,
       data: result.datas,
-    }
+    };
   }
 
   @Get(':id')
@@ -48,32 +58,40 @@ export class DiscountsController {
     @Param('id') id: string,
     @Query('branch_id') queryBranchId?: string,
     @CurrentBranchId() headerBranchId?: string,
-  ):Promise<WebResponse> {
+  ): Promise<WebResponse> {
     const branchId = queryBranchId || headerBranchId;
     const result = await this.discountsService.findOne(id, branchId);
-    return{
+    return {
       message: result.message,
       data: result.data,
-    }
+    };
   }
 
   @Put('update/:id')
   async update(
     @Param('id') id: string,
     @Body() updateDiscountDto: UpdateDiscountDto,
-  ):Promise<WebResponse> {
-    const result = await this.discountsService.update(id, updateDiscountDto);
-    return{
+    @CurrentUser() currentUser: User,
+  ): Promise<WebResponse> {
+    const result = await this.discountsService.update(
+      id,
+      updateDiscountDto,
+      currentUser?.id,
+    );
+    return {
       message: result.message,
       data: result.data,
-    }
+    };
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string):Promise<WebResponse> {
-    const result = await this.discountsService.remove(id);
-    return{
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<WebResponse> {
+    const result = await this.discountsService.remove(id, currentUser?.id);
+    return {
       message: result.message,
-    }
+    };
   }
 }

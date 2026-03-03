@@ -10,6 +10,11 @@ import { successProductMessage } from 'src/libs/success/success_product';
 import { ProductVariantResponse } from 'src/types/response/product.type';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
+import {
+  ActionType,
+  EntityType,
+} from '../../user_logs/entities/user_log.entity';
+import { UserLogsService } from '../../user_logs/user_logs.service';
 import { CreateProductVariantDto } from '../dto/create-product-variant.dto';
 import { ProductVariant } from '../entities/product-variant.entity';
 import { ProductsService } from '../products.service';
@@ -22,6 +27,7 @@ export class ProductVariantsService {
     private readonly productVariantRepository: Repository<ProductVariant>,
     private readonly productsService: ProductsService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   // Helper function to generate sku like SKU-namesonly 3 characters-4digitrandomnumber
@@ -69,6 +75,7 @@ export class ProductVariantsService {
   async create(
     createProductVariantDto: CreateProductVariantDto,
     thumbnailFile?: MulterFile,
+    userId?: string,
   ): Promise<ProductVariantResponse> {
     try {
       // check product is exist
@@ -121,6 +128,19 @@ export class ProductVariantsService {
 
       await this.productVariantRepository.save(newProductVariant);
 
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.CREATE,
+        entityType: EntityType.PRODUCT_VARIANT,
+        entityId: newProductVariant.id,
+        description: `Variant "${newProductVariant.name_variant}" created for product ${product.data.id}`,
+        metadata: {
+          sku: newProductVariant.sku,
+          price: newProductVariant.price,
+        },
+      });
+
       return {
         message: successProductMessage.SUCCESS_CREATE_PRODUCT_VARIANT,
         data: {
@@ -160,6 +180,7 @@ export class ProductVariantsService {
     id: string,
     updateProductVariantDto: CreateProductVariantDto,
     thumbnailFile?: MulterFile,
+    userId?: string,
   ): Promise<ProductVariantResponse> {
     try {
       // check product variant is exist
@@ -214,6 +235,17 @@ export class ProductVariantsService {
         thumbnail: thumbnailUrl,
         sku,
       });
+
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.UPDATE,
+        entityType: EntityType.PRODUCT_VARIANT,
+        entityId: id,
+        description: `Variant "${updateProductVariantDto.name_variant}" updated`,
+        metadata: { sku, price: updateProductVariantDto.price },
+      });
+
       return {
         message: successProductMessage.SUCCESS_UPDATE_PRODUCT_VARIANT,
         data: {
@@ -247,7 +279,7 @@ export class ProductVariantsService {
   }
 
   // delete product variant
-  async delete(id: string): Promise<ProductVariantResponse> {
+  async delete(id: string, userId?: string): Promise<ProductVariantResponse> {
     try {
       // check product variant is exist
       const productVariant = await this.productVariantRepository.findOne({
@@ -263,6 +295,16 @@ export class ProductVariantsService {
 
       // delete product variant
       await this.productVariantRepository.softDelete(id);
+
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.DELETE,
+        entityType: EntityType.PRODUCT_VARIANT,
+        entityId: id,
+        description: `Variant ${id} deleted`,
+      });
+
       return {
         message: successProductMessage.SUCCESS_DELETE_PRODUCT_VARIANT,
       };

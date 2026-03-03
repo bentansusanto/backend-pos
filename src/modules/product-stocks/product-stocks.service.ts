@@ -10,8 +10,10 @@ import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { BranchesService } from '../branches/branches.service';
 import { ProductVariantsService } from '../products/product-variants/product-variants.service';
-import { referenceType } from '../stock-movements/entities/stock-movement.entity';
+import { ReferenceType } from '../stock-movements/entities/stock-movement.entity';
 import { StockMovementsService } from '../stock-movements/stock-movements.service';
+import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
+import { UserLogsService } from '../user_logs/user_logs.service';
 import {
   CreateProductStockDto,
   UpdateProductStockDto,
@@ -27,11 +29,13 @@ export class ProductStocksService {
     private readonly productVariantService: ProductVariantsService,
     private readonly branchService: BranchesService,
     private readonly stockMovementsService: StockMovementsService,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   // create product stock
   async create(
     createProductStockDto: CreateProductStockDto,
+    userId?: string,
   ): Promise<ProductStockResponse> {
     try {
       // check branch exists
@@ -66,14 +70,11 @@ export class ProductStocksService {
         productId = productVariant.data.product_id;
       }
 
-      // create product stock
+      // create product stock (only variant-based now)
       const productStockData: any = {
         ...createProductStockDto,
         branch: {
           id: branch.data.id,
-        },
-        product: {
-          id: productId,
         },
       };
 
@@ -91,7 +92,7 @@ export class ProductStocksService {
         productId: productId,
         variantId: productVariant?.data?.id || null,
         branchId: createProductStockDto.branchId,
-        referenceType: referenceType.ADJUST,
+        referenceType: ReferenceType.ADJUST,
         qty: createProductStockDto.stock,
         referenceId: (productStock as any).id,
       });
@@ -100,11 +101,25 @@ export class ProductStocksService {
         successProductStockMessage.SUCCESS_CREATE_PRODUCT_STOCK,
         productStock,
       );
+
+      // fire-and-forget log
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.CREATE,
+        entityType: EntityType.STOCK_MOVEMENT,
+        entityId: (productStock as any).id,
+        description: `Stock created for variant ${productVariant?.data?.id ?? 'N/A'} at branch ${branch.data.id} (qty: ${createProductStockDto.stock})`,
+        metadata: {
+          variantId: productVariant?.data?.id,
+          branchId: branch.data.id,
+          stock: createProductStockDto.stock,
+        },
+      });
+
       return {
         message: successProductStockMessage.SUCCESS_CREATE_PRODUCT_STOCK,
         data: {
           id: (productStock as any).id,
-          productId: productId,
           variantId: productVariant?.data?.id || null,
           branchId: branch.data.id,
           stock: (productStock as any).stock,
@@ -133,7 +148,7 @@ export class ProductStocksService {
     try {
       const productStocks = await this.productStockRepository.find({
         where: branchId ? { branch: { id: branchId } } : undefined,
-        relations: ['branch', 'productVariant', 'product'],
+        relations: ['branch', 'productVariant'],
       });
 
       if (productStocks.length === 0) {
@@ -152,7 +167,7 @@ export class ProductStocksService {
         message: successProductStockMessage.SUCCESS_GET_PRODUCT_STOCKS,
         datas: productStocks.map((productStock) => ({
           id: productStock.id,
-          productId: productStock.product?.id,
+          productId: productStock.productVariant?.product?.id,
           variantId: productStock.productVariant.id,
           branchId: productStock.branch.id,
           stock: productStock.stock,
@@ -180,7 +195,7 @@ export class ProductStocksService {
         where: {
           id,
         },
-        relations: ['branch', 'productVariant', 'product'],
+        relations: ['branch', 'productVariant'],
       });
       if (!productStock) {
         this.logger.error(errProductStockMessage.ERR_GET_PRODUCT_STOCK);
@@ -197,7 +212,7 @@ export class ProductStocksService {
         message: successProductStockMessage.SUCCESS_GET_PRODUCT_STOCK,
         data: {
           id: productStock.id,
-          productId: productStock.product?.id,
+          productId: productStock.productVariant?.product?.id,
           variantId: productStock.productVariant.id,
           branchId: productStock.branch.id,
           stock: productStock.stock,
@@ -222,13 +237,14 @@ export class ProductStocksService {
   async update(
     id: string,
     updateProductStockDto: UpdateProductStockDto,
+    userId?: string,
   ): Promise<ProductStockResponse> {
     try {
       const productStock = await this.productStockRepository.findOne({
         where: {
           id,
         },
-        relations: ['branch', 'productVariant', 'product'],
+        relations: ['branch', 'productVariant'],
       });
       if (!productStock) {
         this.logger.error(errProductStockMessage.ERR_GET_PRODUCT_STOCK);
@@ -250,10 +266,10 @@ export class ProductStocksService {
       ) {
         const diff = updateProductStockDto.stock - productStock.stock;
         await this.stockMovementsService.create({
-          productId: productStock.product?.id,
+          productId: productStock.productVariant?.product?.id,
           variantId: productStock.productVariant?.id,
           branchId: productStock.branch?.id,
-          referenceType: referenceType.ADJUST,
+          referenceType: ReferenceType.ADJUST,
           qty: diff,
           referenceId: productStock.id,
         });
@@ -267,7 +283,7 @@ export class ProductStocksService {
         message: successProductStockMessage.SUCCESS_UPDATE_PRODUCT_STOCK,
         data: {
           id: productStock.id,
-          productId: productStock.product?.id,
+          productId: productStock.productVariant?.product?.id,
           variantId: productStock.productVariant.id,
           branchId: productStock.branch.id,
           stock: productStock.stock,
@@ -291,13 +307,13 @@ export class ProductStocksService {
   }
 
   // delete product stock
-  async remove(id: string): Promise<ProductStockResponse> {
+  async remove(id: string, userId?: string): Promise<ProductStockResponse> {
     try {
       const productStock = await this.productStockRepository.findOne({
         where: {
           id,
         },
-        relations: ['branch', 'productVariant', 'product'],
+        relations: ['branch', 'productVariant'],
       });
       if (!productStock) {
         this.logger.error(errProductStockMessage.ERR_GET_PRODUCT_STOCK);

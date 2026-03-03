@@ -10,7 +10,8 @@ import { Logger } from 'winston';
 import { Customer } from '../customers/entities/customer.entity';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
-import { Product } from '../products/entities/product.entity';
+import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
+import { UserLogsService } from '../user_logs/user_logs.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderItem } from './entities/order-item.entity';
@@ -24,33 +25,28 @@ export class OrdersService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(ProductVariant)
     private readonly productVariantRepository: Repository<ProductVariant>,
-    @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>,
     @InjectRepository(ProductStock)
     private readonly productStockRepository: Repository<ProductStock>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   private mapOrderItem(item: OrderItem, orderId: string) {
     const variantId = item.variant?.id ?? '';
-    // Priority: Variant Thumbnail -> Product Thumbnail (fallback) -> First Product Image (fallback)
-    const variantImage =
+    // Use variant thumbnail, fallback to variant's product thumbnail
+    const image =
       item.variant?.thumbnail ?? item.variant?.product?.thumbnail ?? '';
-    const productImage =
-      item.product?.thumbnail ?? item.product?.images?.[0] ?? '';
 
     return {
       id: item.id,
       order_id: orderId,
-      product_id: variantId ? '' : (item.product?.id ?? ''),
       variant_id: variantId,
-      product_name:
-        item.product?.name_product ?? item.variant?.product?.name_product ?? '',
+      product_name: item.variant?.product?.name_product ?? '',
       variant_name: item.variant?.name_variant ?? '',
-      image: variantId ? variantImage : productImage,
+      image,
       qty: item.quantity,
       price: item.price,
       subtotal: item.subtotal,
@@ -79,7 +75,7 @@ export class OrdersService {
       >();
 
       items.forEach((item) => {
-        // Validate quantity and require productId or variantId
+        // Validate quantity
         const quantity = Number(item.quantity);
         if (!Number.isFinite(quantity) || quantity <= 0) {
           throw new HttpException(
@@ -88,15 +84,14 @@ export class OrdersService {
           );
         }
         const variantId = item.variantId?.trim() || '';
-        const productId = item.productId?.trim() || '';
-        if (!variantId && !productId) {
+        if (!variantId) {
           throw new HttpException(
-            'Product ID or variant ID is required',
+            'Variant ID is required',
             HttpStatus.BAD_REQUEST,
           );
         }
-        // Merge same item so quantity is accumulated
-        const key = variantId ? `variant:${variantId}` : `product:${productId}`;
+        // Merge same variant so quantity is accumulated
+        const key = `variant:${variantId}`;
         const existing = aggregatedItems.get(key);
         if (existing) {
           aggregatedItems.set(key, {
@@ -108,8 +103,7 @@ export class OrdersService {
           aggregatedItems.set(key, {
             quantity,
             price: item.price,
-            variantId: variantId || undefined,
-            productId: productId || undefined,
+            variantId,
           });
         }
       });
@@ -117,22 +111,14 @@ export class OrdersService {
       const variantIds = Array.from(aggregatedItems.values())
         .map((item) => item.variantId)
         .filter((id): id is string => Boolean(id));
-      const productIds = Array.from(aggregatedItems.values())
-        .map((item) => item.productId)
-        .filter((id): id is string => Boolean(id));
 
-      // Step 2: Validate product/variant references against database
-      const [variants, products] = await Promise.all([
-        variantIds.length
-          ? this.productVariantRepository.find({
-              where: { id: In(variantIds) },
-              relations: ['product'],
-            })
-          : Promise.resolve([]),
-        productIds.length
-          ? this.productRepository.find({ where: { id: In(productIds) } })
-          : Promise.resolve([]),
-      ]);
+      // Step 2: Validate variant references against database
+      const variants = variantIds.length
+        ? await this.productVariantRepository.find({
+            where: { id: In(variantIds) },
+            relations: ['product'],
+          })
+        : [];
 
       if (variants.length !== variantIds.length) {
         throw new HttpException(
@@ -140,18 +126,12 @@ export class OrdersService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      if (products.length !== productIds.length) {
-        throw new HttpException('Product not found', HttpStatus.BAD_REQUEST);
-      }
 
       const variantMap = new Map(
         variants.map((variant) => [variant.id, variant]),
       );
-      const productMap = new Map(
-        products.map((product) => [product.id, product]),
-      );
 
-      // Step 3: Check product/variant stock in product_stocks, filter by branch if provided
+      // Step 3: Check variant stock in product_stocks, filter by branch if provided
       const stockWhere = [];
       if (variantIds.length) {
         stockWhere.push({
@@ -159,73 +139,32 @@ export class OrdersService {
           ...(branch_id ? { branch: { id: branch_id } } : {}),
         });
       }
-      if (productIds.length) {
-        stockWhere.push({
-          product: { id: In(productIds) },
-          ...(branch_id ? { branch: { id: branch_id } } : {}),
-        });
-      }
       const productStocksPromise = stockWhere.length
         ? this.productStockRepository.find({
             where: stockWhere,
-            relations: ['productVariant', 'product', 'branch'],
-          })
-        : Promise.resolve([]);
-      const variantStocksByProductPromise = productIds.length
-        ? this.productStockRepository.find({
-            where: [
-              {
-                productVariant: { product: { id: In(productIds) } },
-                ...(branch_id ? { branch: { id: branch_id } } : {}),
-              },
-            ],
-            relations: ['productVariant', 'productVariant.product', 'branch'],
+            relations: ['productVariant', 'branch'],
           })
         : Promise.resolve([]);
 
       const existingOrderPromise = order_id
         ? this.orderRepository.findOne({
             where: { id: order_id },
-            relations: [
-              'items',
-              'items.product',
-              'items.variant',
-              'branch',
-              'user',
-              'customer',
-            ],
+            relations: ['items', 'items.variant', 'branch', 'user', 'customer'],
           })
         : Promise.resolve(null);
 
-      const [productStocks, variantStocksByProduct, existingOrderResult] =
-        await Promise.all([
-          productStocksPromise,
-          variantStocksByProductPromise,
-          existingOrderPromise,
-        ]);
+      const [productStocks, existingOrderResult] = await Promise.all([
+        productStocksPromise,
+        existingOrderPromise,
+      ]);
 
       const variantStockMap = new Map(
         productStocks
           .filter((stock) => stock.productVariant?.id)
           .map((stock) => [stock.productVariant.id, stock]),
       );
-      const productStockMap = new Map(
-        productStocks
-          .filter((stock) => stock.product?.id)
-          .map((stock) => [stock.product.id, stock]),
-      );
-      const variantStockTotalsByProduct = new Map<string, number>();
-      variantStocksByProduct.forEach((stock) => {
-        const productId = stock.productVariant?.product?.id;
-        if (!productId) return;
-        const current = variantStockTotalsByProduct.get(productId) || 0;
-        variantStockTotalsByProduct.set(
-          productId,
-          current + (stock.stock || 0),
-        );
-      });
 
-      // Step 4: Ensure stock is sufficient for each requested item
+      // Step 4: Ensure stock is sufficient for each requested item (variant only)
       aggregatedItems.forEach((item) => {
         if (item.variantId) {
           const stock = variantStockMap.get(item.variantId);
@@ -238,34 +177,6 @@ export class OrdersService {
           if (stock.stock < item.quantity) {
             throw new HttpException(
               'Product variant stock is insufficient',
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-          return;
-        }
-        if (item.productId) {
-          const stock = productStockMap.get(item.productId);
-          if (!stock) {
-            const variantTotal = variantStockTotalsByProduct.get(
-              item.productId,
-            );
-            if (!variantTotal) {
-              throw new HttpException(
-                'Product stock not found',
-                HttpStatus.BAD_REQUEST,
-              );
-            }
-            if (variantTotal < item.quantity) {
-              throw new HttpException(
-                'Product stock is insufficient',
-                HttpStatus.BAD_REQUEST,
-              );
-            }
-            return;
-          }
-          if (stock.stock < item.quantity) {
-            throw new HttpException(
-              'Product stock is insufficient',
               HttpStatus.BAD_REQUEST,
             );
           }
@@ -306,13 +217,9 @@ export class OrdersService {
                 const variant = item.variantId
                   ? variantMap.get(item.variantId)
                   : undefined;
-                const product = item.productId
-                  ? productMap.get(item.productId)
-                  : variant?.product;
                 const subtotal = item.quantity * item.price;
                 return orderItemRepo.create({
                   order: { id: savedOrder.id } as Order,
-                  product,
                   variant,
                   quantity: item.quantity,
                   price: item.price,
@@ -337,15 +244,11 @@ export class OrdersService {
 
           const existingItems = await orderItemRepo.find({
             where: { order: { id: existingOrder.id } },
-            relations: ['product', 'variant', 'variant.product'],
+            relations: ['variant', 'variant.product'],
           });
           const existingItemsMap = new Map<string, OrderItem>();
           existingItems.forEach((item) => {
-            const key = item.variant?.id
-              ? `variant:${item.variant.id}`
-              : item.product?.id
-                ? `product:${item.product.id}`
-                : '';
+            const key = item.variant?.id ? `variant:${item.variant.id}` : '';
             if (key) {
               existingItemsMap.set(key, item);
             }
@@ -377,13 +280,9 @@ export class OrdersService {
             const variant = item.variantId
               ? variantMap.get(item.variantId)
               : undefined;
-            const product = item.productId
-              ? productMap.get(item.productId)
-              : variant?.product;
 
             const createdItem = orderItemRepo.create({
-              order: existingOrder, // Force ID for new items
-              product,
+              order: existingOrder,
               variant,
               quantity: item.quantity,
               price: item.price,
@@ -406,7 +305,6 @@ export class OrdersService {
             await orderItemRepo.insert({
               id: newId,
               order: { id: existingOrder.id },
-              product: newItem.product ? { id: newItem.product.id } : null,
               variant: newItem.variant ? { id: newItem.variant.id } : null,
               quantity: newItem.quantity,
               price: newItem.price,
@@ -415,7 +313,7 @@ export class OrdersService {
 
             const savedItem = await orderItemRepo.findOne({
               where: { id: newId },
-              relations: ['product', 'variant', 'variant.product'],
+              relations: ['variant', 'variant.product'],
             });
             savedNewItems.push(savedItem);
           }
@@ -428,11 +326,8 @@ export class OrdersService {
               (item) => item.id === savedItem.id,
             );
 
-            // Re-attach relations if missing in savedItem
+            // Re-attach variant relation if missing in savedItem
             if (originalItem) {
-              if (!savedItem.product && originalItem.product) {
-                savedItem.product = originalItem.product;
-              }
               if (!savedItem.variant && originalItem.variant) {
                 savedItem.variant = originalItem.variant;
               }
@@ -480,6 +375,20 @@ export class OrdersService {
         (result.order.discount_amount ?? 0);
 
       // Step 8: Map entities to response contract
+      // Fire-and-forget activity log (non-blocking)
+      this.userLogsService.log({
+        userId: result.order.user?.id ?? resolvedUserId ?? '',
+        branchId: result.order.branch?.id,
+        action: ActionType.CREATE,
+        entityType: EntityType.SALE,
+        entityId: result.order.id,
+        description: `Order created: ${result.order.invoice_number} (${result.items.length} items, total Rp${totalAmount})`,
+        metadata: {
+          invoice_number: result.order.invoice_number,
+          total_amount: totalAmount,
+          item_count: result.items.length,
+        },
+      });
       return {
         message: successOrderMessage.SUCCESS_CREATE_ORDER,
         data: {
@@ -529,7 +438,6 @@ export class OrdersService {
         where,
         relations: [
           'items',
-          'items.product',
           'items.variant',
           'items.variant.product',
           'items.variant.product.category',
@@ -588,7 +496,6 @@ export class OrdersService {
         where: { id },
         relations: [
           'items',
-          'items.product',
           'items.variant',
           'items.variant.product',
           'items.variant.product.category',
@@ -957,6 +864,14 @@ export class OrdersService {
         );
       }
       await this.orderRepository.delete(id);
+      // Fire-and-forget log
+      this.userLogsService.log({
+        userId: '',
+        action: ActionType.DELETE,
+        entityType: EntityType.SALE,
+        entityId: id,
+        description: `Order ${id} deleted`,
+      });
     } catch (error) {
       this.logger.error(errOrderMessage.ERR_DELETE_ORDER_ITEMS, error.message);
       if (error instanceof HttpException) {

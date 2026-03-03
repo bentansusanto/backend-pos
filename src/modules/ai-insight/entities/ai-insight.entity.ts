@@ -19,6 +19,7 @@ export enum InsightType {
   LOW_STOCK_ALERT = 'low_stock_alert',
   EXPIRY_ALERT = 'expiry_alert',
   ANOMALY_ALERT = 'anomaly_alert',
+  PROMO_SUGGESTION = 'promo_suggestion',
   REPORT_SUMMARY = 'report_summary',
 }
 

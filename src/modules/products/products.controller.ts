@@ -10,14 +10,19 @@ import {
   Put,
   Query,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
+import { CurrentUser } from 'src/common/decorator/current-user.decorator';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { User } from 'src/modules/rbac/users/entities/user.entity';
 import { WebResponse } from 'src/types/response/index.type';
 import { CreateProductDto, UpdateProductDto } from './dto/create-product.dto';
 import { ProductsService } from './products.service';
 
+@UseGuards(JwtAuthGuard)
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
@@ -32,6 +37,7 @@ export class ProductsController {
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createProductDto: CreateProductDto,
+    @CurrentUser() currentUser: User,
     @UploadedFiles()
     files: {
       thumbnail?: Express.Multer.File[];
@@ -42,6 +48,7 @@ export class ProductsController {
       createProductDto,
       files?.thumbnail?.[0],
       files?.images,
+      currentUser?.id,
     );
     return {
       message: result.message,
@@ -49,7 +56,6 @@ export class ProductsController {
     };
   }
 
-  // get all products
   @Get('find-all')
   @HttpCode(HttpStatus.OK)
   async findAll(
@@ -64,7 +70,6 @@ export class ProductsController {
     };
   }
 
-  // get product by id
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(
@@ -80,7 +85,6 @@ export class ProductsController {
     };
   }
 
-  // update product by id
   @Put('update/:id')
   @UseInterceptors(
     FileFieldsInterceptor([
@@ -91,6 +95,7 @@ export class ProductsController {
   async update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser() currentUser: User,
     @UploadedFiles()
     files: {
       thumbnail?: Express.Multer.File[];
@@ -102,6 +107,7 @@ export class ProductsController {
       updateProductDto,
       files?.thumbnail?.[0],
       files?.images,
+      currentUser?.id,
     );
     return {
       message: result.message,
@@ -109,10 +115,12 @@ export class ProductsController {
     };
   }
 
-  // delete product by id
   @Delete('delete/:id')
-  async remove(@Param('id') id: string): Promise<WebResponse> {
-    const result = await this.productsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<WebResponse> {
+    const result = await this.productsService.remove(id, currentUser?.id);
     return {
       message: result.message,
     };

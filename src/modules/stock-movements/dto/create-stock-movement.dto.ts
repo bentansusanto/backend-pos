@@ -5,7 +5,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { referenceType } from '../entities/stock-movement.entity';
+import { ReferenceType } from '../entities/stock-movement.entity';
 
 export class CreateStockMovementDto {
   @IsOptional()
@@ -21,8 +21,8 @@ export class CreateStockMovementDto {
   branchId: string;
 
   @IsNotEmpty()
-  @IsEnum(referenceType)
-  referenceType: referenceType;
+  @IsEnum(ReferenceType)
+  referenceType: ReferenceType;
 
   @IsNotEmpty()
   @IsNumber()

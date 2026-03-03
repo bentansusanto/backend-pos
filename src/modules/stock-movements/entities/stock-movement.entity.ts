@@ -2,7 +2,6 @@ import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
-import { Product } from 'src/modules/products/entities/product.entity';
 import {
   BeforeInsert,
   Column,
@@ -14,10 +13,15 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export enum referenceType {
+export enum ReferenceType {
   SALE = 'sale',
   PURCHASE = 'purchase',
   ADJUST = 'adjust',
+  RETURN_SALE = 'return_sale',
+  RETURN_PURCHASE = 'return_purchase',
+  EXPIRED = 'expired',
+  DAMAGE = 'damage',
+  OPENING_STOCK = 'opening_stock',
 }
 
 @Entity('stock_movements')
@@ -32,10 +36,6 @@ export class StockMovement {
     }
   }
 
-  @ManyToOne(() => Product, (product) => product.stockMovements)
-  @JoinColumn({ name: 'product_id' })
-  product: Product;
-
   @ManyToOne(
     () => ProductVariant,
     (productVariant) => productVariant.stockMovements,
@@ -48,8 +48,8 @@ export class StockMovement {
   @JoinColumn({ name: 'branch_id' })
   branch: Branch;
 
-  @Column({ type: 'enum', enum: referenceType })
-  referenceType: referenceType;
+  @Column({ type: 'enum', enum: ReferenceType })
+  referenceType: ReferenceType;
 
   @Column({ default: 0 })
   qty: number;

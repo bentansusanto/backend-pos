@@ -1,6 +1,5 @@
 import Hashids from 'hashids';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
-import { Product } from 'src/modules/products/entities/product.entity';
 import {
   BeforeInsert,
   Column,
@@ -30,10 +29,6 @@ export class OrderItem {
   })
   @JoinColumn({ name: 'order_id' })
   order: Order;
-
-  @ManyToOne(() => Product, (product) => product.orderItems, { nullable: true })
-  @JoinColumn({ name: 'product_id' })
-  product: Product;
 
   @ManyToOne(
     () => ProductVariant,

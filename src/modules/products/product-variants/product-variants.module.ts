@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CloudinaryModule } from 'src/common/cloudinary/cloudinary.module';
+import { UserLogsModule } from '../../user_logs/user_logs.module';
 import { ProductVariant } from '../entities/product-variant.entity';
 import { ProductsModule } from '../products.module';
 import { ProductVariantsController } from './product-variants.controller';
@@ -13,6 +14,7 @@ import { ProductVariantsService } from './product-variants.service';
     TypeOrmModule.forFeature([ProductVariant]),
     ProductsModule,
     CloudinaryModule,
+    UserLogsModule,
   ],
   exports: [ProductVariantsService],
 })

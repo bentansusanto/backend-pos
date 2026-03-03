@@ -8,31 +8,37 @@ import {
   Post,
   Query,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
+import { CurrentUser } from 'src/common/decorator/current-user.decorator';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { User } from 'src/modules/rbac/users/entities/user.entity';
 import { WebResponse } from 'src/types/response/index.type';
 import { CreateProductVariantDto } from '../dto/create-product-variant.dto';
 import { ProductVariantsService } from './product-variants.service';
 
+@UseGuards(JwtAuthGuard)
 @Controller('variants')
 export class ProductVariantsController {
   constructor(
     private readonly productVariantsService: ProductVariantsService,
   ) {}
 
-  // create product variant
   @Post('create')
   @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createProductVariantDto: CreateProductVariantDto,
+    @CurrentUser() currentUser: User,
     @UploadedFile() thumbnailFile: Express.Multer.File,
   ): Promise<WebResponse> {
     const result = await this.productVariantsService.create(
       createProductVariantDto,
       thumbnailFile,
+      currentUser?.id,
     );
     return {
       message: result.message,
@@ -40,18 +46,19 @@ export class ProductVariantsController {
     };
   }
 
-  // update product variant
   @Post('update/:id')
   @UseInterceptors(FileInterceptor('thumbnail'))
   async update(
     @Param('id') id: string,
     @Body() updateProductVariantDto: CreateProductVariantDto,
+    @CurrentUser() currentUser: User,
     @UploadedFile() thumbnailFile?: Express.Multer.File,
   ): Promise<WebResponse> {
     const result = await this.productVariantsService.update(
       id,
       updateProductVariantDto,
       thumbnailFile,
+      currentUser?.id,
     );
     return {
       message: result.message,
@@ -59,16 +66,20 @@ export class ProductVariantsController {
     };
   }
 
-  // delete product variant
   @Post('delete/:id')
-  async delete(@Param('id') id: string): Promise<WebResponse> {
-    const result = await this.productVariantsService.delete(id);
+  async delete(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: User,
+  ): Promise<WebResponse> {
+    const result = await this.productVariantsService.delete(
+      id,
+      currentUser?.id,
+    );
     return {
       message: result.message,
     };
   }
 
-  // get product variant by id
   @Get('get/:id')
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productVariantsService.findOne(id);
@@ -78,7 +89,6 @@ export class ProductVariantsController {
     };
   }
 
-  // get all product variant
   @Get('find-all')
   async findAll(
     @Query('branch_id') queryBranchId?: string,

@@ -1,9 +1,11 @@
 import Hashids from 'hashids';
+import { Order } from 'src/modules/orders/entities/order.entity';
 import {
   BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -51,4 +53,7 @@ export class Discount {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => Order, (order) => order.discount)
+  orders: Order[];
 }

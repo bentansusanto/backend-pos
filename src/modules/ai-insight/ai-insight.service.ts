@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import Hashids from 'hashids';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { LessThan, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { AiJob, AiJobStatus } from '../ai-jobs/entities/ai-job.entity';
 import { Order } from '../orders/entities/order.entity';
@@ -123,6 +123,7 @@ export class AiInsightService {
     if (normalized.includes('low')) return InsightType.LOW_STOCK_ALERT;
     if (normalized.includes('expiry')) return InsightType.EXPIRY_ALERT;
     if (normalized.includes('anomaly')) return InsightType.ANOMALY_ALERT;
+    if (normalized.includes('promo')) return InsightType.PROMO_SUGGESTION;
 
     // Default fallback
     return InsightType.REPORT_SUMMARY;
@@ -177,7 +178,8 @@ export class AiInsightService {
     // Critical Stock (stock <= minStock) using QueryBuilder
     const criticalStock = await this.productStockRepository
       .createQueryBuilder('stock')
-      .leftJoinAndSelect('stock.product', 'product')
+      .leftJoinAndSelect('stock.productVariant', 'productVariant')
+      .leftJoinAndSelect('productVariant.product', 'product')
       .where('stock.branch_id = :branchId', { branchId })
       .andWhere('stock.stock <= stock.minStock')
       .limit(20)
@@ -186,19 +188,19 @@ export class AiInsightService {
     // High Stock (just top 20 by quantity for now as "potential overstock")
     const highStock = await this.productStockRepository.find({
       where: { branch: { id: branchId } },
-      relations: ['product'],
+      relations: ['productVariant', 'productVariant.product'],
       order: { stock: 'DESC' },
       take: 20,
     });
 
     return {
       lowStock: criticalStock.map((s) => ({
-        product: s.product?.name_product || 'Unknown Product',
+        product: s.productVariant?.product?.name_product || 'Unknown Product',
         stock: s.stock,
         min: s.minStock,
       })),
       highStock: highStock.map((s) => ({
-        product: s.product?.name_product || 'Unknown Product',
+        product: s.productVariant?.product?.name_product || 'Unknown Product',
         stock: s.stock,
       })),
     };
@@ -229,10 +231,11 @@ export class AiInsightService {
       3. Recommend restocks for low stock items.
       4. Identify potential overstock (items with high stock but low sales).
       5. Detect any anomalies.
+      6. Recommend promotions for: products with high stock but low sales (overstock), slow-moving items, and products nearing expiry date (if available). Each promo suggestion should include a recommended discount percentage or promo type to boost sales and reduce potential losses.
 
       Output Format: JSON Array of objects.
       Each object must have:
-      - type: One of ['sales_trend', 'stock_suggestion', 'best_seller', 'slow_moving', 'low_stock_alert', 'anomaly_alert', 'report_summary']
+      - type: One of ['sales_trend', 'stock_suggestion', 'best_seller', 'slow_moving', 'low_stock_alert', 'anomaly_alert', 'promo_suggestion', 'report_summary']
       - summary: Short title/summary.
       - metadata: A structured object (not string) containing details.
 
@@ -241,6 +244,7 @@ export class AiInsightService {
       - For 'low_stock_alert', 'anomaly_alert': { "severity": "critical"|"warning"|"info", "message": string, "type": "critical"|"warning"|"info" }
       - For 'sales_trend': { "trend": "up"|"down"|"stable", "percentage": number, "details": string }
       - For 'best_seller', 'slow_moving': { "product_name": string, "quantity_sold": number, "revenue": number }
+      - For 'promo_suggestion': { "product_name": string, "reason": "overstock"|"slow_moving"|"near_expiry", "recommended_discount_pct": number, "promo_type": string, "urgency": "high"|"medium"|"low" }
       - For 'report_summary': { "executive_summary": string, "highlights": string[] }
 
       Important: For stock suggestions and alerts, generate ONE entry per product/alert so they can be listed individually.
@@ -361,6 +365,17 @@ export class AiInsightService {
           severity: 'critical',
           message: 'Coffee Beans inventory is critically low.',
           type: 'critical',
+        },
+      },
+      {
+        type: 'promo_suggestion',
+        summary: 'Flash Sale for Slow-Moving Stock',
+        metadata: {
+          product_name: 'Instant Noodles (Bulk Pack)',
+          reason: 'slow_moving',
+          recommended_discount_pct: 20,
+          promo_type: 'Flash Sale',
+          urgency: 'medium',
         },
       },
     ];

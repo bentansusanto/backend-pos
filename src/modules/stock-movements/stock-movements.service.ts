@@ -19,7 +19,6 @@ export class StockMovementsService {
 
       const stockMovement = this.stockMovementRepository.create({
         ...rest,
-        product: productId ? { id: productId } : undefined,
         productVariant: variantId ? { id: variantId } : undefined,
         branch: { id: branchId },
       });
@@ -35,7 +34,7 @@ export class StockMovementsService {
     try {
       const stockMovements = await this.stockMovementRepository.find({
         where: branchId ? { branch: { id: branchId } } : undefined,
-        relations: ['product', 'productVariant', 'branch'],
+        relations: ['productVariant', 'branch'],
         order: { createdAt: 'DESC' },
       });
 
@@ -49,7 +48,7 @@ export class StockMovementsService {
     try {
       const stockMovement = await this.stockMovementRepository.findOne({
         where: { id },
-        relations: ['product', 'productVariant', 'branch'],
+        relations: ['productVariant', 'branch'],
       });
 
       if (!stockMovement) {
