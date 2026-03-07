@@ -15,7 +15,7 @@ import { UpdateTaxDto } from './dto/update-tax.dto';
 import { TaxService } from './tax.service';
 import { WebResponse } from 'src/types/response/index.type';
 
-@Controller('tax')
+@Controller('taxes')
 export class TaxController {
   constructor(private readonly taxService: TaxService) {}
 

@@ -1,11 +1,21 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { PurchaseReceivingsService } from './purchase_receivings.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { CreatePurchaseReceivingDto } from './dto/create-purchase_receiving.dto';
 import { UpdatePurchaseReceivingDto } from './dto/update-purchase_receiving.dto';
+import { PurchaseReceivingsService } from './purchase_receivings.service';
 
 @Controller('purchase-receivings')
 export class PurchaseReceivingsController {
-  constructor(private readonly purchaseReceivingsService: PurchaseReceivingsService) {}
+  constructor(
+    private readonly purchaseReceivingsService: PurchaseReceivingsService,
+  ) {}
 
   @Post()
   create(@Body() createPurchaseReceivingDto: CreatePurchaseReceivingDto) {
@@ -19,16 +29,22 @@ export class PurchaseReceivingsController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.purchaseReceivingsService.findOne(+id);
+    return this.purchaseReceivingsService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePurchaseReceivingDto: UpdatePurchaseReceivingDto) {
-    return this.purchaseReceivingsService.update(+id, updatePurchaseReceivingDto);
+  update(
+    @Param('id') id: string,
+    @Body() updatePurchaseReceivingDto: UpdatePurchaseReceivingDto,
+  ) {
+    return this.purchaseReceivingsService.update(
+      id,
+      updatePurchaseReceivingDto,
+    );
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.purchaseReceivingsService.remove(+id);
+    return this.purchaseReceivingsService.remove(id);
   }
 }

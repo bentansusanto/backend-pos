@@ -80,9 +80,6 @@ export class Branch {
   @OneToMany(() => Purchase, (purchase) => purchase.branch)
   purchases: Purchase[];
 
-  @OneToMany(() => Expense, (expense) => expense.branch)
-  expenses: Expense[];
-
   @OneToMany(
     () => PurchaseReceiving,
     (purchaseReceiving) => purchaseReceiving.branch,
@@ -97,6 +94,9 @@ export class Branch {
 
   @OneToMany(() => UserLog, (userLog) => userLog.branch)
   userLogs: UserLog[];
+
+  @OneToMany(() => Expense, (expense) => expense.branch)
+  expenses: Expense[];
 
   @CreateDateColumn()
   createdAt: Date;

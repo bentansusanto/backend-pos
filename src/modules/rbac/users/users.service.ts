@@ -186,7 +186,6 @@ export class UsersService {
           name: user.name,
           email: user.email,
           role: user.role.name,
-          isActive: user.isActive,
           is_verified: user.is_verified,
           branches: user.userBranches?.map((ub) => ({
             id: ub.branch.id,
@@ -238,7 +237,6 @@ export class UsersService {
           name: user.name,
           email: user.email,
           role: user.role.name,
-          isActive: user.isActive,
           is_verified: user.is_verified,
           profile: user.profile
             ? {

@@ -7,13 +7,13 @@ import { BranchesModule } from './modules/branches/branches.module';
 import { CostLayersModule } from './modules/cost_layers/cost_layers.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { DiscountsModule } from './modules/discounts/discounts.module';
-import { ExpensesModule } from './modules/expenses/expenses.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ProductStocksModule } from './modules/product-stocks/product-stocks.module';
 import { CategoriesModule } from './modules/products/categories/categories.module';
 import { ProductVariantsModule } from './modules/products/product-variants/product-variants.module';
 import { ProductsModule } from './modules/products/products.module';
+import { PurchaseReceivingsModule } from './modules/purchase_receivings/purchase_receivings.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { AuthModule } from './modules/rbac/auth/auth.module';
 import { PermissionsModule } from './modules/rbac/permissions/permissions.module';
@@ -27,7 +27,7 @@ import { SeederModule } from './modules/seeder/seeder.module';
 import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
 import { TaxModule } from './modules/tax/tax.module';
-import { PurchaseReceivingsModule } from './modules/purchase_receivings/purchase_receivings.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 
 @Module({
   imports: [
@@ -55,9 +55,9 @@ import { PurchaseReceivingsModule } from './modules/purchase_receivings/purchase
     SupplierModule,
     TaxModule,
     PurchasesModule,
-    ExpensesModule,
     CostLayersModule,
-    PurchaseReceivingsModule
+    PurchaseReceivingsModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

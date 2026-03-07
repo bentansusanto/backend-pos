@@ -1,5 +1,7 @@
 import { Exclude } from 'class-transformer';
 import Hashids from 'hashids';
+import { Order } from 'src/modules/orders/entities/order.entity';
+import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
 import {
   BeforeInsert,
   Column,
@@ -14,8 +16,6 @@ import {
 } from 'typeorm';
 import { Profile } from '../../profiles/entities/profile.entity';
 import { Role } from '../../roles/entities/role.entity';
-import { Order } from 'src/modules/orders/entities/order.entity';
-import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
 
 @Entity('users')
 export class User {
@@ -60,7 +60,7 @@ export class User {
   })
   sessions: any[];
 
-  @Column({ default: false })
+  @Column({ type: 'boolean', default: false })
   isActive: boolean;
 
   @OneToOne(() => Profile, (profile) => profile.user)

@@ -16,8 +16,6 @@ import { UserBranch } from 'src/modules/branches/entities/user-branch.entity';
 import { CostLayer } from 'src/modules/cost_layers/entities/cost_layer.entity';
 import { Customer } from 'src/modules/customers/entities/customer.entity';
 import { Discount } from 'src/modules/discounts/entities/discount.entity';
-import { ExpenseCategory } from 'src/modules/expenses/entities/expense-categories.entity';
-import { Expense } from 'src/modules/expenses/entities/expense.entity';
 import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
 import { Order } from 'src/modules/orders/entities/order.entity';
 import { Payment } from 'src/modules/payments/entities/payment.entity';
@@ -39,13 +37,15 @@ import { User } from 'src/modules/rbac/users/entities/user.entity';
 import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 import { Supplier } from 'src/modules/supplier/entities/supplier.entity';
 import { Tax } from 'src/modules/tax/entities/tax.entity';
+import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
 import * as winston from 'winston';
 import { ErrorsService } from './errors/errors.service';
 import { JwtAuthGuard, PermissionsGuard, RolesGuard } from './guards';
 import { UserContextMiddleware } from './middlewares/user-context.middleware';
 import { RbacService } from './services/rbac.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
+import { Expense } from 'src/modules/expenses/entities/expense.entity';
+import { ExpenseCategory } from 'src/modules/expenses/entities/expense-category.entity';
 
 @Module({
   imports: [
@@ -82,6 +82,7 @@ import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
         // ssl: {
         //   rejectUnauthorized: false, // mode production
         // },
+        dropSchema: false,
         ssl: false, // mode development
         extra: {
           connectionLimit: 15,
@@ -115,12 +116,12 @@ import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
       Supplier,
       PurchaseItems,
       Tax,
-      ExpenseCategory,
-      Expense,
       CostLayer,
       PurchaseReceiving,
       PurchaseReceivingItem,
-      UserLog
+      UserLog,
+      Expense,
+      ExpenseCategory,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

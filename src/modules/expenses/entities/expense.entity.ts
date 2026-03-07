@@ -1,47 +1,63 @@
-import Hashids from "hashids";
-import { Branch } from "src/modules/branches/entities/branch.entity";
-import { BeforeInsert, Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from "typeorm";
-import { ExpenseCategory } from "./expense-categories.entity";
+import Hashids from 'hashids';
+import { Branch } from 'src/modules/branches/entities/branch.entity';
+import {
+  BeforeInsert,
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  ManyToOne,
+  OneToMany,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { ExpenseCategory } from './expense-category.entity';
 
 @Entity('expenses')
 export class Expense {
   @PrimaryColumn()
-    id: string;
+  id: string;
 
-    @BeforeInsert()
-    generateId() {
-      if (!this.id) {
-        this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
-      }
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
     }
+  }
 
-    @ManyToOne(() => Branch, (branch) => branch.expenses)
-    @JoinColumn({ name: 'branch_id' })
-    branch: Branch;
+  @OneToMany(() => Branch, (branch) => branch.expenses)
+  branch: Branch;
 
-    @Column()
-    category_id: string
+  @ManyToOne(
+    () => ExpenseCategory,
+    (expenseCategory) => expenseCategory.expenses,
+  )
+  expense_category: ExpenseCategory;
 
-    @ManyToOne(() => ExpenseCategory, (expenseCategory) => expenseCategory.expenses)
-    @JoinColumn({ name: 'category_id' })
-    expenseCategory: ExpenseCategory;
+  @Column({ unique: true })
+  expense_code: string;
 
-    @ManyToOne(() => Branch, (branch) => branch.expenses)
-    @JoinColumn({ name: 'branch_id' })
-    branche: Branch;
+  @Column()
+  amount: number;
 
-    @Column()
-    amount: number;
+  @Column()
+  description: string;
 
-    @Column({type: 'text', nullable: true})
-    note: string;
+  @Column()
+  notes: string;
 
-    @Column()
-    expense_date: Date;
+  @Column()
+  expense_date: Date;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @Column()
+  payment_method: string;
 
-    @UpdateDateColumn()
-    updatedAt: Date;
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt?: Date;
 }

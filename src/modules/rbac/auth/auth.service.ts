@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -8,6 +9,7 @@ import { errUserMessage } from 'src/libs/errors/error_user';
 import { successUserMessage } from 'src/libs/success/success_user';
 import { EmailType } from 'src/types/email.types';
 import { AuthResponse } from 'src/types/response/auth.type';
+import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { SessionsService } from '../sessions/sessions.service';
 import {
@@ -16,12 +18,15 @@ import {
   LoginUserDto,
   ResetPasswordDto,
 } from '../users/dto/create-user.dto';
+import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
     private readonly jwtService: JwtService,
@@ -269,7 +274,9 @@ export class AuthService {
   ): Promise<AuthResponse> {
     try {
       // check user exists
-      const user = await this.usersService.findEmail(reqDto.email);
+      const user = await this.usersRepository.findOne({
+        where: { email: reqDto.email },
+      });
       if (!user) {
         this.logger.debug(`${errUserMessage.USER_NOT_FOUND}: ${reqDto.email}`);
         throw new HttpException(
@@ -325,11 +332,6 @@ export class AuthService {
         device,
       );
 
-      // update status active user
-      await this.usersService.update(user.id, {
-        isActive: true
-      });
-
       this.logger.debug(`${successUserMessage.USER_LOGGED_IN}: ${user.name}`);
 
       return {
@@ -362,7 +364,7 @@ export class AuthService {
   }
 
   // logout user
-  async logout(sessionToken: string): Promise<AuthResponse> {
+  async logout(sessionToken: string, user?: any): Promise<AuthResponse> {
     try {
       if (!sessionToken) {
         return {
@@ -380,22 +382,16 @@ export class AuthService {
       const session = await this.sessionsService.findByRefreshToken(tokenHash);
       if (!session) {
         this.logger.debug(`${errUserMessage.USER_NOT_FOUND}: ${tokenHash}`);
-        throw new HttpException(
-          errUserMessage.USER_NOT_FOUND,
-          HttpStatus.BAD_REQUEST,
-        );
+        return {
+          message: successUserMessage.USER_LOGGED_OUT, // silently succeed if session not found
+        };
       }
 
       // Delete session
       await this.sessionsService.removeSession(tokenHash);
-      
-      // update status active user
-      await this.usersService.update(session.user.id, {
-        isActive: false
-      });
 
       this.logger.debug(
-        `${successUserMessage.USER_LOGGED_OUT}: ${session.user.name}`,
+        `${successUserMessage.USER_LOGGED_OUT}: ${session.user?.name || user?.name || 'Unknown'}`,
       );
 
       return {

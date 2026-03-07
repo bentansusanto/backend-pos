@@ -22,23 +22,6 @@ export class PermissionsService {
     createPermissionDto: CreatePermissionDto,
   ): Promise<PermissionResponse> {
     try {
-      // check if permission already exists
-      const permission = await this.permissionRepository.findOne({
-        where: {
-          module: createPermissionDto.module,
-        },
-      });
-      if (permission) {
-        throw new HttpException(
-          {
-            Error: {
-              field: 'module',
-              body: errorPermissionMessage.ERR_PERMISSION_ALREADY_EXISTS,
-            },
-          },
-          HttpStatus.BAD_REQUEST,
-        );
-      }
       // create permission
       const newPermission =
         this.permissionRepository.create(createPermissionDto);

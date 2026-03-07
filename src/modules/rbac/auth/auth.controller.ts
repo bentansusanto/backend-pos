@@ -9,7 +9,6 @@ import {
   Res,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { CurrentToken } from 'src/common/decorator/current-user.decorator';
 import { Public } from 'src/common/decorator/public.decorator';
 import { parseDeviceInfo } from 'src/libs/utils/device-parser.util';
 import { WebResponse } from 'src/types/response/index.type';
@@ -108,12 +107,12 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
-    @CurrentToken() token: string,
+    @Req() req: Request & { user?: any },
     @Body() body: { session_token?: string },
     @Res({ passthrough: true }) res: Response,
   ): Promise<WebResponse> {
-    const sessionToken = token || body?.session_token;
-    const result = await this.authService.logout(sessionToken);
+    const sessionToken = req.cookies['session_pos'] || body?.session_token;
+    const result = await this.authService.logout(sessionToken, req.user);
     res.clearCookie('session_pos');
     return {
       message: result.message,

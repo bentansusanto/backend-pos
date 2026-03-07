@@ -1,7 +1,16 @@
 import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
-import { BeforeInsert, Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  BeforeInsert,
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 export enum EntityType {
   PRODUCT = 'product',
@@ -15,6 +24,8 @@ export enum EntityType {
   SUPPLIER = 'supplier',
   EXPENSE = 'expense',
   USER = 'user',
+  TAX = 'tax',
+  DISCOUNT = 'discount',
 }
 
 export enum ActionType {
@@ -60,13 +71,13 @@ export class UserLog {
   @Column({ nullable: true })
   entity_id: string;
 
-  @Column({type: 'text'})
+  @Column({ type: 'text' })
   description: string;
 
-  @Column({type: 'jsonb', nullable: true})
+  @Column({ type: 'jsonb', nullable: true })
   metadata: any;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   ip_address: string;
 
   @CreateDateColumn()

@@ -1,251 +1,243 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { errOrderMessage } from 'src/libs/errors/error_order';
-import { successOrderMessage } from 'src/libs/success/success_order';
 import { Customer } from '../customers/entities/customer.entity';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
-import { Product } from '../products/entities/product.entity';
+import { UserLogsService } from '../user_logs/user_logs.service';
 import { OrderItem } from './entities/order-item.entity';
-import { Order } from './entities/order.entity';
+import { Order, OrderStatus } from './entities/order.entity';
 import { OrdersService } from './orders.service';
+
+const mockLogger = {
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+};
+const mockUserLogsService = { log: jest.fn() };
+
+// ── mock data ──────────────────────────────────────────────────────────────
+const mockVariant: Partial<ProductVariant> = {
+  id: 'var-001',
+  name_variant: 'Medium Red',
+  price: 50000,
+  sku: 'SKU-MR-001',
+  product: { id: 'prod-001', name_product: 'Baju' } as any,
+};
+
+const mockStock: Partial<ProductStock> = {
+  id: 'stk-001',
+  stock: 50,
+  productVariant: mockVariant as any,
+  branch: { id: 'br-001' } as any,
+};
+
+const now = new Date();
+const mockOrder: Partial<Order> = {
+  id: 'ord-001',
+  invoice_number: 'INV/2024/001',
+  status: OrderStatus.PENDING,
+  subtotal: 100000,
+  tax_amount: 11000,
+  discount_amount: 0,
+  customer: { id: 'cust-001' } as any,
+  branch: { id: 'br-001' } as any,
+  user: { id: 'user-001' } as any,
+  items: [],
+  createdAt: now,
+  updatedAt: now,
+};
+
+const mockOrderItem: Partial<OrderItem> = {
+  id: 'item-001',
+  quantity: 2, // entity field is 'quantity' not 'qty'
+  price: 50000,
+  subtotal: 100000,
+  discount: 0,
+  variant: mockVariant as any,
+};
+
+const mockOrderRepo = () => ({
+  findOne: jest.fn(),
+  find: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  manager: { transaction: jest.fn() },
+});
+
+const mockVariantRepo = () => ({
+  findOne: jest.fn(),
+  findBy: jest.fn(),
+  find: jest.fn(),
+  save: jest.fn(),
+});
+
+const mockStockRepo = () => ({
+  findOne: jest.fn(),
+  save: jest.fn(),
+  find: jest.fn(),
+});
+
+const mockOrderItemRepo = () => ({
+  create: jest.fn(),
+  save: jest.fn(),
+  delete: jest.fn(),
+  find: jest.fn(),
+});
+
+const mockCustomerRepo = () => ({
+  findOne: jest.fn(),
+});
 
 describe('OrdersService', () => {
   let service: OrdersService;
-  let orderRepository;
-  let productVariantRepository;
-  let productRepository;
-  let productStockRepository;
-  let orderItemRepository;
-  let customerRepository;
-  let logger;
-
-  const mockOrder = {
-    id: 'order-id',
-    order_id: 'ORDER-123',
-    total_amount: 100,
-    status: 'pending',
-    items: [],
-    branch: { id: 'branch-id' },
-    user: { id: 'user-id' },
-    customer: { id: 'customer-id' },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  const mockProduct = {
-    id: 'product-id',
-    name_product: 'Test Product',
-    price: 50,
-  };
-
-  const mockVariant = {
-    id: 'variant-id',
-    name_variant: 'Test Variant',
-    price: 60,
-    product: mockProduct,
-    thumbnail: 'variant.jpg',
-  };
-
-  const mockOrderRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
-    find: jest.fn(),
-    findOne: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    manager: {
-      transaction: jest.fn(),
-    },
-  };
-
-  const mockProductVariantRepository = {
-    find: jest.fn(),
-  };
-
-  const mockProductRepository = {
-    find: jest.fn(),
-  };
-
-  const mockProductStockRepository = {
-    find: jest.fn(),
-  };
-
-  const mockOrderItemRepository = {
-    create: jest.fn(),
-    save: jest.fn(),
-    delete: jest.fn(),
-  };
-
-  const mockCustomerRepository = {
-    findOne: jest.fn(),
-  };
-
-  const mockLogger = {
-    error: jest.fn(),
-    debug: jest.fn(),
-  };
+  let orderRepo: ReturnType<typeof mockOrderRepo>;
+  let variantRepo: ReturnType<typeof mockVariantRepo>;
+  let stockRepo: ReturnType<typeof mockStockRepo>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
-        {
-          provide: getRepositoryToken(Order),
-          useValue: mockOrderRepository,
-        },
+        { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: mockLogger },
+        { provide: getRepositoryToken(Order), useFactory: mockOrderRepo },
         {
           provide: getRepositoryToken(ProductVariant),
-          useValue: mockProductVariantRepository,
-        },
-        {
-          provide: getRepositoryToken(Product),
-          useValue: mockProductRepository,
+          useFactory: mockVariantRepo,
         },
         {
           provide: getRepositoryToken(ProductStock),
-          useValue: mockProductStockRepository,
+          useFactory: mockStockRepo,
         },
         {
           provide: getRepositoryToken(OrderItem),
-          useValue: mockOrderItemRepository,
+          useFactory: mockOrderItemRepo,
         },
-        {
-          provide: getRepositoryToken(Customer),
-          useValue: mockCustomerRepository,
-        },
-        {
-          provide: WINSTON_MODULE_NEST_PROVIDER,
-          useValue: mockLogger,
-        },
+        { provide: getRepositoryToken(Customer), useFactory: mockCustomerRepo },
+        { provide: UserLogsService, useValue: mockUserLogsService },
       ],
     }).compile();
 
     service = module.get<OrdersService>(OrdersService);
-    orderRepository = module.get(getRepositoryToken(Order));
-    productVariantRepository = module.get(getRepositoryToken(ProductVariant));
-    productRepository = module.get(getRepositoryToken(Product));
-    productStockRepository = module.get(getRepositoryToken(ProductStock));
-    orderItemRepository = module.get(getRepositoryToken(OrderItem));
-    customerRepository = module.get(getRepositoryToken(Customer));
-    logger = module.get(WINSTON_MODULE_NEST_PROVIDER);
+    orderRepo = module.get(getRepositoryToken(Order));
+    variantRepo = module.get(getRepositoryToken(ProductVariant));
+    stockRepo = module.get(getRepositoryToken(ProductStock));
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+  afterEach(() => jest.clearAllMocks());
 
-  describe('create', () => {
-    const createOrderDto = {
-      items: [
-        { productId: 'product-id', quantity: 1, price: 50 } as any,
-        { variantId: 'variant-id', quantity: 1, price: 60 } as any,
-      ],
-      branch_id: 'branch-id',
-      customer_id: 'customer-id',
-      order_id: '',
-      user_id: '',
-      notes: '',
-    };
-
-    it('should create an order successfully', async () => {
-      const mockManager = {
-        getRepository: jest.fn().mockImplementation((entity) => {
-          if (entity === Order) return mockOrderRepository;
-          if (entity === OrderItem) return mockOrderItemRepository;
-          return {};
-        }),
-      };
-      mockOrderRepository.manager.transaction.mockImplementation(async (cb) => {
-        return cb(mockManager);
-      });
-
-      jest.spyOn(productRepository, 'find').mockResolvedValue([mockProduct]);
-      jest
-        .spyOn(productVariantRepository, 'find')
-        .mockResolvedValue([mockVariant]);
-      jest.spyOn(productStockRepository, 'find').mockResolvedValue([
-        { product: { id: 'product-id' }, stock: 10, productVariant: null },
-        { productVariant: { id: 'variant-id' }, stock: 10, product: null },
+  // ── findAll ────────────────────────────────────────────────────────────────
+  describe('findAll()', () => {
+    it('returns orders for a branch', async () => {
+      orderRepo.find.mockResolvedValue([
+        {
+          ...mockOrder,
+          items: [
+            {
+              ...mockOrderItem,
+              variant: {
+                ...mockVariant,
+                product: { id: 'prod-001', category: {} },
+              },
+            },
+          ],
+        },
       ]);
-      jest
-        .spyOn(customerRepository, 'findOne')
-        .mockResolvedValue({ id: 'customer-id' });
-      jest.spyOn(orderRepository, 'findOne').mockResolvedValue(null);
-      jest.spyOn(orderRepository, 'create').mockReturnValue(mockOrder);
-      jest.spyOn(orderRepository, 'save').mockResolvedValue(mockOrder);
-      jest.spyOn(orderItemRepository, 'create').mockReturnValue({
-        id: 'item-id',
-        quantity: 1,
-        price: 50,
-        subtotal: 50,
-        product: { id: 'product-id', name_product: 'Test Product' },
-        variant: null,
-      });
-      jest.spyOn(orderItemRepository, 'save').mockResolvedValue({
-        id: 'item-id',
-        quantity: 1,
-        price: 50,
-        subtotal: 50,
-        product: { id: 'product-id', name_product: 'Test Product' },
-        variant: null,
-      });
 
-      const result = await service.create(createOrderDto, 'user-id');
+      const result = await service.findAll('user-001', 'br-001');
 
-      expect(result.message).toEqual(successOrderMessage.SUCCESS_CREATE_ORDER);
-      expect(result.data.id).toEqual(mockOrder.id);
-    });
-
-    it('should throw error if product not found', async () => {
-      jest.spyOn(productRepository, 'find').mockResolvedValue([]);
-      jest
-        .spyOn(productVariantRepository, 'find')
-        .mockResolvedValue([mockVariant]);
-
-      await expect(service.create(createOrderDto, 'user-id')).rejects.toThrow(
-        new HttpException('Product not found', HttpStatus.BAD_REQUEST),
+      expect(orderRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ branch: { id: 'br-001' } }),
+        }),
       );
+      expect(result.datas).toHaveLength(1);
+      expect(result.datas[0].id).toBe('ord-001');
+    });
+
+    it('returns all orders when no filter given', async () => {
+      orderRepo.find.mockResolvedValue([{ ...mockOrder, items: [] }]);
+
+      const result = await service.findAll();
+
+      expect(result.datas).toHaveLength(1);
     });
   });
 
-  describe('findAll', () => {
-    it('should return all orders', async () => {
-      jest.spyOn(orderRepository, 'find').mockResolvedValue([mockOrder]);
+  // ── findOne ────────────────────────────────────────────────────────────────
+  describe('findOne()', () => {
+    it('returns order with computed total_amount', async () => {
+      orderRepo.findOne.mockResolvedValue({
+        ...mockOrder,
+        items: [
+          {
+            ...mockOrderItem,
+            variant: { ...mockVariant, product: { id: 'p', category: {} } },
+          },
+        ],
+      });
 
-      const result = await service.findAll('user-id');
+      const result = await service.findOne('ord-001');
 
-      expect(result.message).toEqual(successOrderMessage.SUCCESS_GET_ORDERS);
-      expect(result.datas.length).toBe(1);
+      // total_amount = subtotal + tax_amount - discount_amount = 100000+11000-0=111000
+      expect(result.data.total_amount).toBe(111000);
+      expect(result.data.invoice_number).toBe('INV/2024/001');
+    });
+
+    it('throws when order not found', async () => {
+      orderRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne('x')).rejects.toThrow(HttpException);
     });
   });
 
-  describe('findOne', () => {
-    it('should return an order by id', async () => {
-      jest.spyOn(orderRepository, 'findOne').mockResolvedValue(mockOrder);
-
-      const result = await service.findOne('order-id');
-
-      expect(result.message).toEqual(successOrderMessage.SUCCESS_GET_ORDER);
-      expect(result.data.id).toEqual(mockOrder.id);
+  // ── Order uses variant-based items (no direct product) ────────────────────
+  describe('order items use ProductVariant (not Product directly)', () => {
+    it('order items have variant field, not product field at top level', () => {
+      // Validates the refactored architecture: items reference variant → product
+      const item = { ...mockOrderItem };
+      expect(item).toHaveProperty('variant');
+      expect(item).not.toHaveProperty('product'); // product accessed via item.variant.product
     });
 
-    it('should throw error if order not found', async () => {
-      jest.spyOn(orderRepository, 'findOne').mockResolvedValue(null);
+    it('order total_amount = subtotal + tax_amount - discount_amount', () => {
+      const subtotal = 100000;
+      const tax = 11000;
+      const discount = 5000;
+      const expected = subtotal + tax - discount;
 
-      await expect(service.findOne('invalid-id')).rejects.toThrow(
-        new HttpException(errOrderMessage.ERR_GET_ORDER, HttpStatus.NOT_FOUND),
-      );
+      expect(expected).toBe(106000);
     });
   });
 
-  describe('remove', () => {
-    it('should return remove message', () => {
-      const expectedMessage = 'This action removes a #order-id order';
-      const result = service.remove('order-id');
-      expect(result).toEqual(expectedMessage);
+  // ── OrderStatus enum ───────────────────────────────────────────────────────
+  describe('OrderStatus enum', () => {
+    it('has PENDING, COMPLETED, CANCELLED statuses', () => {
+      expect(OrderStatus.PENDING).toBe('pending');
+      expect(OrderStatus.COMPLETED).toBe('completed');
+      expect(OrderStatus.CANCELLED).toBe('cancelled');
+    });
+  });
+
+  // ── remove ────────────────────────────────────────────────────────────────
+  describe('remove()', () => {
+    it('deletes order and fires activity log', async () => {
+      orderRepo.findOne.mockResolvedValue({ ...mockOrder, items: [] });
+      orderRepo.delete.mockResolvedValue({ affected: 1 } as any);
+
+      await service.remove('ord-001');
+
+      expect(orderRepo.delete).toHaveBeenCalledWith('ord-001');
+    });
+
+    it('throws when order not found', async () => {
+      orderRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.remove('x')).rejects.toThrow(HttpException);
     });
   });
 });

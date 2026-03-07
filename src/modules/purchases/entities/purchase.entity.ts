@@ -25,6 +25,9 @@ export class Purchase {
     }
   }
 
+  @Column({ default: 'PENDING' })
+  status: string;
+
   @Column()
   supplier_id: string;
 

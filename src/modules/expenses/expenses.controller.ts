@@ -1,34 +1,71 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
+import { WebResponse } from 'src/types/response/index.type';
+import { CreateExpenseDto, UpdateExpenseDto } from './dto/create-expense.dto';
 import { ExpensesService } from './expenses.service';
-import { CreateExpenseDto } from './dto/create-expense.dto';
-import { UpdateExpenseDto } from './dto/update-expense.dto';
 
 @Controller('expenses')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
-  @Post()
-  create(@Body() createExpenseDto: CreateExpenseDto) {
-    return this.expensesService.create(createExpenseDto);
+  @Post('create')
+  @HttpCode(HttpStatus.CREATED)
+  async create(
+    @Body() createExpenseDto: CreateExpenseDto,
+  ): Promise<WebResponse> {
+    const result = await this.expensesService.create(createExpenseDto);
+    return {
+      message: result.message,
+      data: result.data,
+    };
   }
 
-  @Get()
-  findAll() {
-    return this.expensesService.findAll();
+  @Get('find-all')
+  @HttpCode(HttpStatus.OK)
+  async findAll(): Promise<WebResponse> {
+    const result = await this.expensesService.findAll();
+    return {
+      message: result.message,
+      data: result.datas,
+    };
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.expensesService.findOne(+id);
+  @HttpCode(HttpStatus.OK)
+  async findOne(@Param('id') id: string): Promise<WebResponse> {
+    const result = await this.expensesService.findOne(id);
+    return {
+      message: result.message,
+      data: result.data,
+    };
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateExpenseDto: UpdateExpenseDto) {
-    return this.expensesService.update(+id, updateExpenseDto);
+  @Put('update/:id')
+  async update(
+    @Param('id') id: string,
+    @Body() updateExpenseDto: UpdateExpenseDto,
+  ): Promise<WebResponse> {
+    const result = await this.expensesService.update(id, updateExpenseDto);
+    return {
+      message: result.message,
+      data: result.data,
+    };
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.expensesService.remove(+id);
+  @Delete('delete/:id')
+  async remove(@Param('id') id: string): Promise<WebResponse> {
+    const result = await this.expensesService.remove(id);
+    return {
+      message: result.message,
+    };
   }
 }

@@ -12,6 +12,8 @@ import { successTaxMessage } from 'src/libs/success/success_tax';
 import { TaxResponse } from 'src/types/response/tax.type';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
+import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
+import { UserLogsService } from '../user_logs/user_logs.service';
 import { CreateTaxDto } from './dto/create-tax.dto';
 import { UpdateTaxDto } from './dto/update-tax.dto';
 import { Tax } from './entities/tax.entity';
@@ -22,6 +24,7 @@ export class TaxService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(Tax)
     private readonly taxRepository: Repository<Tax>,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   // create tax
@@ -41,6 +44,19 @@ export class TaxService {
       // create and save tax
       const tax = this.taxRepository.create({ ...createTaxDto });
       await this.taxRepository.save(tax);
+
+      this.userLogsService.log({
+        userId: 'system',
+        action: ActionType.CREATE,
+        entityType: EntityType.TAX,
+        entityId: tax.id,
+        description: `Tax "${tax.name}" created (rate: ${tax.rate}%)`,
+        metadata: {
+          name: tax.name,
+          rate: tax.rate,
+          is_inclusive: tax.is_inclusive,
+        },
+      });
 
       return {
         message: successTaxMessage.SUCCESS_CREATE_TAX,
@@ -138,6 +154,15 @@ export class TaxService {
 
       await this.taxRepository.update(id, updateTaxDto);
 
+      this.userLogsService.log({
+        userId: 'system',
+        action: ActionType.UPDATE,
+        entityType: EntityType.TAX,
+        entityId: id,
+        description: `Tax "${existingTax.data.name}" updated`,
+        metadata: { updates: updateTaxDto },
+      });
+
       return {
         message: successTaxMessage.SUCCESS_UPDATE_TAX,
         data: {
@@ -169,6 +194,14 @@ export class TaxService {
       await this.findOne(id);
 
       await this.taxRepository.softDelete(id);
+
+      this.userLogsService.log({
+        userId: 'system',
+        action: ActionType.DELETE,
+        entityType: EntityType.TAX,
+        entityId: id,
+        description: `Tax deleted with id: ${id}`,
+      });
 
       return {
         message: successTaxMessage.SUCCESS_DELETE_TAX,

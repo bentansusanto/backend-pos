@@ -32,6 +32,8 @@ export class DiscountsService {
   async create(
     createDiscountDto: CreateDiscountDto,
     userId?: string,
+    branchId?: string,
+    ipAddress?: string,
   ): Promise<DiscountResponse> {
     try {
       // find discount by name
@@ -55,11 +57,13 @@ export class DiscountsService {
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
+        branchId,
         action: ActionType.CREATE,
-        entityType: EntityType.SALE,
+        entityType: EntityType.DISCOUNT,
         entityId: discount.id,
         description: `Discount "${discount.name}" created (${discount.type} - ${discount.value})`,
         metadata: { type: discount.type, value: discount.value },
+        ipAddress,
       });
       return {
         message: successDiscountMessage.SUCCESS_DISCOUNT_CREATED,
@@ -166,6 +170,8 @@ export class DiscountsService {
     id: string,
     updateDiscountDto: UpdateDiscountDto,
     userId?: string,
+    branchId?: string,
+    ipAddress?: string,
   ): Promise<DiscountResponse> {
     try {
       // find discount by id
@@ -175,14 +181,16 @@ export class DiscountsService {
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
+        branchId,
         action: ActionType.UPDATE,
-        entityType: EntityType.SALE,
+        entityType: EntityType.DISCOUNT,
         entityId: id,
         description: `Discount "${findDiscount.data?.name}" updated`,
         metadata: {
           name: updateDiscountDto.name,
           value: updateDiscountDto.value,
         },
+        ipAddress,
       });
       return {
         message: successDiscountMessage.SUCCESS_DISCOUNT_UPDATED,
@@ -212,7 +220,12 @@ export class DiscountsService {
   }
 
   // delete discount
-  async remove(id: string, userId?: string): Promise<DiscountResponse> {
+  async remove(
+    id: string,
+    userId?: string,
+    branchId?: string,
+    ipAddress?: string,
+  ): Promise<DiscountResponse> {
     try {
       // find discount by id
       const findDiscount = await this.findOne(id);
@@ -221,10 +234,12 @@ export class DiscountsService {
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
+        branchId,
         action: ActionType.DELETE,
-        entityType: EntityType.SALE,
+        entityType: EntityType.DISCOUNT,
         entityId: id,
         description: `Discount "${findDiscount.data?.name}" deleted`,
+        ipAddress,
       });
       return {
         message: successDiscountMessage.SUCCESS_DISCOUNT_DELETED,

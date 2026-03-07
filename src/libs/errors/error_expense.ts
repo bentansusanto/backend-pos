@@ -1,0 +1,18 @@
+export const errExpenseMessage = {
+  ERR_EXPENSE_NOT_FOUND: "Expense not found",
+  ERR_EXPENSE_CATEGORY_NOT_FOUND: "Expense category not found",
+  ERR_BRANCH_NOT_FOUND: "Branch not found",
+  ERR_PAYMENT_METHOD_NOT_FOUND: "Payment method not found",
+  ERR_EXPENSE_ALREADY_EXISTS: "Expense already exists",
+  ERR_EXPENSE_CANNOT_DELETE: "Expense cannot be deleted",
+  ERR_EXPENSE_CANNOT_UPDATE: "Expense cannot be updated",
+  ERR_EXPENSE_CANNOT_CREATE: "Expense cannot be created",
+  ERR_EXPENSE_CANNOT_GET: "Expense cannot be retrieved",
+  ERR_EXPENSE_CANNOT_LIST: "Expense cannot be listed",
+  ERR_EXPENSE_CATEGORY_ALREADY_EXISTS: "Expense category already exists",
+  ERR_EXPENSE_CATEGORY_CANNOT_DELETE: "Expense category cannot be deleted",
+  ERR_EXPENSE_CATEGORY_CANNOT_UPDATE: "Expense category cannot be updated",
+  ERR_EXPENSE_CATEGORY_CANNOT_CREATE: "Expense category cannot be created",
+  ERR_EXPENSE_CATEGORY_CANNOT_GET: "Expense category cannot be retrieved",
+  ERR_EXPENSE_CATEGORY_CANNOT_LIST: "Expense category cannot be listed",
+}

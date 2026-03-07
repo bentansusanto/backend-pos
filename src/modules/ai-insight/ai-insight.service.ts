@@ -160,7 +160,8 @@ export class AiInsightService {
     const topProducts = await this.orderRepository
       .createQueryBuilder('order')
       .innerJoin('order.items', 'item')
-      .leftJoin('item.product', 'product')
+      .leftJoin('item.variant', 'variant')
+      .leftJoin('variant.product', 'product')
       .select('product.name_product', 'productName')
       .addSelect('SUM(item.quantity)', 'totalQuantity')
       .addSelect('SUM(item.subtotal)', 'totalRevenue')

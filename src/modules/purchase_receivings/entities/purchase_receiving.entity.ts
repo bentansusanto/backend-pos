@@ -1,5 +1,6 @@
 import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
+import { Purchase } from 'src/modules/purchases/entities/purchase.entity';
 import { Supplier } from 'src/modules/supplier/entities/supplier.entity';
 import {
   BeforeInsert,
@@ -26,6 +27,10 @@ export class PurchaseReceiving {
     }
   }
 
+  @ManyToOne(() => Purchase)
+  @JoinColumn({ name: 'purchase_id' })
+  purchase: Purchase;
+
   @ManyToOne(() => Supplier, (supplier) => supplier.purchaseReceivings)
   @JoinColumn({ name: 'supplier_id' })
   supplier: Supplier;
@@ -37,7 +42,7 @@ export class PurchaseReceiving {
   @OneToMany(() => PurchaseReceivingItem, (item) => item.purchaseReceiving)
   items: PurchaseReceivingItem[];
 
-  @Column({type: 'text'})
+  @Column({ type: 'text' })
   note: string;
 
   @CreateDateColumn()

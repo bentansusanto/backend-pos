@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { TaxService } from './tax.service';
-import { TaxController } from './tax.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserLogsModule } from '../user_logs/user_logs.module';
 import { Tax } from './entities/tax.entity';
+import { TaxController } from './tax.controller';
+import { TaxService } from './tax.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tax])],
+  imports: [TypeOrmModule.forFeature([Tax]), UserLogsModule],
   controllers: [TaxController],
   providers: [TaxService],
   exports: [TaxService],

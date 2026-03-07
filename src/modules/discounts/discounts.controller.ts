@@ -7,8 +7,10 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
@@ -29,10 +31,14 @@ export class DiscountsController {
   async create(
     @Body() createDiscountDto: CreateDiscountDto,
     @CurrentUser() currentUser: User,
+    @CurrentBranchId() branchId?: string,
+    @Req() req?: Request,
   ): Promise<WebResponse> {
     const result = await this.discountsService.create(
       createDiscountDto,
       currentUser?.id,
+      branchId,
+      req?.ip,
     );
     return {
       message: result.message,
@@ -72,11 +78,15 @@ export class DiscountsController {
     @Param('id') id: string,
     @Body() updateDiscountDto: UpdateDiscountDto,
     @CurrentUser() currentUser: User,
+    @CurrentBranchId() branchId?: string,
+    @Req() req?: Request,
   ): Promise<WebResponse> {
     const result = await this.discountsService.update(
       id,
       updateDiscountDto,
       currentUser?.id,
+      branchId,
+      req?.ip,
     );
     return {
       message: result.message,
@@ -88,8 +98,15 @@ export class DiscountsController {
   async remove(
     @Param('id') id: string,
     @CurrentUser() currentUser: User,
+    @CurrentBranchId() branchId?: string,
+    @Req() req?: Request,
   ): Promise<WebResponse> {
-    const result = await this.discountsService.remove(id, currentUser?.id);
+    const result = await this.discountsService.remove(
+      id,
+      currentUser?.id,
+      branchId,
+      req?.ip,
+    );
     return {
       message: result.message,
     };

@@ -64,8 +64,8 @@ export class SalesReportsService {
         .leftJoinAndSelect('order.user', 'cashier')
         .leftJoinAndSelect('order.customer', 'customer')
         .leftJoinAndSelect('order.items', 'items')
-        .leftJoinAndSelect('items.product', 'product')
         .leftJoinAndSelect('items.variant', 'variant')
+        .leftJoinAndSelect('variant.product', 'product')
         .getMany();
 
       // Create a map of orders by ID for easy lookup
@@ -121,8 +121,8 @@ export class SalesReportsService {
             : null,
           items:
             order?.items?.map((item) => ({
-              productId: item.product?.id,
-              productName: item.product?.name_product,
+              productId: item.variant?.product?.id,
+              productName: item.variant?.product?.name_product,
               variantId: item.variant?.id,
               variantName: item.variant?.name_variant,
               quantity: item.quantity,

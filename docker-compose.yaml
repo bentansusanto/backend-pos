@@ -1,4 +1,4 @@
-version: "3.8"
+version: '3.8'
 
 services:
   pos-app:
@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      - "8081:8081"
+      - '8081:8081'
     volumes:
       - .:/app
       - /app/node_modules
@@ -32,7 +32,7 @@ services:
       - POSTGRES_PASSWORD=pos_db_dev
       - POSTGRES_DB=pos_db
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -42,7 +42,7 @@ services:
     image: redis:alpine
     container_name: pos-app-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     networks:
       - app-network
 

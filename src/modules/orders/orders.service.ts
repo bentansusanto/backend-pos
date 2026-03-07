@@ -8,8 +8,10 @@ import { OrderResponse } from 'src/types/response/order.type';
 import { In, Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { Customer } from '../customers/entities/customer.entity';
+import { Discount } from '../discounts/entities/discount.entity';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
+import { Tax } from '../tax/entities/tax.entity';
 import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
 import { UserLogsService } from '../user_logs/user_logs.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -31,8 +33,19 @@ export class OrdersService {
     private readonly orderItemRepository: Repository<OrderItem>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    @InjectRepository(Tax)
+    private readonly taxRepository: Repository<Tax>,
+    @InjectRepository(Discount)
+    private readonly discountRepository: Repository<Discount>,
     private readonly userLogsService: UserLogsService,
   ) {}
+
+  private async getActiveTaxRate(): Promise<number> {
+    const activeTax = await this.taxRepository.findOne({
+      where: { is_active: true },
+    });
+    return activeTax && activeTax.rate ? Number(activeTax.rate) / 100 : 0.05;
+  }
 
   private mapOrderItem(item: OrderItem, orderId: string) {
     const variantId = item.variant?.id ?? '';
@@ -149,7 +162,14 @@ export class OrdersService {
       const existingOrderPromise = order_id
         ? this.orderRepository.findOne({
             where: { id: order_id },
-            relations: ['items', 'items.variant', 'branch', 'user', 'customer'],
+            relations: [
+              'items',
+              'items.variant',
+              'branch',
+              'user',
+              'customer',
+              'discount',
+            ],
           })
         : Promise.resolve(null);
 
@@ -234,8 +254,9 @@ export class OrdersService {
               (total, item) => total + item.subtotal,
               0,
             );
+            const taxRate = await this.getActiveTaxRate();
             savedOrder.subtotal = subtotal;
-            savedOrder.tax_amount = subtotal * 0.05;
+            savedOrder.tax_amount = subtotal * taxRate;
             savedOrder.discount_amount = savedOrder.discount_amount ?? 0;
             const finalOrder = await orderRepo.save(savedOrder);
 
@@ -343,11 +364,21 @@ export class OrdersService {
             }
           });
 
-          // Recalculate order subtotal after update/insert
           const subtotal = mergedItems.reduce(
             (total, item) => total + item.subtotal,
             0,
           );
+
+          let updatedDiscountAmount = existingOrder.discount_amount ?? 0;
+          if (existingOrder.discount) {
+            if (existingOrder.discount.type === 'percentage') {
+              updatedDiscountAmount =
+                subtotal * (Number(existingOrder.discount.value) / 100);
+            } else {
+              updatedDiscountAmount = Number(existingOrder.discount.value);
+            }
+          }
+
           // Only update specific fields on the order, avoiding the 'items' relation
           // This prevents TypeORM from trying to cascade save items again
           await orderRepo.update(existingOrder.id, {
@@ -356,12 +387,13 @@ export class OrdersService {
               existingOrder.user ??
               (resolvedUserId ? { id: resolvedUserId } : undefined),
             subtotal,
-            tax_amount: subtotal * 0.05,
+            tax_amount: subtotal * (await this.getActiveTaxRate()),
+            discount_amount: updatedDiscountAmount,
           });
 
           const savedOrder = await orderRepo.findOne({
             where: { id: existingOrder.id },
-            relations: ['customer', 'branch', 'user'],
+            relations: ['customer', 'branch', 'user', 'discount'],
           });
 
           return { order: savedOrder, items: mergedItems };
@@ -402,6 +434,16 @@ export class OrdersService {
           invoice_number: result.order.invoice_number,
           subtotal: result.order.subtotal ?? 0,
           tax_amount: result.order.tax_amount ?? 0,
+          discount_amount: result.order.discount_amount ?? 0,
+          discount_id: result.order.discount?.id,
+          discount: result.order.discount
+            ? {
+                id: result.order.discount.id,
+                name: result.order.discount.name,
+                type: result.order.discount.type,
+                value: Number(result.order.discount.value),
+              }
+            : undefined,
           total_amount: totalAmount,
           status: result.order.status,
           created_at: result.order.createdAt,
@@ -471,6 +513,16 @@ export class OrdersService {
             invoice_number: order.invoice_number,
             subtotal: order.subtotal ?? 0,
             tax_amount: order.tax_amount ?? 0,
+            discount_amount: order.discount_amount ?? 0,
+            discount_id: order.discount?.id,
+            discount: order.discount
+              ? {
+                  id: order.discount.id,
+                  name: order.discount.name,
+                  type: order.discount.type,
+                  value: Number(order.discount.value),
+                }
+              : undefined,
             total_amount: totalAmount,
             status: order.status,
             created_at: order.createdAt,
@@ -529,6 +581,16 @@ export class OrdersService {
           invoice_number: order.invoice_number,
           subtotal: order.subtotal ?? 0,
           tax_amount: order.tax_amount ?? 0,
+          discount_amount: order.discount_amount ?? 0,
+          discount_id: order.discount?.id,
+          discount: order.discount
+            ? {
+                id: order.discount.id,
+                name: order.discount.name,
+                type: order.discount.type,
+                value: Number(order.discount.value),
+              }
+            : undefined,
           total_amount: totalAmount,
           status: order.status,
           created_at: order.createdAt,
@@ -556,7 +618,6 @@ export class OrdersService {
         where: { id },
         relations: [
           'items',
-          'items.product',
           'items.variant',
           'items.variant.product',
           'customer',
@@ -571,29 +632,44 @@ export class OrdersService {
         );
       }
 
-      if (!updateOrderDto.customer_id) {
-        throw new HttpException(
-          'Customer ID is required',
-          HttpStatus.BAD_REQUEST,
-        );
+      const updateData: any = {};
+
+      if (updateOrderDto.customer_id) {
+        const customer = await this.customerRepository.findOne({
+          where: { id: updateOrderDto.customer_id },
+        });
+        if (customer) {
+          updateData.customer = { id: customer.id };
+        }
       }
 
-      const customer = await this.customerRepository.findOne({
-        where: { id: updateOrderDto.customer_id },
-      });
-      if (!customer) {
-        throw new HttpException('Customer not found', HttpStatus.NOT_FOUND);
+      if (updateOrderDto.discount_id) {
+        if (updateOrderDto.discount_id === 'remove') {
+          updateData.discount = null;
+          updateData.discount_amount = 0;
+        } else {
+          const discount = await this.discountRepository.findOne({
+            where: { id: updateOrderDto.discount_id },
+          });
+          if (discount) {
+            let discountAmount = 0;
+            if (discount.type === 'percentage') {
+              discountAmount = order.subtotal * (Number(discount.value) / 100);
+            } else {
+              discountAmount = Number(discount.value);
+            }
+            updateData.discount = { id: discount.id };
+            updateData.discount_amount = discountAmount;
+          }
+        }
       }
 
-      await this.orderRepository.update(id, {
-        customer: { id: customer.id },
-      });
+      await this.orderRepository.update(id, updateData);
 
       const updatedOrder = await this.orderRepository.findOne({
         where: { id },
         relations: [
           'items',
-          'items.product',
           'items.variant',
           'items.variant.product',
           'customer',
@@ -626,6 +702,16 @@ export class OrdersService {
           invoice_number: updatedOrder.invoice_number,
           subtotal: updatedOrder.subtotal ?? 0,
           tax_amount: updatedOrder.tax_amount ?? 0,
+          discount_amount: updatedOrder.discount_amount ?? 0,
+          discount_id: updatedOrder.discount?.id,
+          discount: updatedOrder.discount
+            ? {
+                id: updatedOrder.discount.id,
+                name: updatedOrder.discount.name,
+                type: updatedOrder.discount.type,
+                value: Number(updatedOrder.discount.value),
+              }
+            : undefined,
           total_amount: totalAmount,
           status: updatedOrder.status,
           created_at: updatedOrder.createdAt,
@@ -667,12 +753,12 @@ export class OrdersService {
         where: { id: orderId },
         relations: [
           'items',
-          'items.product',
           'items.variant',
           'items.variant.product',
           'customer',
           'branch',
           'user',
+          'discount',
         ],
       });
       if (!order) {
@@ -712,7 +798,18 @@ export class OrdersService {
         (total, item) => total + item.subtotal,
         0,
       );
-      order.tax_amount = order.subtotal * 0.05;
+      const taxRate = await this.getActiveTaxRate();
+      order.tax_amount = order.subtotal * taxRate;
+
+      if (order.discount) {
+        if (order.discount.type === 'percentage') {
+          order.discount_amount =
+            order.subtotal * (Number(order.discount.value) / 100);
+        } else {
+          order.discount_amount = Number(order.discount.value);
+        }
+      }
+
       const savedOrder = await this.orderRepository.save(order);
 
       const totalAmount =
@@ -733,6 +830,16 @@ export class OrdersService {
           invoice_number: savedOrder.invoice_number,
           subtotal: savedOrder.subtotal ?? 0,
           tax_amount: savedOrder.tax_amount ?? 0,
+          discount_amount: savedOrder.discount_amount ?? 0,
+          discount_id: savedOrder.discount?.id,
+          discount: savedOrder.discount
+            ? {
+                id: savedOrder.discount.id,
+                name: savedOrder.discount.name,
+                type: savedOrder.discount.type,
+                value: Number(savedOrder.discount.value),
+              }
+            : undefined,
           total_amount: totalAmount,
           status: savedOrder.status,
           created_at: savedOrder.createdAt,
@@ -771,12 +878,12 @@ export class OrdersService {
         where: { id: orderId },
         relations: [
           'items',
-          'items.product',
           'items.variant',
           'items.variant.product',
           'customer',
           'branch',
           'user',
+          'discount',
         ],
       });
       if (!order) {
@@ -806,7 +913,6 @@ export class OrdersService {
       }
 
       await this.orderItemRepository.delete(orderItem.id);
-
       const remainingItems = (order.items || []).filter(
         (item) => item.id !== orderItem.id,
       );
@@ -815,7 +921,17 @@ export class OrdersService {
         (total, item) => total + item.subtotal,
         0,
       );
-      order.tax_amount = order.subtotal * 0.05;
+      const taxRate = await this.getActiveTaxRate();
+      order.tax_amount = order.subtotal * taxRate;
+
+      if (order.discount) {
+        if (order.discount.type === 'percentage') {
+          order.discount_amount =
+            order.subtotal * (Number(order.discount.value) / 100);
+        } else {
+          order.discount_amount = Number(order.discount.value);
+        }
+      }
 
       const savedOrder = await this.orderRepository.save(order);
       const totalAmount =
@@ -836,6 +952,16 @@ export class OrdersService {
           invoice_number: savedOrder.invoice_number,
           subtotal: savedOrder.subtotal ?? 0,
           tax_amount: savedOrder.tax_amount ?? 0,
+          discount_amount: savedOrder.discount_amount ?? 0,
+          discount_id: savedOrder.discount?.id,
+          discount: savedOrder.discount
+            ? {
+                id: savedOrder.discount.id,
+                name: savedOrder.discount.name,
+                type: savedOrder.discount.type,
+                value: Number(savedOrder.discount.value),
+              }
+            : undefined,
           total_amount: totalAmount,
           status: savedOrder.status,
           created_at: savedOrder.createdAt,

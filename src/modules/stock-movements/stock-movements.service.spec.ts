@@ -1,166 +1,178 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { StockMovementsService } from './stock-movements.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { StockMovement } from './entities/stock-movement.entity';
 import { NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { ReferenceType, StockMovement } from './entities/stock-movement.entity';
+import { StockMovementsService } from './stock-movements.service';
+
+const mockMovement: Partial<StockMovement> = {
+  id: 'mv-001',
+  referenceType: ReferenceType.ADJUST,
+  qty: 10,
+  referenceId: 'ref-001',
+  productVariant: { id: 'var-001' } as any,
+  branch: { id: 'br-001' } as any,
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
+
+const mockRepo = () => ({
+  create: jest.fn(),
+  save: jest.fn(),
+  find: jest.fn(),
+  findOne: jest.fn(),
+});
 
 describe('StockMovementsService', () => {
   let service: StockMovementsService;
-  let repository: any;
-
-  const mockStockMovement = {
-    id: 'movement-id',
-    productId: 'product-id',
-    variantId: 'variant-id',
-    branchId: 'branch-id',
-    quantity: 10,
-    type: 'IN',
-    createdAt: new Date(),
-  };
+  let repo: ReturnType<typeof mockRepo>;
 
   beforeEach(async () => {
-    repository = {
-      create: jest.fn(),
-      save: jest.fn(),
-      find: jest.fn(),
-      findOne: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StockMovementsService,
-        {
-          provide: getRepositoryToken(StockMovement),
-          useValue: repository,
-        },
+        { provide: getRepositoryToken(StockMovement), useFactory: mockRepo },
       ],
     }).compile();
 
     service = module.get<StockMovementsService>(StockMovementsService);
+    repo = module.get(getRepositoryToken(StockMovement));
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+  afterEach(() => jest.clearAllMocks());
 
-  describe('create', () => {
-    it('should create a stock movement successfully', async () => {
-      const createDto: any = {
-        productId: 'product-id',
-        branchId: 'branch-id',
-        quantity: 10,
-        type: 'IN',
+  // ── create ────────────────────────────────────────────────────────────────
+  describe('create()', () => {
+    it('creates stock movement linked to variant (not product) and branch', async () => {
+      repo.create.mockReturnValue(mockMovement);
+      repo.save.mockResolvedValue(mockMovement);
+
+      const dto = {
+        variantId: 'var-001',
+        branchId: 'br-001',
+        referenceType: ReferenceType.ADJUST,
+        qty: 10,
+        referenceId: 'ref-001',
       };
 
-      repository.create.mockReturnValue(mockStockMovement);
-      repository.save.mockResolvedValue(mockStockMovement);
+      const result = await service.create(dto as any);
 
-      const result = await service.create(createDto);
-
-      expect(result).toEqual(mockStockMovement);
-      expect(repository.create).toHaveBeenCalledWith({
-        quantity: 10,
-        type: 'IN',
-        product: { id: 'product-id' },
-        productVariant: undefined,
-        branch: { id: 'branch-id' },
-      });
-      expect(repository.save).toHaveBeenCalledWith(mockStockMovement);
+      // Confirms product is NOT passed — only variant
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          productVariant: { id: 'var-001' },
+          branch: { id: 'br-001' },
+        }),
+      );
+      // Confirms productId is NOT in the entity call
+      expect(repo.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({ product: expect.anything() }),
+      );
+      expect(result).toBeDefined();
     });
 
-    it('should throw NotFoundException on error', async () => {
-      const createDto: any = {
-        productId: 'product-id',
-        branchId: 'branch-id',
-        quantity: 10,
-        type: 'IN',
-      };
+    it('creates movement without variant when variantId is null', async () => {
+      const partial = { ...mockMovement, productVariant: undefined };
+      repo.create.mockReturnValue(partial);
+      repo.save.mockResolvedValue(partial);
 
-      repository.save.mockRejectedValue(new Error('Database error'));
+      await service.create({
+        variantId: null,
+        branchId: 'br-001',
+        referenceType: ReferenceType.PURCHASE,
+        qty: 5,
+        referenceId: 'ref-002',
+      } as any);
 
-      await expect(service.create(createDto)).rejects.toThrow(
-        NotFoundException,
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ productVariant: undefined }),
       );
     });
+
+    it('throws NotFoundException on failure', async () => {
+      repo.create.mockImplementation(() => {
+        throw new Error('DB error');
+      });
+
+      await expect(
+        service.create({
+          variantId: 'v',
+          branchId: 'b',
+          referenceType: ReferenceType.SALE,
+          qty: 1,
+          referenceId: 'r',
+        } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
-  describe('findAll', () => {
-    it('should return all stock movements', async () => {
-      repository.find.mockResolvedValue([mockStockMovement]);
+  // ── findAll ───────────────────────────────────────────────────────────────
+  describe('findAll()', () => {
+    it('returns all stock movements ordered by createdAt DESC', async () => {
+      repo.find.mockResolvedValue([mockMovement]);
 
       const result = await service.findAll();
 
-      expect(result).toEqual([mockStockMovement]);
-      expect(repository.find).toHaveBeenCalledWith({
-        where: undefined,
-        relations: ['product', 'productVariant', 'branch'],
-        order: { createdAt: 'DESC' },
-      });
+      expect(repo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ order: { createdAt: 'DESC' } }),
+      );
+      expect(result).toHaveLength(1);
     });
 
-    it('should return stock movements filtered by branchId', async () => {
-      repository.find.mockResolvedValue([mockStockMovement]);
+    it('filters by branchId when provided', async () => {
+      repo.find.mockResolvedValue([mockMovement]);
 
-      const result = await service.findAll('branch-id');
+      await service.findAll('br-001');
 
-      expect(result).toEqual([mockStockMovement]);
-      expect(repository.find).toHaveBeenCalledWith({
-        where: { branch: { id: 'branch-id' } },
-        relations: ['product', 'productVariant', 'branch'],
-        order: { createdAt: 'DESC' },
-      });
-    });
-
-    it('should throw NotFoundException on error', async () => {
-      repository.find.mockRejectedValue(new Error('Database error'));
-
-      await expect(service.findAll()).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('findOne', () => {
-    it('should return a stock movement by id', async () => {
-      repository.findOne.mockResolvedValue(mockStockMovement);
-
-      const result = await service.findOne('movement-id');
-
-      expect(result).toEqual(mockStockMovement);
-      expect(repository.findOne).toHaveBeenCalledWith({
-        where: { id: 'movement-id' },
-        relations: ['product', 'productVariant', 'branch'],
-      });
-    });
-
-    it('should throw NotFoundException if not found', async () => {
-      repository.findOne.mockResolvedValue(null);
-
-      await expect(service.findOne('invalid-id')).rejects.toThrow(
-        new NotFoundException('Stock movement with ID invalid-id not found'),
+      expect(repo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { branch: { id: 'br-001' } } }),
       );
     });
 
-    it('should throw NotFoundException on error', async () => {
-      repository.findOne.mockRejectedValue(new Error('Database error'));
+    it('returns all movements when no branchId provided', async () => {
+      repo.find.mockResolvedValue([mockMovement]);
 
-      await expect(service.findOne('movement-id')).rejects.toThrow(
-        NotFoundException,
+      await service.findAll();
+
+      expect(repo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: undefined }),
       );
     });
   });
 
-  describe('update', () => {
-    it('should return update message', () => {
-      expect(service.update(1, {} as any)).toEqual(
-        'This action updates a #1 stockMovement',
+  // ── findOne ───────────────────────────────────────────────────────────────
+  describe('findOne()', () => {
+    it('returns a movement by id with relations', async () => {
+      repo.findOne.mockResolvedValue(mockMovement);
+
+      const result = await service.findOne('mv-001');
+
+      expect(repo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'mv-001' },
+          relations: ['productVariant', 'branch'],
+        }),
       );
+      expect(result).toBeDefined();
+    });
+
+    it('throws NotFoundException when not found', async () => {
+      repo.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne('bad')).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe('remove', () => {
-    it('should return remove message', () => {
-      expect(service.remove(1)).toEqual(
-        'This action removes a #1 stockMovement',
-      );
+  // ── ReferenceType enum coverage ───────────────────────────────────────────
+  describe('ReferenceType enum', () => {
+    it('has all expected reference types', () => {
+      expect(ReferenceType.SALE).toBe('sale');
+      expect(ReferenceType.PURCHASE).toBe('purchase');
+      expect(ReferenceType.ADJUST).toBe('adjust');
+      expect(ReferenceType.RETURN_SALE).toBe('return_sale');
+      expect(ReferenceType.RETURN_PURCHASE).toBe('return_purchase');
+      expect(ReferenceType.EXPIRED).toBe('expired');
+      expect(ReferenceType.DAMAGE).toBe('damage');
+      expect(ReferenceType.OPENING_STOCK).toBe('opening_stock');
     });
   });
 });

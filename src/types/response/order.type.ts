@@ -9,6 +9,14 @@ export class OrderData {
   invoice_number: string;
   subtotal: number;
   tax_amount: number;
+  discount_amount?: number;
+  discount_id?: string;
+  discount?: {
+    id: string;
+    name: string;
+    type: string;
+    value: number;
+  };
   total_amount: number;
   status: string;
   created_at: Date;

@@ -16,17 +16,22 @@ import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { Supplier } from './entities/supplier.entity';
 
+import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
+import { UserLogsService } from '../user_logs/user_logs.service';
+
 @Injectable()
 export class SupplierService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    private readonly userLogsService: UserLogsService,
   ) {}
 
   // create supplier
   async create(
     createSupplierDto: CreateSupplierDto,
+    userId?: string,
   ): Promise<SupplierResponse> {
     try {
       // check if supplier with same email already exists
@@ -43,6 +48,18 @@ export class SupplierService {
       // create and save supplier
       const supplier = this.supplierRepository.create({ ...createSupplierDto });
       await this.supplierRepository.save(supplier);
+
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.CREATE,
+        entityType: EntityType.SUPPLIER,
+        entityId: supplier.id,
+        description: `Created new supplier: ${supplier.name}`,
+        metadata: {
+          supplierName: supplier.name,
+          email: supplier.email,
+        },
+      });
 
       return {
         message: successSupplierMessage.SUCCESS_CREATE_SUPPLIER,
@@ -148,12 +165,22 @@ export class SupplierService {
   async update(
     id: string,
     updateSupplierDto: UpdateSupplierDto,
+    userId?: string,
   ): Promise<SupplierResponse> {
     try {
       // verify supplier exists
       const existingSupplier = await this.findOne(id);
 
       await this.supplierRepository.update(id, updateSupplierDto);
+
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.UPDATE,
+        entityType: EntityType.SUPPLIER,
+        entityId: id,
+        description: `Updated supplier: ${existingSupplier.data.name}`,
+        metadata: { updates: updateSupplierDto },
+      });
 
       return {
         message: successSupplierMessage.SUCCESS_UPDATE_SUPPLIER,
@@ -184,12 +211,20 @@ export class SupplierService {
   }
 
   // delete supplier (soft delete)
-  async remove(id: string): Promise<SupplierResponse> {
+  async remove(id: string, userId?: string): Promise<SupplierResponse> {
     try {
       // verify supplier exists
       await this.findOne(id);
 
       await this.supplierRepository.softDelete(id);
+
+      this.userLogsService.log({
+        userId: userId ?? '',
+        action: ActionType.DELETE,
+        entityType: EntityType.SUPPLIER,
+        entityId: id,
+        description: `Deleted supplier with id: ${id}`,
+      });
 
       return {
         message: successSupplierMessage.SUCCESS_DELETE_SUPPLIER,

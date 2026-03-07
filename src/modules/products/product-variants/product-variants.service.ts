@@ -383,18 +383,35 @@ export class ProductVariantsService {
       }
       return {
         message: successProductMessage.SUCCESS_FIND_VARIANT,
-        datas: productVariants.map((productVariant) => ({
-          id: productVariant.id,
-          product_id: productVariant.product.id,
-          name_variant: productVariant.name_variant,
-          price: productVariant.price,
-          sku: productVariant.sku,
-          weight: productVariant.weight,
-          color: productVariant.color,
-          thumbnail: productVariant.thumbnail,
-          createdAt: productVariant.createdAt,
-          updatedAt: productVariant.updatedAt,
-        })),
+        datas: productVariants.map((productVariant) => {
+          let totalStock = 0;
+          if (branchId) {
+            const stockRecord = productVariant.productStocks?.find(
+              (s) => s.branch?.id === branchId,
+            );
+            totalStock = stockRecord ? Number(stockRecord.stock) : 0;
+          } else {
+            totalStock =
+              productVariant.productStocks?.reduce(
+                (acc, curr) => acc + Number(curr.stock),
+                0,
+              ) || 0;
+          }
+
+          return {
+            id: productVariant.id,
+            product_id: productVariant.product.id,
+            name_variant: productVariant.name_variant,
+            price: productVariant.price,
+            sku: productVariant.sku,
+            weight: productVariant.weight,
+            color: productVariant.color,
+            thumbnail: productVariant.thumbnail,
+            stock: totalStock,
+            createdAt: productVariant.createdAt,
+            updatedAt: productVariant.updatedAt,
+          };
+        }),
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_FIND_VARIANT, error.message);
