@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonModule } from './common/common.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
 import { AiInsightModule } from './modules/ai-insight/ai-insight.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { CostLayersModule } from './modules/cost_layers/cost_layers.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { DiscountsModule } from './modules/discounts/discounts.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ProductStocksModule } from './modules/product-stocks/product-stocks.module';
@@ -27,7 +29,6 @@ import { SeederModule } from './modules/seeder/seeder.module';
 import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
 import { TaxModule } from './modules/tax/tax.module';
-import { ExpensesModule } from './modules/expenses/expenses.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
     CostLayersModule,
     PurchaseReceivingsModule,
     ExpensesModule,
+    AccountingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

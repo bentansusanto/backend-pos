@@ -46,6 +46,9 @@ import { RbacService } from './services/rbac.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { Expense } from 'src/modules/expenses/entities/expense.entity';
 import { ExpenseCategory } from 'src/modules/expenses/entities/expense-category.entity';
+import { Accounts } from 'src/modules/accounting/entities/account.entity';
+import { JournalEntry } from 'src/modules/accounting/entities/journal-entry.entity';
+import { JournalLine } from 'src/modules/accounting/entities/journal-line.entity';
 
 @Module({
   imports: [
@@ -122,6 +125,9 @@ import { ExpenseCategory } from 'src/modules/expenses/entities/expense-category.
       UserLog,
       Expense,
       ExpenseCategory,
+      Accounts,
+      JournalEntry,
+      JournalLine,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
