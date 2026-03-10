@@ -9,6 +9,7 @@ import { In, Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { Customer } from '../customers/entities/customer.entity';
 import { Discount } from '../discounts/entities/discount.entity';
+import { PosSessionsService } from '../pos-sessions/pos-sessions.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
 import { Tax } from '../tax/entities/tax.entity';
@@ -38,6 +39,7 @@ export class OrdersService {
     @InjectRepository(Discount)
     private readonly discountRepository: Repository<Discount>,
     private readonly userLogsService: UserLogsService,
+    private readonly posSessionsService: PosSessionsService,
   ) {}
 
   private async getActiveTaxRate(): Promise<number> {
@@ -221,6 +223,17 @@ export class OrdersService {
 
           if (!existingOrder) {
             // Flow A: Create new order when no active order is available
+            let posSession = null;
+            if (resolvedUserId) {
+              const sessionResponse =
+                await this.posSessionsService.getActiveSession({
+                  id: resolvedUserId,
+                } as any);
+              if (sessionResponse.data) {
+                posSession = { id: sessionResponse.data.id };
+              }
+            }
+
             const createdOrder = orderRepo.create({
               invoice_number: `INV-${Date.now()}`,
               notes,
@@ -228,6 +241,7 @@ export class OrdersService {
               branch: branch_id ? { id: branch_id } : undefined,
               user: resolvedUserId ? { id: resolvedUserId } : undefined,
               customer: customer_id ? { id: customer_id } : undefined,
+              posSession,
             });
             const savedOrder = await orderRepo.save(createdOrder);
 

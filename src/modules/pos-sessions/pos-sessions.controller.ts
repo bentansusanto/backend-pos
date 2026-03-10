@@ -1,0 +1,66 @@
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
+import { CurrentUser } from 'src/common/decorator/current-user.decorator';
+import { WebResponse } from 'src/types/response/index.type';
+import { User } from '../rbac/users/entities/user.entity';
+import {
+  ClosePosSessionDto,
+  OpenPosSessionDto,
+} from './dto/create-pos-session.dto';
+import { PosSessionsService } from './pos-sessions.service';
+
+@Controller('pos-sessions')
+export class PosSessionsController {
+  constructor(private readonly posSessionsService: PosSessionsService) {}
+
+  @Post('open')
+  @HttpCode(HttpStatus.CREATED)
+  async openSession(
+    @Body() openPosSessionDto: OpenPosSessionDto,
+    @CurrentUser() user: User,
+  ): Promise<WebResponse> {
+    const result = await this.posSessionsService.openSession(
+      openPosSessionDto,
+      user,
+    );
+    return {
+      message: result.message,
+      data: result.data,
+    };
+  }
+
+  @Post('close/:id')
+  @HttpCode(HttpStatus.OK)
+  async closeSession(
+    @Param('id') id: string,
+    @Body() closePosSessionDto: ClosePosSessionDto,
+    @CurrentUser() user: User,
+  ): Promise<WebResponse> {
+    const result = await this.posSessionsService.closeSession(
+      id,
+      closePosSessionDto,
+      user,
+    );
+    return {
+      message: result.message,
+      data: result.data,
+    };
+  }
+
+  @Get('active')
+  @HttpCode(HttpStatus.OK)
+  async getActiveSession(@CurrentUser() user: User): Promise<WebResponse> {
+    const result = await this.posSessionsService.getActiveSession(user);
+    return {
+      message: result.message,
+      data: result.data,
+    };
+  }
+}

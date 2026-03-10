@@ -22,12 +22,14 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // create user
+  @Roles('owner', 'admin')
   @Post('create')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createUserDto: CreateUserByOwnerDto,
+    @CurrentUser() creator: User,
   ): Promise<WebResponse> {
-    const result = await this.usersService.createUser(createUserDto);
+    const result = await this.usersService.createUser(createUserDto, creator);
     return {
       message: result.message,
       data: result.data,

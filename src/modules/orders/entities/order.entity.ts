@@ -16,6 +16,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { PosSession } from '../../pos-sessions/entities/pos-session.entity';
 import { OrderItem } from './order-item.entity';
 
 export enum OrderStatus {
@@ -103,6 +104,12 @@ export class Order {
   @ManyToOne(() => Discount, (discount) => discount.orders, { nullable: true })
   @JoinColumn({ name: 'discount_id' })
   discount?: Discount;
+
+  @ManyToOne(() => PosSession, (posSession) => posSession.orders, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'pos_session_id' })
+  posSession: PosSession;
 
   @Column({ nullable: true })
   notes: string;

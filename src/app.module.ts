@@ -11,6 +11,7 @@ import { DiscountsModule } from './modules/discounts/discounts.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PosSessionsModule } from './modules/pos-sessions/pos-sessions.module';
 import { ProductStocksModule } from './modules/product-stocks/product-stocks.module';
 import { CategoriesModule } from './modules/products/categories/categories.module';
 import { ProductVariantsModule } from './modules/products/product-variants/product-variants.module';
@@ -60,6 +61,7 @@ import { TaxModule } from './modules/tax/tax.module';
     PurchaseReceivingsModule,
     ExpensesModule,
     AccountingModule,
+    PosSessionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

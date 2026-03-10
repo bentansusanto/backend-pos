@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Customer } from '../customers/entities/customer.entity';
 import { Discount } from '../discounts/entities/discount.entity';
+import { PosSessionsModule } from '../pos-sessions/pos-sessions.module';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
 import { Product } from '../products/entities/product.entity';
@@ -27,6 +28,7 @@ import { OrdersService } from './orders.service';
       Discount,
     ]),
     UserLogsModule,
+    PosSessionsModule,
   ],
   exports: [OrdersService],
 })

@@ -32,12 +32,21 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
+  @Column({ nullable: true })
   @Exclude()
   password: string;
 
   @Column()
   name: string;
+
+  @Column({ nullable: true })
+  pin: string;
+
+  @Column({ nullable: true })
+  username: string;
+
+  @Column({ nullable: true })
+  address: string;
 
   @Column({ nullable: true })
   avatar: string;

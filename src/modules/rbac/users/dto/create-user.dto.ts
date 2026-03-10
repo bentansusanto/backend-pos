@@ -2,6 +2,7 @@ import { PartialType } from '@nestjs/mapped-types';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -60,10 +61,27 @@ export class CreateUserByOwnerDto {
   email: string;
 
   @ApiProperty({
+    example: 'john_doe',
+    description: 'The username of the user',
+    required: false,
+  })
+  @IsString({ message: 'username must be a string' })
+  username?: string;
+
+  @ApiProperty({
+    example: '123456',
+    description: 'The pin of the user',
+    required: false,
+  })
+  @IsString({ message: 'pin must be a string' })
+  pin?: string;
+
+  @ApiProperty({
     example: 'Password123!',
     description: 'The password of the user',
+    required: false,
   })
-  @IsNotEmpty({ message: 'Password is required' })
+  @IsOptional()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @Matches(/(?=.*[a-z])/, {
     message: 'Password must contain at least one lowercase letter',
@@ -77,7 +95,7 @@ export class CreateUserByOwnerDto {
   @Matches(/(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])/, {
     message: 'Password must contain at least one special character',
   })
-  password: string;
+  password?: string;
 
   @IsNotEmpty({ message: 'role is not empty' })
   @IsString({ message: 'role must be a string' })
@@ -97,16 +115,32 @@ export class LoginUserDto {
   @ApiProperty({
     example: 'john@example.com',
     description: 'The email of the user',
+    required: false,
   })
-  @IsNotEmpty({ message: 'email is not empty' })
   @IsString({ message: 'email must be a string' })
-  email: string;
+  email?: string;
+
+  @ApiProperty({
+    example: 'john_doe',
+    description: 'The username of the user',
+    required: false,
+  })
+  @IsString({ message: 'username must be a string' })
+  username?: string;
+
+  @ApiProperty({
+    example: '123456',
+    description: 'The pin of the user',
+    required: false,
+  })
+  @IsString({ message: 'pin must be a string' })
+  pin?: string;
 
   @ApiProperty({
     example: 'Password123!',
     description: 'The password of the user',
+    required: false,
   })
-  @IsNotEmpty({ message: 'Password is required' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @MaxLength(20, { message: 'Password must be at most 20 characters long' })
   @Matches(/(?=.*[a-z])/, {
@@ -121,7 +155,7 @@ export class LoginUserDto {
   @Matches(/(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?])/, {
     message: 'Password must contain at least one special character',
   })
-  password: string;
+  password?: string;
 }
 
 export class EmailRequest {

@@ -273,34 +273,124 @@ export class AuthService {
     reqDto: LoginUserDto,
   ): Promise<AuthResponse> {
     try {
-      // check user exists
-      const user = await this.usersRepository.findOne({
-        where: { email: reqDto.email },
-      });
-      if (!user) {
-        this.logger.debug(`${errUserMessage.USER_NOT_FOUND}: ${reqDto.email}`);
+      let user: User;
+
+      if (reqDto.pin) {
+        // PIN login (for cashier)
+        user = await this.usersRepository.findOne({
+          where: { pin: reqDto.pin },
+          relations: ['role'],
+        });
+
+        if (!user) {
+          this.logger.debug(`User with PIN not found: ${reqDto.pin}`);
+          throw new HttpException(
+            errUserMessage.USER_NOT_FOUND,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        if (user.role.code !== 'cashier') {
+          this.logger.error(
+            `Unauthorized PIN login attempt for role: ${user.role.code}`,
+          );
+          throw new HttpException(
+            errUserMessage.USER_NOT_AUTHORIZED,
+            HttpStatus.UNAUTHORIZED,
+          );
+        }
+      } else if (reqDto.username && reqDto.password) {
+        // Username login (for staff, admin, etc.)
+        user = await this.usersRepository.findOne({
+          where: { username: reqDto.username },
+          relations: ['role'],
+        });
+
+        if (!user) {
+          this.logger.debug(`User with username not found: ${reqDto.username}`);
+          throw new HttpException(
+            errUserMessage.USER_NOT_FOUND,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        if (user.role.code === 'owner' || user.role.code === 'cashier') {
+          this.logger.error(
+            `Unauthorized username login attempt for role: ${user.role.code}`,
+          );
+          throw new HttpException(
+            errUserMessage.USER_NOT_AUTHORIZED,
+            HttpStatus.UNAUTHORIZED,
+          );
+        }
+
+        // check password
+        const isPasswordValid = await bcrypt.compare(
+          reqDto.password,
+          user.password,
+        );
+        if (!isPasswordValid) {
+          this.logger.error(
+            `${errUserMessage.USER_LOGIN_FAILED}: ${user.name}`,
+          );
+          throw new HttpException(
+            errUserMessage.USER_LOGIN_FAILED,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      } else if (reqDto.email && reqDto.password) {
+        // Email login (for owner)
+        user = await this.usersRepository.findOne({
+          where: { email: reqDto.email },
+          relations: ['role'],
+        });
+
+        if (!user) {
+          this.logger.debug(
+            `${errUserMessage.USER_NOT_FOUND}: ${reqDto.email}`,
+          );
+          throw new HttpException(
+            errUserMessage.USER_NOT_FOUND,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        if (user.role.code !== 'owner') {
+          this.logger.error(
+            `Unauthorized email login attempt for role: ${user.role.code}`,
+          );
+          throw new HttpException(
+            errUserMessage.USER_NOT_AUTHORIZED,
+            HttpStatus.UNAUTHORIZED,
+          );
+        }
+
+        // check password
+        const isPasswordValid = await bcrypt.compare(
+          reqDto.password,
+          user.password,
+        );
+        if (!isPasswordValid) {
+          this.logger.error(
+            `${errUserMessage.USER_LOGIN_FAILED}: ${user.name}`,
+          );
+          throw new HttpException(
+            errUserMessage.USER_LOGIN_FAILED,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      } else {
         throw new HttpException(
-          errUserMessage.USER_NOT_FOUND,
+          'Missing login credentials',
           HttpStatus.BAD_REQUEST,
         );
       }
+
       // check user already verified
       if (user.is_verified === false) {
         this.logger.error(`${errUserMessage.USER_NOT_VERIFIED}: ${user.name}`);
         throw new HttpException(
           errUserMessage.USER_NOT_VERIFIED,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      // check password
-      const isPasswordValid = await bcrypt.compare(
-        reqDto.password,
-        user.password,
-      );
-      if (!isPasswordValid) {
-        this.logger.error(`${errUserMessage.USER_LOGIN_FAILED}: ${user.name}`);
-        throw new HttpException(
-          errUserMessage.USER_LOGIN_FAILED,
           HttpStatus.BAD_REQUEST,
         );
       }

@@ -82,7 +82,10 @@ export class UsersService {
   }
 
   // create user for admin, staff, cashier
-  async createUser(createUserDto: CreateUserByOwnerDto): Promise<AuthResponse> {
+  async createUser(
+    createUserDto: CreateUserByOwnerDto,
+    creator: User,
+  ): Promise<AuthResponse> {
     try {
       // check user already exists
       const userExists = await this.findEmail(createUserDto.email);
@@ -93,12 +96,6 @@ export class UsersService {
         );
       }
 
-      // generate verify code
-      // const tokens = crypto.randomBytes(40).toString('hex');
-      // const tokenVerify = `${tokens}-${Date.now()}`;
-
-      // hash password
-      const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
       const role = await this.roleRepository.findOne({
         where: { id: createUserDto.role_id },
       });
@@ -108,6 +105,40 @@ export class UsersService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      // Role-based creation restrictions
+      if (creator.role.code === 'admin') {
+        if (role.code === 'admin' || role.code === 'owner') {
+          throw new HttpException(
+            'Admin cannot create owner or another admin',
+            HttpStatus.FORBIDDEN,
+          );
+        }
+      }
+
+      // Credential validation
+      if (role.code === 'cashier') {
+        if (!createUserDto.pin) {
+          throw new HttpException(
+            'PIN is required for cashier',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      } else {
+        if (!createUserDto.username) {
+          throw new HttpException(
+            'Username is required for this role',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
+      // hash password
+      let hashedPassword = null;
+      if (createUserDto.password) {
+        hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+      }
+
       const user = this.userRepository.create({
         ...createUserDto,
         password: hashedPassword,
@@ -140,8 +171,8 @@ export class UsersService {
       };
     } catch (error) {
       this.logger.error(errUserMessage.USER_CREATE_FAILED, error);
-      if (error instanceof Error) {
-        throw new Error(error.message);
+      if (error instanceof HttpException) {
+        throw error;
       }
       throw new HttpException(
         errUserMessage.USER_CREATE_FAILED,
@@ -155,6 +186,7 @@ export class UsersService {
     try {
       const user = await this.userRepository.findOne({
         where: { email },
+        relations: ['role'],
       });
       return user;
     } catch (error) {
