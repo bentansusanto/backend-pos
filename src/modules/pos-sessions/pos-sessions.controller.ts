@@ -20,6 +20,7 @@ import { PosSessionsService } from './pos-sessions.service';
 export class PosSessionsController {
   constructor(private readonly posSessionsService: PosSessionsService) {}
 
+
   @Post('open')
   @HttpCode(HttpStatus.CREATED)
   async openSession(
@@ -54,6 +55,7 @@ export class PosSessionsController {
     };
   }
 
+
   @Get('active')
   @HttpCode(HttpStatus.OK)
   async getActiveSession(@CurrentUser() user: User): Promise<WebResponse> {
@@ -61,6 +63,17 @@ export class PosSessionsController {
     return {
       message: result.message,
       data: result.data,
+    };
+  }
+
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  async findAll(): Promise<WebResponse> {
+    const result = await this.posSessionsService.findAll();
+    return {
+      message: result.message,
+      data: result.datas,
     };
   }
 }

@@ -46,9 +46,6 @@ export class User {
   username: string;
 
   @Column({ nullable: true })
-  address: string;
-
-  @Column({ nullable: true })
   avatar: string;
 
   @OneToMany('UserBranch', 'user', {
@@ -58,7 +55,6 @@ export class User {
   userBranches: any[];
 
   @ManyToOne(() => Role, (role) => role.users, {
-    eager: true,
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })

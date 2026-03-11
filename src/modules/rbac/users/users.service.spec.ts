@@ -155,7 +155,7 @@ describe('UsersService', () => {
       } as any);
       jest.spyOn(userBranchRepository, 'save').mockResolvedValue({} as any);
 
-      const result = await service.createUser(createUserDto);
+      const result = await service.createUser(createUserDto, {} as any);
 
       expect(service.findEmail).toHaveBeenCalledWith(createUserDto.email);
       expect(roleRepository.findOne).toHaveBeenCalledWith({
@@ -176,7 +176,7 @@ describe('UsersService', () => {
 
       jest.spyOn(service, 'findEmail').mockResolvedValue(mockUser);
 
-      await expect(service.createUser(createUserDto)).rejects.toThrow(
+      await expect(service.createUser(createUserDto, {} as any)).rejects.toThrow(
         new HttpException('User already exists', HttpStatus.BAD_REQUEST),
       );
     });
@@ -192,7 +192,7 @@ describe('UsersService', () => {
       jest.spyOn(service, 'findEmail').mockResolvedValue(null);
       jest.spyOn(roleRepository, 'findOne').mockResolvedValue(null);
 
-      await expect(service.createUser(createUserDto)).rejects.toThrow(
+      await expect(service.createUser(createUserDto, {} as any)).rejects.toThrow(
         new HttpException('Error finding role', HttpStatus.BAD_REQUEST),
       );
     });

@@ -61,7 +61,7 @@ describe('UsersController', () => {
         role_id: 'role-id',
       };
 
-      const result = await controller.create(dto);
+      const result = await controller.create(dto, {} as any);
 
       expect(service.createUser).toHaveBeenCalledWith(dto);
       expect(result).toEqual({

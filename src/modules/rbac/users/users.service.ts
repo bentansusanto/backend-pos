@@ -200,7 +200,8 @@ export class UsersService {
     try {
       const user = await this.userRepository.findOne({
         where: { id },
-        relations: ['userBranches', 'userBranches.branch', 'profile'],
+        // NOTE: 'role' must be explicit — TypeORM ignores eager:true when relations[] is specified
+        relations: ['role', 'userBranches', 'userBranches.branch', 'profile'],
       });
       if (!user) {
         throw new HttpException(
@@ -217,27 +218,32 @@ export class UsersService {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role.name,
+          username: user.username || null,
+          pin: user.pin || null,
+          role: user.role?.name,
+          role_code: user.role?.code,
           is_verified: user.is_verified,
           branches: user.userBranches?.map((ub) => ({
             id: ub.branch.id,
             name: ub.branch.name,
           })),
           profile: user.profile
-            ? {
+            ? ({
+                id: user.profile.id,
                 address: user.profile.address,
                 phone: user.profile.phone,
-              }
+              } as any)
             : null,
         },
       };
     } catch (error) {
       this.logger.error(errUserMessage.USER_NOT_FOUND, error);
-      if (error instanceof Error) {
-        throw new Error(error.message);
+      // Re-throw HttpException directly (e.g. 404 not found) — do NOT wrap in plain Error
+      if (error instanceof HttpException) {
+        throw error;
       }
       throw new HttpException(
-        errUserMessage.USER_NOT_FOUND,
+        error?.message || errUserMessage.USER_NOT_FOUND,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -293,7 +299,7 @@ export class UsersService {
   // update user
   async update(
     id: string,
-    updateUserDto: UpdateUserDto,
+    updateUserDto: Partial<User>,
   ): Promise<AuthResponse> {
     try {
       const user = await this.userRepository.findOne({
@@ -318,6 +324,7 @@ export class UsersService {
 
       const updatedUser = await this.userRepository.findOne({
         where: { id },
+        relations: ['role'],
       });
 
       this.logger.debug(`${successUserMessage.USER_UPDATED}: ${user.id}`);

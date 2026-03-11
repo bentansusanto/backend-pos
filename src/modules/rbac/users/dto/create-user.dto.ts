@@ -26,6 +26,15 @@ export class CreateUserDto {
   email: string;
 
   @ApiProperty({
+    example: 'john_owner',
+    description: 'The username of the user',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'username must be a string' })
+  username?: string;
+
+  @ApiProperty({
     example: 'Password123!',
     description: 'The password of the user',
   })
@@ -65,6 +74,7 @@ export class CreateUserByOwnerDto {
     description: 'The username of the user',
     required: false,
   })
+  @IsOptional()
   @IsString({ message: 'username must be a string' })
   username?: string;
 
@@ -73,6 +83,7 @@ export class CreateUserByOwnerDto {
     description: 'The pin of the user',
     required: false,
   })
+  @IsOptional()
   @IsString({ message: 'pin must be a string' })
   pin?: string;
 
@@ -106,8 +117,8 @@ export class CreateUserByOwnerDto {
     description: 'The branch id for the user',
     required: false,
   })
+  @IsOptional()
   @IsString({ message: 'branch must be a string' })
-  @IsNotEmpty({ message: 'branch is not empty' })
   branch_id?: string;
 }
 
@@ -117,6 +128,7 @@ export class LoginUserDto {
     description: 'The email of the user',
     required: false,
   })
+  @IsOptional()
   @IsString({ message: 'email must be a string' })
   email?: string;
 
@@ -125,6 +137,7 @@ export class LoginUserDto {
     description: 'The username of the user',
     required: false,
   })
+  @IsOptional()
   @IsString({ message: 'username must be a string' })
   username?: string;
 
@@ -133,6 +146,7 @@ export class LoginUserDto {
     description: 'The pin of the user',
     required: false,
   })
+  @IsOptional()
   @IsString({ message: 'pin must be a string' })
   pin?: string;
 
@@ -141,6 +155,7 @@ export class LoginUserDto {
     description: 'The password of the user',
     required: false,
   })
+  @IsOptional()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @MaxLength(20, { message: 'Password must be at most 20 characters long' })
   @Matches(/(?=.*[a-z])/, {
@@ -208,4 +223,22 @@ export class ResetPasswordDto {
   token: string;
 }
 
-export class UpdateUserDto extends PartialType(User) {}
+export class UpdateUserDto extends PartialType(CreateUserDto) {
+  @ApiProperty({
+    example: '123456',
+    description: 'The PIN of the cashier',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'pin must be a string' })
+  pin?: string;
+
+  @ApiProperty({
+    example: 'john_doe',
+    description: 'The username of the user',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'username must be a string' })
+  username?: string;
+}

@@ -314,7 +314,7 @@ export class AuthService {
           );
         }
 
-        if (user.role.code === 'owner' || user.role.code === 'cashier') {
+        if (user.role.code === 'cashier') {
           this.logger.error(
             `Unauthorized username login attempt for role: ${user.role.code}`,
           );
