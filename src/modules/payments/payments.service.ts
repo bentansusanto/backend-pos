@@ -1,9 +1,11 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { errorPaymentMessage } from 'src/libs/errors/error_payment';
 import { successPaymentMessage } from 'src/libs/success/success_payment';
 import { PaymentResponse } from 'src/types/response/payment.type';
+import Stripe from 'stripe';
 import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
@@ -16,17 +18,33 @@ import {
 } from '../stock-movements/entities/stock-movement.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
-import { Payment, PaymentStatus } from './entities/payment.entity';
+import {
+  Payment,
+  PaymentMethod,
+  PaymentStatus,
+} from './entities/payment.entity';
 
 @Injectable()
 export class PaymentsService {
+  private stripe: Stripe;
+
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     private readonly orderService: OrdersService,
     private readonly salesReportsService: SalesReportsService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    this.logger.debug(
+      `Initializing Stripe with key prefix: ${secretKey?.substring(0, 7)}...`,
+    );
+
+    this.stripe = new Stripe(secretKey, {
+      apiVersion: '2023-10-16' as any, // Fixed invalid version
+    });
+  }
 
   // create payment
   async create(createPaymentDto: CreatePaymentDto): Promise<PaymentResponse> {
@@ -52,13 +70,46 @@ export class PaymentsService {
       // Use order total as payment amount
       const amount = Number(orderResult.data.total_amount ?? 0);
 
+      let stripeClientSecret: string | undefined;
+      let paymentStatus = PaymentStatus.PENDING;
+      let externalId: string | undefined;
+
+      if (method === PaymentMethod.STRIPE) {
+        try {
+          const currency = this.configService.get<string>('STRIPE_CURRENCY') || 'usd';
+          const paymentIntent = await this.stripe.paymentIntents.create({
+            amount: Math.round(amount * 100), // Stripe expects amount in cents
+            currency,
+            metadata: {
+              orderId,
+            },
+          });
+          stripeClientSecret = paymentIntent.client_secret;
+          externalId = paymentIntent.id;
+        } catch (stripeError) {
+          this.logger.error('Stripe PaymentIntent Creation Failed', {
+            message: stripeError.message,
+            stack: stripeError.stack,
+            type: stripeError.type,
+            code: stripeError.code,
+          });
+          throw new HttpException(
+            `Stripe payment initialization failed: ${stripeError.message}`,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      } else if (method === PaymentMethod.CASH) {
+        paymentStatus = PaymentStatus.SUCCESS;
+      }
+
       // Create and persist payment record
       const payment = this.paymentRepository.create({
         orderId,
         method,
         amount,
-        status: PaymentStatus.SUCCESS,
-        paid_at: new Date(),
+        status: paymentStatus,
+        externalId,
+        paid_at: method === PaymentMethod.CASH ? new Date() : null,
       });
       const savedPayment = await this.paymentRepository.save(payment);
 
@@ -74,6 +125,7 @@ export class PaymentsService {
           paid_at: savedPayment.paid_at,
           createdAt: savedPayment.createdAt,
           updatedAt: savedPayment.updatedAt,
+          ...(stripeClientSecret ? { client_secret: stripeClientSecret } : {}),
         },
       };
     } catch (error) {
@@ -113,6 +165,15 @@ export class PaymentsService {
           });
           if (!payment) {
             throw new HttpException('Payment not found', HttpStatus.NOT_FOUND);
+          }
+
+          // If payment is already success, just return the payment and order
+          if (payment.status === PaymentStatus.SUCCESS) {
+            const order = await orderRepo.findOne({
+              where: { id: payment.orderId },
+              relations: ['items', 'items.variant', 'branch'],
+            });
+            return { payment, order };
           }
 
           // Load order and ensure it is still pending
@@ -298,6 +359,56 @@ export class PaymentsService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  async handleStripeWebhook(payload: any, signature: string): Promise<void> {
+    let event: Stripe.Event;
+
+    try {
+      event = this.stripe.webhooks.constructEvent(
+        payload,
+        signature,
+        this.configService.get<string>('STRIPE_WEBHOOK_SECRET'),
+      );
+    } catch (err) {
+      this.logger.error('Webhook signature verification failed', err.message);
+      throw new HttpException('Webhook Error', HttpStatus.BAD_REQUEST);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        this.logger.info(
+          `PaymentIntent was successful! ID: ${paymentIntent.id}`,
+        );
+        await this.handlePaymentSuccess(paymentIntent);
+        break;
+      // ... handle other event types
+      default:
+        this.logger.info(`Unhandled event type ${event.type}`);
+    }
+  }
+
+  private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
+    const payment = await this.paymentRepository.findOne({
+      where: { externalId: paymentIntent.id },
+    });
+
+    if (!payment) {
+      this.logger.error(
+        `Payment not found for externalId: ${paymentIntent.id}`,
+      );
+      return;
+    }
+
+    if (payment.status === PaymentStatus.SUCCESS) {
+      this.logger.info(`Payment ${payment.id} is already success`);
+      return;
+    }
+
+    // Call verifyPayment to finalize the order and stock
+    await this.verifyPayment(payment.id);
   }
 
   update(id: string, _updatePaymentDto: UpdatePaymentDto) {

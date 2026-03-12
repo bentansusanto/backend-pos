@@ -66,6 +66,15 @@ export class PosSessionsController {
     };
   }
 
+  @Get(':id/summary')
+  @HttpCode(HttpStatus.OK)
+  async getSessionSummary(@Param('id') id: string): Promise<WebResponse> {
+    const result = await this.posSessionsService.getSessionSummary(id);
+    return {
+      message: result.message,
+      data: result.data,
+    };
+  }
 
   @Get()
   @HttpCode(HttpStatus.OK)

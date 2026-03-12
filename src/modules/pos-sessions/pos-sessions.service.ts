@@ -8,6 +8,7 @@ import {
   OpenPosSessionDto,
 } from './dto/create-pos-session.dto';
 import { PosSession, PosSessionStatus } from './entities/pos-session.entity';
+import { Order, OrderStatus } from '../orders/entities/order.entity';
 
 @Injectable()
 export class PosSessionsService {
@@ -18,6 +19,8 @@ export class PosSessionsService {
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
   ) {}
 
   async openSession(openPosSessionDto: OpenPosSessionDto, user: User) {
@@ -112,12 +115,48 @@ export class PosSessionsService {
     });
 
     if (!session) {
-      throw new HttpException('No active session found', HttpStatus.NOT_FOUND);
+      return {
+        message: 'No active session found',
+        data: null,
+      };
     }
 
     return {
       message: 'Active session retrieved successfully',
       data: session,
+    };
+  }
+
+  async getSessionSummary(id: string) {
+    const session = await this.posSessionRepository.findOne({
+      where: { id },
+      relations: ['orders'],
+    });
+
+    if (!session) {
+      throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
+    }
+
+    const completedOrders =
+      session.orders?.filter((order) => order.status === OrderStatus.COMPLETED) ||
+      [];
+
+    const totalSales = completedOrders.reduce((acc, order) => {
+      const total =
+        Number(order.subtotal || 0) +
+        Number(order.tax_amount || 0) -
+        Number(order.discount_amount || 0);
+      return acc + total;
+    }, 0);
+
+    return {
+      message: 'Session summary retrieved successfully',
+      data: {
+        openingBalance: Number(session.openingBalance || 0),
+        totalSales,
+        expectedBalance: Number(session.openingBalance || 0) + totalSales,
+        transactionsCount: completedOrders.length,
+      },
     };
   }
 

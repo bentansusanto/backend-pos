@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from '../orders/entities/order.entity';
 import { OrdersModule } from '../orders/orders.module';
@@ -16,6 +17,7 @@ import { PaymentsService } from './payments.service';
     TypeOrmModule.forFeature([Payment, StockMovement, ProductStock, Order]),
     OrdersModule,
     SalesReportsModule,
+    ConfigModule,
   ],
   exports: [PaymentsService],
 })

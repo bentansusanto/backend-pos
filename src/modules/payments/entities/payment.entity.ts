@@ -20,6 +20,7 @@ export enum PaymentStatus {
 export enum PaymentMethod {
   CASH = 'cash',
   CREDIT_CARD = 'credit_card',
+  STRIPE = 'stripe',
 }
 
 @Entity('payments')
@@ -54,6 +55,11 @@ export class Payment {
     default: PaymentMethod.CASH,
   })
   method: PaymentMethod;
+
+  @Column({
+    nullable: true,
+  })
+  externalId: string;
 
   @Column({
     nullable: true,

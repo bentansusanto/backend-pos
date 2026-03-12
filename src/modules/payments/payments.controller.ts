@@ -3,12 +3,14 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
 import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { WebResponse } from 'src/types/response/index.type';
@@ -68,5 +70,17 @@ export class PaymentsController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.paymentsService.remove(id);
+  }
+
+  @Post('webhook')
+  @HttpCode(HttpStatus.OK)
+  async handleWebhook(
+    @Req() req: any,
+    @Headers('stripe-signature') signature: string,
+  ): Promise<WebResponse> {
+    await this.paymentsService.handleStripeWebhook(req.body, signature);
+    return {
+      message: 'Webhook handled successfully',
+    };
   }
 }

@@ -229,7 +229,7 @@ export class OrdersService {
                 await this.posSessionsService.getActiveSession({
                   id: resolvedUserId,
                 } as any);
-              if (sessionResponse.data) {
+              if (sessionResponse && sessionResponse.data) {
                 posSession = { id: sessionResponse.data.id };
               }
             }
