@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from '../orders/entities/order.entity';
 import { OrdersModule } from '../orders/orders.module';
+import { PosSessionsModule } from '../pos-sessions/pos-sessions.module';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { SalesReportsModule } from '../sales-reports/sales-reports.module';
 import { StockMovement } from '../stock-movements/entities/stock-movement.entity';
@@ -16,6 +17,7 @@ import { PaymentsService } from './payments.service';
   imports: [
     TypeOrmModule.forFeature([Payment, StockMovement, ProductStock, Order]),
     OrdersModule,
+    PosSessionsModule,
     SalesReportsModule,
     ConfigModule,
   ],

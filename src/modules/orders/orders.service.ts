@@ -171,6 +171,7 @@ export class OrdersService {
               'user',
               'customer',
               'discount',
+              'posSession',
             ],
           })
         : Promise.resolve(null);
@@ -225,12 +226,22 @@ export class OrdersService {
             // Flow A: Create new order when no active order is available
             let posSession = null;
             if (resolvedUserId) {
+              this.logger.debug(
+                `CreateOrder: Checking active session for user ${resolvedUserId}`,
+              );
               const sessionResponse =
                 await this.posSessionsService.getActiveSession({
                   id: resolvedUserId,
                 } as any);
               if (sessionResponse && sessionResponse.data) {
+                this.logger.debug(
+                  `CreateOrder: Found active session ${sessionResponse.data.id}, linking to order`,
+                );
                 posSession = { id: sessionResponse.data.id };
+              } else {
+                this.logger.debug(
+                  `CreateOrder: No active session found for user ${resolvedUserId}`,
+                );
               }
             }
 
@@ -393,17 +404,35 @@ export class OrdersService {
             }
           }
 
+          // Step 5b: Ensure session is linked if missing but active session exists
+          let posSessionToLink = existingOrder.posSession;
+          if (!posSessionToLink && resolvedUserId) {
+            const sessionResponse =
+              await this.posSessionsService.getActiveSession({
+                id: resolvedUserId,
+              } as any);
+            if (sessionResponse && sessionResponse.data) {
+              posSessionToLink = { id: sessionResponse.data.id } as any;
+            }
+          }
+
           // Only update specific fields on the order, avoiding the 'items' relation
           // This prevents TypeORM from trying to cascade save items again
-          await orderRepo.update(existingOrder.id, {
-            notes: notes ?? existingOrder.notes,
-            user:
-              existingOrder.user ??
-              (resolvedUserId ? { id: resolvedUserId } : undefined),
-            subtotal,
-            tax_amount: subtotal * (await this.getActiveTaxRate()),
-            discount_amount: updatedDiscountAmount,
-          });
+          await orderRepo
+            .createQueryBuilder()
+            .update(Order)
+            .set({
+              notes: notes ?? existingOrder.notes,
+              user:
+                existingOrder.user ??
+                (resolvedUserId ? { id: resolvedUserId } : undefined),
+              subtotal,
+              tax_amount: subtotal * (await this.getActiveTaxRate()),
+              discount_amount: updatedDiscountAmount,
+              posSession: posSessionToLink ? { id: posSessionToLink.id } : undefined,
+            } as any)
+            .where('id = :id', { id: existingOrder.id })
+            .execute();
 
           const savedOrder = await orderRepo.findOne({
             where: { id: existingOrder.id },
@@ -568,6 +597,7 @@ export class OrdersService {
           'customer',
           'branch',
           'user',
+          'posSession',
         ],
       });
       if (!order) {
@@ -773,6 +803,7 @@ export class OrdersService {
           'branch',
           'user',
           'discount',
+          'posSession',
         ],
       });
       if (!order) {
@@ -898,6 +929,7 @@ export class OrdersService {
           'branch',
           'user',
           'discount',
+          'posSession',
         ],
       });
       if (!order) {

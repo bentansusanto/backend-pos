@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { OrdersService } from '../orders/orders.service';
+import { PosSessionsService } from '../pos-sessions/pos-sessions.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { SalesReportsService } from '../sales-reports/sales-reports.service';
 import {
@@ -33,6 +34,7 @@ export class PaymentsService {
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     private readonly orderService: OrdersService,
+    private readonly posSessionsService: PosSessionsService,
     private readonly salesReportsService: SalesReportsService,
     private readonly configService: ConfigService,
   ) {
@@ -113,6 +115,31 @@ export class PaymentsService {
       });
       const savedPayment = await this.paymentRepository.save(payment);
 
+      // If CASH, finalize the order immediately (stock update, status to COMPLETED)
+      if (method === PaymentMethod.CASH) {
+        await this.verifyPayment(savedPayment.id);
+
+        // Reload to get updated paid_at and other fields
+        const updatedPayment = await this.paymentRepository.findOne({
+          where: { id: savedPayment.id }
+        });
+        if (updatedPayment) {
+          return {
+            message: successPaymentMessage.SUCCESS_CREATE_PAYMENT,
+            data: {
+              id: updatedPayment.id,
+              orderId: updatedPayment.orderId,
+              amount: updatedPayment.amount,
+              status: updatedPayment.status,
+              paymentMethod: updatedPayment.method,
+              paid_at: updatedPayment.paid_at,
+              createdAt: updatedPayment.createdAt,
+              updatedAt: updatedPayment.updatedAt,
+            },
+          };
+        }
+      }
+
       // Map entity to response contract
       return {
         message: successPaymentMessage.SUCCESS_CREATE_PAYMENT,
@@ -179,7 +206,7 @@ export class PaymentsService {
           // Load order and ensure it is still pending
           const order = await orderRepo.findOne({
             where: { id: payment.orderId },
-            relations: ['items', 'items.variant', 'branch'],
+            relations: ['items', 'items.variant', 'branch', 'posSession'],
           });
           if (!order) {
             throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
@@ -243,6 +270,16 @@ export class PaymentsService {
           // Update order status to completed
           order.status = OrderStatus.COMPLETED;
           order.updatedAt = new Date();
+
+          // Safety net: Ensure order is linked to a POS session if not already
+          if (!order.posSession && order.user) {
+            const sessionResponse = await this.posSessionsService.getActiveSession(order.user);
+            if (sessionResponse && sessionResponse.data) {
+                this.logger.debug(`PaymentsService: Linking order ${order.id} to active session ${sessionResponse.data.id} during verification`);
+                (order as any).posSession = { id: sessionResponse.data.id };
+            }
+          }
+
           await orderRepo.save(order);
 
           // Mark payment as successful
@@ -379,14 +416,14 @@ export class PaymentsService {
     switch (event.type) {
       case 'payment_intent.succeeded':
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        this.logger.info(
+        this.logger.debug(
           `PaymentIntent was successful! ID: ${paymentIntent.id}`,
         );
         await this.handlePaymentSuccess(paymentIntent);
         break;
       // ... handle other event types
       default:
-        this.logger.info(`Unhandled event type ${event.type}`);
+        this.logger.debug(`Unhandled event type ${event.type}`);
     }
   }
 
@@ -403,7 +440,7 @@ export class PaymentsService {
     }
 
     if (payment.status === PaymentStatus.SUCCESS) {
-      this.logger.info(`Payment ${payment.id} is already success`);
+      this.logger.debug(`Payment ${payment.id} is already success`);
       return;
     }
 
