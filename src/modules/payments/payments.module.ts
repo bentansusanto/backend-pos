@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AccountingModule } from '../accounting/accounting.module';
 import { Order } from '../orders/entities/order.entity';
 import { OrdersModule } from '../orders/orders.module';
 import { PosSessionsModule } from '../pos-sessions/pos-sessions.module';
@@ -20,6 +21,7 @@ import { PaymentsService } from './payments.service';
     PosSessionsModule,
     SalesReportsModule,
     ConfigModule,
+    AccountingModule,
   ],
   exports: [PaymentsService],
 })

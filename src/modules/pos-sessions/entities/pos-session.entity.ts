@@ -70,6 +70,30 @@ export class PosSession {
   closingBalance: number;
 
   @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  expected_cash: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  difference: number;
+
+  @Column({
     type: 'enum',
     enum: PosSessionStatus,
     default: PosSessionStatus.OPEN,

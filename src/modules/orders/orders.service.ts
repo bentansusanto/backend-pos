@@ -249,10 +249,10 @@ export class OrdersService {
               invoice_number: `INV-${Date.now()}`,
               notes,
               status: OrderStatus.PENDING,
-              branch: branch_id ? { id: branch_id } : undefined,
-              user: resolvedUserId ? { id: resolvedUserId } : undefined,
+              branch: { id: branch_id },
+              user: { id: resolvedUserId },
               customer: customer_id ? { id: customer_id } : undefined,
-              posSession,
+              posSession: posSession ? { id: posSession.id } : undefined,
             });
             const savedOrder = await orderRepo.save(createdOrder);
 
@@ -423,9 +423,7 @@ export class OrdersService {
             .update(Order)
             .set({
               notes: notes ?? existingOrder.notes,
-              user:
-                existingOrder.user ??
-                (resolvedUserId ? { id: resolvedUserId } : undefined),
+              user: existingOrder.user ?? (resolvedUserId ? { id: resolvedUserId } : undefined),
               subtotal,
               tax_amount: subtotal * (await this.getActiveTaxRate()),
               discount_amount: updatedDiscountAmount,
@@ -510,13 +508,21 @@ export class OrdersService {
     }
   }
 
-  async findAll(userId?: string, branchId?: string): Promise<OrderResponse> {
+  async findAll(
+    userId?: string,
+    branchId?: string,
+    status?: OrderStatus,
+  ): Promise<OrderResponse> {
     try {
       const where: any = {};
       if (branchId) {
         where.branch = { id: branchId };
       } else if (userId) {
         where.user = { id: userId };
+      }
+
+      if (status) {
+        where.status = status;
       }
 
       const orders = await this.orderRepository.find({
@@ -962,56 +968,72 @@ export class OrdersService {
       const remainingItems = (order.items || []).filter(
         (item) => item.id !== orderItem.id,
       );
-      order.items = remainingItems;
-      order.subtotal = remainingItems.reduce(
+      const newSubtotal = remainingItems.reduce(
         (total, item) => total + item.subtotal,
         0,
       );
       const taxRate = await this.getActiveTaxRate();
-      order.tax_amount = order.subtotal * taxRate;
+      const newTaxAmount = newSubtotal * taxRate;
 
+      let newDiscountAmount = order.discount_amount ?? 0;
       if (order.discount) {
         if (order.discount.type === 'percentage') {
-          order.discount_amount =
-            order.subtotal * (Number(order.discount.value) / 100);
+          newDiscountAmount = newSubtotal * (Number(order.discount.value) / 100);
         } else {
-          order.discount_amount = Number(order.discount.value);
+          newDiscountAmount = Number(order.discount.value);
         }
       }
 
-      const savedOrder = await this.orderRepository.save(order);
+      // Use QueryBuilder to update the order totals WITHOUT touching items relation (prevents cascade re-insert)
+      await this.orderRepository
+        .createQueryBuilder()
+        .update(Order)
+        .set({
+          subtotal: newSubtotal,
+          tax_amount: newTaxAmount,
+          discount_amount: newDiscountAmount,
+        } as any)
+        .where('id = :id', { id: orderId })
+        .execute();
+
+      // Re-fetch the fresh order after update
+      const refreshedOrder = await this.orderRepository.findOne({
+        where: { id: orderId },
+        relations: ['items', 'items.variant', 'customer', 'branch', 'user', 'discount'],
+      });
+
       const totalAmount =
-        (savedOrder.subtotal ?? 0) +
-        (savedOrder.tax_amount ?? 0) -
-        (savedOrder.discount_amount ?? 0);
+        (refreshedOrder.subtotal ?? 0) +
+        (refreshedOrder.tax_amount ?? 0) -
+        (refreshedOrder.discount_amount ?? 0);
 
       return {
         message: successOrderMessage.SUCCESS_DELETE_ORDER_ITEMS,
         data: {
-          id: savedOrder.id,
-          customer_id: savedOrder.customer?.id ?? '',
-          branch_id: savedOrder.branch?.id ?? '',
-          user_id: savedOrder.user?.id ?? '',
-          items: (savedOrder.items || []).map((item) =>
-            this.mapOrderItem(item, savedOrder.id),
+          id: refreshedOrder.id,
+          customer_id: refreshedOrder.customer?.id ?? '',
+          branch_id: refreshedOrder.branch?.id ?? '',
+          user_id: refreshedOrder.user?.id ?? '',
+          items: (refreshedOrder.items || []).map((item) =>
+            this.mapOrderItem(item, refreshedOrder.id),
           ),
-          invoice_number: savedOrder.invoice_number,
-          subtotal: savedOrder.subtotal ?? 0,
-          tax_amount: savedOrder.tax_amount ?? 0,
-          discount_amount: savedOrder.discount_amount ?? 0,
-          discount_id: savedOrder.discount?.id,
-          discount: savedOrder.discount
+          invoice_number: refreshedOrder.invoice_number,
+          subtotal: refreshedOrder.subtotal ?? 0,
+          tax_amount: refreshedOrder.tax_amount ?? 0,
+          discount_amount: refreshedOrder.discount_amount ?? 0,
+          discount_id: refreshedOrder.discount?.id,
+          discount: refreshedOrder.discount
             ? {
-                id: savedOrder.discount.id,
-                name: savedOrder.discount.name,
-                type: savedOrder.discount.type,
-                value: Number(savedOrder.discount.value),
+                id: refreshedOrder.discount.id,
+                name: refreshedOrder.discount.name,
+                type: refreshedOrder.discount.type,
+                value: Number(refreshedOrder.discount.value),
               }
             : undefined,
           total_amount: totalAmount,
-          status: savedOrder.status,
-          created_at: savedOrder.createdAt,
-          updated_at: savedOrder.updatedAt,
+          status: refreshedOrder.status,
+          created_at: refreshedOrder.createdAt,
+          updated_at: refreshedOrder.updatedAt,
         },
       };
     } catch (error) {

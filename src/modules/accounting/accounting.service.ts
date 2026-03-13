@@ -154,6 +154,15 @@ export class AccountingService {
     }
   }
 
+  async getAccountByCode(code: string): Promise<Accounts | null> {
+    try {
+      return await this.accountsRepository.findOne({ where: { code } });
+    } catch (error) {
+      this.logger.error(`Error finding account by code: ${code}`, error.stack);
+      return null;
+    }
+  }
+
   async removeAccount(id: string): Promise<AccountResponse> {
     try {
       const findAccount = await this.findOneAccount(id);
@@ -226,6 +235,29 @@ export class AccountingService {
       );
     } finally {
       await queryRunner.release();
+    }
+  }
+
+  async findAllJournalEntries(): Promise<AccountResponse> {
+    try {
+      const entries = await this.journalEntryRepository.find({
+        relations: ['journalLines', 'journalLines.account'],
+        order: { date: 'DESC', createdAt: 'DESC' },
+      });
+
+      return {
+        message: successAccountMessage.SUCCESS_FIND_ALL_ACCOUNTS || 'Successfully fetched journal entries',
+        datas: entries as any[],
+      };
+    } catch (error) {
+      this.logger.error('Error finding journal entries', error.stack);
+      if (error instanceof HttpException) {
+        throw new Error(error.message);
+      }
+      throw new HttpException(
+        'Error finding journal entries',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

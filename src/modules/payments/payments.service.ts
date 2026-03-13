@@ -13,6 +13,8 @@ import { OrdersService } from '../orders/orders.service';
 import { PosSessionsService } from '../pos-sessions/pos-sessions.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { SalesReportsService } from '../sales-reports/sales-reports.service';
+import { AccountingService } from '../accounting/accounting.service';
+import { ReferenceType as AccReferenceType } from '../accounting/entities/accounting.enums';
 import {
   ReferenceType,
   StockMovement,
@@ -37,6 +39,7 @@ export class PaymentsService {
     private readonly posSessionsService: PosSessionsService,
     private readonly salesReportsService: SalesReportsService,
     private readonly configService: ConfigService,
+    private readonly accountingService: AccountingService,
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     this.logger.debug(
@@ -101,7 +104,8 @@ export class PaymentsService {
           );
         }
       } else if (method === PaymentMethod.CASH) {
-        paymentStatus = PaymentStatus.SUCCESS;
+        // Keep as PENDING so verifyPayment can run the full flow (order status, stock, etc.)
+        paymentStatus = PaymentStatus.PENDING;
       }
 
       // Create and persist payment record
@@ -206,7 +210,7 @@ export class PaymentsService {
           // Load order and ensure it is still pending
           const order = await orderRepo.findOne({
             where: { id: payment.orderId },
-            relations: ['items', 'items.variant', 'branch', 'posSession'],
+            relations: ['items', 'items.variant', 'branch', 'posSession', 'user'],
           });
           if (!order) {
             throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
@@ -272,16 +276,28 @@ export class PaymentsService {
           order.updatedAt = new Date();
 
           // Safety net: Ensure order is linked to a POS session if not already
-          if (!order.posSession && order.user) {
+          let posSessionId = order.posSession?.id ?? null;
+          if (!posSessionId && order.user) {
             const sessionResponse = await this.posSessionsService.getActiveSession(order.user);
-            if (sessionResponse && sessionResponse.data) {
-                this.logger.debug(`PaymentsService: Linking order ${order.id} to active session ${sessionResponse.data.id} during verification`);
-                (order as any).posSession = { id: sessionResponse.data.id };
+            if (sessionResponse?.data) {
+              posSessionId = sessionResponse.data.id;
+              this.logger.debug(`PaymentsService: Linking order ${order.id} to active session ${posSessionId} during verification`);
             }
           }
 
-          await orderRepo.save(order);
+          // Use raw SQL for reliable update inside transaction —
+          // TypeORM QueryBuilder .set() does not handle FK relation objects correctly
+          await manager.query(
+            `UPDATE orders SET status = $1, pos_session_id = $2, "updatedAt" = NOW() WHERE id = $3`,
+            [OrderStatus.COMPLETED, posSessionId, order.id],
+          );
+          this.logger.debug(`Order ${order.id} updated: status=completed, pos_session_id=${posSessionId}`);
 
+          // Re-load fresh order after update
+          const updatedOrder = await orderRepo.findOne({
+            where: { id: order.id },
+            relations: ['items', 'items.variant', 'branch', 'posSession'],
+          });
           // Mark payment as successful
           payment.status = PaymentStatus.SUCCESS;
           payment.paid_at = new Date();
@@ -290,10 +306,81 @@ export class PaymentsService {
           // Return both payment and order for sales report creation
           return {
             payment: savedPayment,
-            order: order,
+            order: updatedOrder ?? order,
           };
         },
       );
+
+      // --- Post-transaction: Create Journal Entry for the Sale ---
+      try {
+        const order = result.order;
+        const totalAmount = result.payment.amount;
+        const taxAmount = order.tax_amount ?? 0;
+        const subtotal = order.subtotal ?? 0;
+        const discountAmount = order.discount_amount ?? 0;
+
+        // Fetch default accounts
+        const cashAccount = await this.accountingService.getAccountByCode('1000'); // General Cash
+        const revenueAccount = await this.accountingService.getAccountByCode('4000'); // Sales Revenue
+        const taxAccount = await this.accountingService.getAccountByCode('2010'); // Value Added Tax Payable
+        const discountAccount = await this.accountingService.getAccountByCode('5010'); // Cost of Sales / Discounts or similar (fallback to revenue contra)
+        
+        // Only proceed if at least Cash and Revenue exist
+        if (cashAccount && revenueAccount) {
+          const lines = [];
+
+          // Debit: Cash (Total paid by customer)
+          lines.push({
+            accountId: cashAccount.id,
+            debit: totalAmount,
+            credit: 0,
+          });
+
+          // Debit: Discount (If any)
+          if (discountAmount > 0 && discountAccount) {
+            lines.push({
+              accountId: discountAccount.id,
+              debit: discountAmount,
+              credit: 0,
+            });
+          }
+
+          // Credit: Revenue (Subtotal)
+          lines.push({
+            accountId: revenueAccount.id,
+            debit: 0,
+            credit: subtotal,
+          });
+
+          // Credit: Tax
+          if (taxAmount > 0 && taxAccount) {
+            lines.push({
+              accountId: taxAccount.id,
+              debit: 0,
+              credit: taxAmount,
+            });
+          }
+
+          // In a full perp system we would also log COGS vs Inventory here
+          // For now, we log the sales transaction side.
+
+          await this.accountingService.createJournalEntry({
+            date: new Date().toISOString(),
+            referenceType: AccReferenceType.SALE,
+            referenceCode: order.invoice_number,
+            description: `Sales revenue for Invoice ${order.invoice_number}`,
+            branchId: order.branch?.id,
+            journalLines: lines
+          });
+          this.logger.debug(`Successfully generated auto-journal for order ${order.id}`);
+        } else {
+          this.logger.warn('Could not generate auto-journal: Default accounts (1000 or 4000) not found.');
+        }
+      } catch (accountingError) {
+        // We catch and log this instead of throwing, so the payment itself doesn't fail 
+        // if just the auto-journal integration part fails.
+        this.logger.error('Failed to auto-generate accounting journal', accountingError.stack);
+      }
 
       // Map entity to response contract
       return {

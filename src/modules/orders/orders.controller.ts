@@ -40,10 +40,11 @@ export class OrdersController {
   async findAll(
     @CurrentUser() user: User,
     @Query('branch_id') queryBranchId?: string,
+    @Query('status') status?: any,
     @CurrentBranchId() headerBranchId?: string,
   ): Promise<WebResponse> {
     const branchId = queryBranchId || headerBranchId;
-    const result = await this.ordersService.findAll(user?.id, branchId);
+    const result = await this.ordersService.findAll(user?.id, branchId, status);
     return {
       message: result.message,
       data: result.datas,

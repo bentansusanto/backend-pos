@@ -88,6 +88,15 @@ export class AccountingController {
     }
   }
 
+  @Get('journals')
+  async findAllJournalEntries(): Promise<WebResponse> {
+    const result = await this.accountingService.findAllJournalEntries();
+    return{
+      message: result.message,
+      data: result.datas
+    }
+  }
+
   // ==========================================
   // REPORTS
   // ==========================================
