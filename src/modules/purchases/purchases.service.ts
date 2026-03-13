@@ -50,14 +50,17 @@ export class PurchasesService {
       await this.purchaseItemsRepository.save(items);
     }
 
+
     return savedPurchase;
   }
 
   async findAll() {
-    return this.purchaseRepository.find({
+    const results = await this.purchaseRepository.find({
       relations: ['branch', 'purchaseItems'],
       order: { createdAt: 'DESC' },
     });
+
+    return results;
   }
 
   async findOne(id: string) {
@@ -84,6 +87,7 @@ export class PurchasesService {
         : purchase.branch,
     });
 
+
     return this.findOne(id);
   }
 
@@ -96,6 +100,9 @@ export class PurchasesService {
     const purchase = await this.findOne(id);
     // Because of relationships without CASCADE, manual deletion of items may be required or TypeORM handles it if mapped correctly.
     await this.purchaseItemsRepository.delete({ purchase: { id } });
-    return this.purchaseRepository.delete(id);
+    await this.purchaseRepository.delete(id);
+
+
+    return { success: true };
   }
 }

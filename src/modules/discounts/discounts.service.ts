@@ -54,6 +54,7 @@ export class DiscountsService {
         ...createDiscountDto,
       });
       await this.discountRepository.save(discount);
+
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
@@ -85,6 +86,7 @@ export class DiscountsService {
     try {
       // find all discounts
       const discounts = await this.discountRepository.find();
+
       if (discounts.length === 0) {
         this.logger.warn(
           errDiscountMessage.ERR_DISCOUNT_NOT_FOUND,
@@ -131,6 +133,7 @@ export class DiscountsService {
           id,
         },
       });
+
       // if discount not exists, throw error
       if (!discount) {
         throw new NotFoundException({
@@ -178,6 +181,7 @@ export class DiscountsService {
       const findDiscount = await this.findOne(id);
       // update discount
       await this.discountRepository.update(id, updateDiscountDto);
+
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
@@ -231,6 +235,7 @@ export class DiscountsService {
       const findDiscount = await this.findOne(id);
       // delete discount
       await this.discountRepository.softDelete(id);
+
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',

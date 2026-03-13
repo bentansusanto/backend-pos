@@ -49,6 +49,7 @@ export class SupplierService {
       const supplier = this.supplierRepository.create({ ...createSupplierDto });
       await this.supplierRepository.save(supplier);
 
+
       this.userLogsService.log({
         userId: userId ?? '',
         action: ActionType.CREATE,
@@ -80,6 +81,7 @@ export class SupplierService {
   async findAll(): Promise<SupplierResponse> {
     try {
       const suppliers = await this.supplierRepository.find();
+
       if (suppliers.length === 0) {
         this.logger.warn(
           errSupplierMessage.ERROR_FIND_ALL_SUPPLIER,
@@ -126,6 +128,7 @@ export class SupplierService {
   async findOne(id: string): Promise<SupplierResponse> {
     try {
       const supplier = await this.supplierRepository.findOne({ where: { id } });
+
       if (!supplier) {
         throw new NotFoundException({
           message: errSupplierMessage.ERROR_FIND_SUPPLIER,
@@ -173,6 +176,7 @@ export class SupplierService {
 
       await this.supplierRepository.update(id, updateSupplierDto);
 
+
       this.userLogsService.log({
         userId: userId ?? '',
         action: ActionType.UPDATE,
@@ -217,6 +221,7 @@ export class SupplierService {
       await this.findOne(id);
 
       await this.supplierRepository.softDelete(id);
+
 
       this.userLogsService.log({
         userId: userId ?? '',

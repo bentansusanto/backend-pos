@@ -9,7 +9,9 @@ import { PosSessionsController } from './pos-sessions.controller';
 import { PosSessionsService } from './pos-sessions.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PosSession, Branch, User, Order, Payment])],
+  imports: [
+    TypeOrmModule.forFeature([PosSession, Branch, User, Order, Payment]),
+  ],
   controllers: [PosSessionsController],
   providers: [PosSessionsService],
   exports: [PosSessionsService],

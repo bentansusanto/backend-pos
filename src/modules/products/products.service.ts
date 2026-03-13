@@ -109,6 +109,7 @@ export class ProductsService {
       });
       await this.productRepository.save(newProduct);
 
+
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
@@ -172,6 +173,7 @@ export class ProductsService {
           'productVariants.productStocks.branch',
         ],
       });
+
       if (!products || products.length === 0) {
         this.logger.error(errProductMessage.ERROR_FIND_ALL_PRODUCT);
         throw new HttpException(
@@ -242,6 +244,7 @@ export class ProductsService {
           'productVariants.productStocks.branch',
         ],
       });
+
       if (!product) {
         this.logger.error(
           `${errProductMessage.ERROR_FIND_PRODUCT} with id: ${id}`,
@@ -374,6 +377,7 @@ export class ProductsService {
         images: imageUrls,
       });
 
+
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
@@ -442,6 +446,7 @@ export class ProductsService {
 
       // delete product
       await this.productRepository.softDelete(id);
+
 
       // fire-and-forget log
       this.userLogsService.log({

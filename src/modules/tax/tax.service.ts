@@ -45,6 +45,7 @@ export class TaxService {
       const tax = this.taxRepository.create({ ...createTaxDto });
       await this.taxRepository.save(tax);
 
+
       this.userLogsService.log({
         userId: 'system',
         action: ActionType.CREATE,
@@ -78,6 +79,7 @@ export class TaxService {
     try {
       // check if tax name already exists
       const taxes = await this.taxRepository.find();
+
       if (taxes.length === 0) {
         this.logger.warn(errTaxMessage.ERROR_FIND_ALL_TAX, 'Taxes not found');
         throw new NotFoundException({
@@ -115,6 +117,7 @@ export class TaxService {
     try {
       // check if tax name already exists
       const tax = await this.taxRepository.findOne({ where: { id } });
+
       if (!tax) {
         throw new NotFoundException({
           message: errTaxMessage.ERROR_FIND_TAX,
@@ -153,6 +156,7 @@ export class TaxService {
       const existingTax = await this.findOne(id);
 
       await this.taxRepository.update(id, updateTaxDto);
+
 
       this.userLogsService.log({
         userId: 'system',
@@ -194,6 +198,7 @@ export class TaxService {
       await this.findOne(id);
 
       await this.taxRepository.softDelete(id);
+
 
       this.userLogsService.log({
         userId: 'system',

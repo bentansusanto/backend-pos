@@ -153,6 +153,60 @@ export class PermissionsService {
     }
   }
 
+  // find permission by action
+  async findByAction(action: string): Promise<PermissionResponse> {
+    try {
+      const permission = await this.permissionRepository.findOne({
+        where: {
+          action,
+        },
+      });
+      if (!permission) {
+        return {
+          message: errorPermissionMessage.ERR_PERMISSION_NOT_FOUND,
+          data: null,
+        };
+      }
+      return {
+        message: successPermissionMessage.SUCCESS_PERMISSION_FOUND,
+        data: {
+          id: permission.id,
+          module: permission.module,
+          action: permission.action,
+          description: permission.description,
+          createdAt: permission.createdAt,
+          updatedAt: permission.updatedAt,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        errorPermissionMessage.ERR_PERMISSION_NOT_FOUND,
+        error.message,
+      );
+      throw new HttpException(
+        {
+          Error: {
+            field: 'general',
+            body: errorPermissionMessage.ERR_PERMISSION_NOT_FOUND,
+          },
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // Ensure permission exists, create if not
+  async ensurePermission(
+    module: string,
+    action: string,
+    description: string,
+  ): Promise<void> {
+    const existing = await this.findByAction(action);
+    if (!existing.data) {
+      await this.create({ module, action, description });
+    }
+  }
+
   // update permission
   async update(
     id: string,

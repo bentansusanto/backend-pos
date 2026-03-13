@@ -9,6 +9,9 @@ import { Discount } from './entities/discount.entity';
   controllers: [DiscountsController],
   providers: [DiscountsService],
   exports: [DiscountsService],
-  imports: [TypeOrmModule.forFeature([Discount]), UserLogsModule],
+  imports: [
+    TypeOrmModule.forFeature([Discount]),
+    UserLogsModule,
+  ],
 })
 export class DiscountsModule {}

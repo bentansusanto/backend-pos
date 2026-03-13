@@ -9,7 +9,10 @@ import { UsersModule } from '../rbac/users/users.module';
 @Module({
   controllers: [BranchesController],
   providers: [BranchesService],
-  imports: [TypeOrmModule.forFeature([Branch, UserBranch]), UsersModule],
+  imports: [
+    TypeOrmModule.forFeature([Branch, UserBranch]),
+    UsersModule,
+  ],
   exports: [BranchesService],
 })
 export class BranchesModule {}

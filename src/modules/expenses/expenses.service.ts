@@ -86,6 +86,7 @@ export class ExpensesService {
         order: { createdAt: 'DESC' },
         relations: ['expense_category', 'branch'],
       });
+
       return {
         message: successExpenseMessage.SUCCESS_EXPENSE_LISTED,
         datas: expenses.map((expense) => this.mapToExpenseData(expense)),
@@ -167,6 +168,7 @@ export class ExpensesService {
         relations: ['expense_category', 'branch'],
       });
 
+
       return {
         message: successExpenseMessage.SUCCESS_EXPENSE_UPDATED,
         data: updatedExpense
@@ -195,6 +197,7 @@ export class ExpensesService {
 
       // Perform soft deletion marking the record as deleted instead of dropping it entirely
       await this.expenseRepository.softDelete(id);
+
 
       return {
         message: successExpenseMessage.SUCCESS_EXPENSE_DELETED,

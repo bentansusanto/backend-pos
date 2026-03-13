@@ -6,7 +6,10 @@ import { TaxController } from './tax.controller';
 import { TaxService } from './tax.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tax]), UserLogsModule],
+  imports: [
+    TypeOrmModule.forFeature([Tax]),
+    UserLogsModule,
+  ],
   controllers: [TaxController],
   providers: [TaxService],
   exports: [TaxService],

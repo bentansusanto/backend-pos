@@ -80,7 +80,7 @@ import { JournalLine } from 'src/modules/accounting/entities/journal-line.entity
         password: configService.get<string>('DB_PASS'),
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: configService.get<string>('NODE_ENV') !== 'production', // mode development
+        synchronize: true, // TEMPORARY: Set to true once to create tables in production DB, then set back to configService.get<string>('NODE_ENV') !== 'production'
         // synchronize: configService.get<string>('NODE_ENV') !== 'development', // mode production
         // ssl: {
         //   rejectUnauthorized: false, // mode production

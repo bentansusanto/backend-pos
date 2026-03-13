@@ -41,6 +41,7 @@ export class CategoriesService {
       // creating category
       const category = this.categoryRepository.create(createCategoryDto);
       await this.categoryRepository.save(category);
+
       this.logger.debug(
         `${successProductMessage.SUCCESS_CREATE_CATEGORY} with name: ${category.name}`,
       );
@@ -77,6 +78,7 @@ export class CategoriesService {
     try {
       // check category is exist
       const categories = await this.categoryRepository.find();
+
       this.logger.debug(
         `${successProductMessage.SUCCESS_FIND_ALL_CATEGORY} with ${categories.length} categories`,
       );
@@ -120,6 +122,7 @@ export class CategoriesService {
           id,
         },
       });
+
       if (!category) {
         this.logger.warn(errProductMessage.ERROR_FIND_CATEGORY);
         throw new HttpException(
@@ -179,6 +182,7 @@ export class CategoriesService {
       }
       // update category
       await this.categoryRepository.update(id, updateCategoryDto);
+
       this.logger.debug(
         `${successProductMessage.SUCCESS_UPDATE_CATEGORY} with id: ${category.id}`,
       );
@@ -221,6 +225,7 @@ export class CategoriesService {
       }
       // delete category
       await this.categoryRepository.delete(id);
+
       this.logger.debug(
         `${successProductMessage.SUCCESS_DELETE_CATEGORY} with id: ${category.id}`,
       );

@@ -144,6 +144,7 @@ export class PaymentsService {
         }
       }
 
+
       // Map entity to response contract
       return {
         message: successPaymentMessage.SUCCESS_CREATE_PAYMENT,
@@ -418,6 +419,7 @@ export class PaymentsService {
         where: whereCondition,
         relations: ['order', 'order.branch'],
       });
+
       if (!payments || payments.length === 0) {
         throw new HttpException(
           errorPaymentMessage.ERROR_GET_PAYMENTS,
@@ -454,6 +456,7 @@ export class PaymentsService {
       const payment = await this.paymentRepository.findOne({
         where: { id },
       });
+
       if (!payment) {
         throw new HttpException(
           errorPaymentMessage.ERROR_GET_PAYMENT,
@@ -535,11 +538,11 @@ export class PaymentsService {
     await this.verifyPayment(payment.id);
   }
 
-  update(id: string, _updatePaymentDto: UpdatePaymentDto) {
+  async update(id: string, _updatePaymentDto: UpdatePaymentDto) {
     return `This action updates a #${id} payment`;
   }
 
-  remove(id: string) {
+  async remove(id: string) {
     return `This action removes a #${id} payment`;
   }
 }

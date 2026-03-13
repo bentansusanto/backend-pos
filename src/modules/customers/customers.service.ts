@@ -40,6 +40,7 @@ export class CustomersService {
       // create customer
       const customer = this.customersRepository.create(createCustomerDto);
       await this.customersRepository.save(customer);
+
       return {
         message: successCustomerMessage.SUCCESS_CUSTOMER_CREATE,
         data: {
@@ -67,11 +68,11 @@ export class CustomersService {
     }
   }
 
-  // find all customers
   async findAll(_branchId?: string): Promise<CustomerResponse> {
     try {
       // find all customers
       const customers = await this.customersRepository.find();
+
       return {
         message: successCustomerMessage.SUCCESS_CUSTOMER_FIND_ALL,
         datas: customers.map((customer) => ({
@@ -111,6 +112,7 @@ export class CustomersService {
           id,
         },
       });
+
       // if customer not exists, throw error
       if (!customer) {
         throw new HttpException(
@@ -155,6 +157,7 @@ export class CustomersService {
       const findCustomer = await this.findOne(id);
       // update customer
       await this.customersRepository.update(id, updateCustomerDto);
+
       return {
         message: successCustomerMessage.SUCCESS_CUSTOMER_UPDATE,
         data: {
@@ -189,6 +192,7 @@ export class CustomersService {
       await this.findOne(id);
       // remove customer
       await this.customersRepository.softDelete(id);
+
       return {
         message: successCustomerMessage.SUCCESS_CUSTOMER_REMOVE,
       };

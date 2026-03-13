@@ -97,6 +97,7 @@ export class PosSessionsService {
       `Session ${savedSession.id} opened: ${affectedCount} pending orders linked`,
     );
 
+
     return {
       message: 'POS session opened successfully',
       data: this.mapSessionResponse(savedSession),
@@ -158,6 +159,7 @@ export class PosSessionsService {
 
     const saved = await this.posSessionRepository.save(session);
 
+
     return {
       message: 'POS session closed successfully',
       data: {
@@ -189,6 +191,7 @@ export class PosSessionsService {
     this.logger.debug(
       `Active session lookup for user ${user?.id}: ${session ? session.id : 'NOT FOUND'}`,
     );
+
 
     if (!session) {
       return {
@@ -232,6 +235,7 @@ export class PosSessionsService {
     this.logger.debug(
       `Session ${id} summary: ${completedOrders.length} completed orders, totalSales=${totalSales}`,
     );
+
 
     const completedCount = completedOrders.length;
 
@@ -277,6 +281,7 @@ export class PosSessionsService {
         createdAt: 'DESC',
       },
     });
+
 
     return {
       message: 'Success get all pos sessions',

@@ -462,6 +462,7 @@ export class OrdersService {
           item_count: result.items.length,
         },
       });
+
       return {
         message: successOrderMessage.SUCCESS_CREATE_ORDER,
         data: {
@@ -544,6 +545,7 @@ export class OrdersService {
         };
       }
 
+
       return {
         message: successOrderMessage.SUCCESS_GET_ORDERS,
         datas: orders.map((order) => {
@@ -606,6 +608,7 @@ export class OrdersService {
           'posSession',
         ],
       });
+
       if (!order) {
         throw new HttpException(
           errOrderMessage.ERR_GET_ORDER,
@@ -715,6 +718,7 @@ export class OrdersService {
       }
 
       await this.orderRepository.update(id, updateData);
+
 
       const updatedOrder = await this.orderRepository.findOne({
         where: { id },
@@ -863,6 +867,7 @@ export class OrdersService {
 
       const savedOrder = await this.orderRepository.save(order);
 
+
       const totalAmount =
         (savedOrder.subtotal ?? 0) +
         (savedOrder.tax_amount ?? 0) -
@@ -1002,6 +1007,7 @@ export class OrdersService {
         relations: ['items', 'items.variant', 'customer', 'branch', 'user', 'discount'],
       });
 
+
       const totalAmount =
         (refreshedOrder.subtotal ?? 0) +
         (refreshedOrder.tax_amount ?? 0) -
@@ -1058,6 +1064,7 @@ export class OrdersService {
         );
       }
       await this.orderRepository.delete(id);
+
       // Fire-and-forget log
       this.userLogsService.log({
         userId: '',

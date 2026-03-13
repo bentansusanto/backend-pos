@@ -46,6 +46,7 @@ export class BranchesService {
         code: this.generateCode(createBranchDto.name),
       });
       await this.branchRepository.save(branchEntity);
+
       return {
         message: successBranchMessage.BRANCH_CREATED,
         data: {
@@ -76,6 +77,7 @@ export class BranchesService {
   async findAll(): Promise<BranchResponse> {
     try {
       const branches = await this.branchRepository.find();
+
       return {
         message: successBranchMessage.BRANCH_FOUND_ALL,
         datas: branches.map((branch) => ({
@@ -110,6 +112,7 @@ export class BranchesService {
           id,
         },
       });
+
       if (!branch) {
         throw new HttpException(
           errBranchMessage.BRANCH_NOT_FOUND,
@@ -159,6 +162,7 @@ export class BranchesService {
         );
       }
       await this.branchRepository.update(id, updateBranchDto);
+
       return {
         message: successBranchMessage.BRANCH_UPDATED,
         data: {
@@ -199,6 +203,7 @@ export class BranchesService {
         );
       }
       await this.branchRepository.delete(id);
+
       return {
         message: successBranchMessage.BRANCH_DELETED,
         data: {
