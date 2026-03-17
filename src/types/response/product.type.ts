@@ -3,9 +3,8 @@ import { ResponseModel } from './index.type';
 export class ProductData {
   id: string;
   name_product: string;
-  category_id: string;
+  category_id?: string;
   category_name?: string;
-  price: number;
   description: string;
   slug: string;
   sku: string;
@@ -29,10 +28,11 @@ export class ProductVariantData {
   id: string;
   product_id: string;
   sku: string;
-  weight: number;
-  color: string;
+  weight?: number;
+  color?: string;
   name_variant: string;
   price: number;
+  cost_price: number;
   thumbnail: string;
   stock?: number;
   createdAt?: Date;

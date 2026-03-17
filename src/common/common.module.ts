@@ -38,6 +38,8 @@ import { StockMovement } from 'src/modules/stock-movements/entities/stock-moveme
 import { Supplier } from 'src/modules/supplier/entities/supplier.entity';
 import { Tax } from 'src/modules/tax/entities/tax.entity';
 import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
+import { StockTake } from 'src/modules/stock-takes/entities/stock-take.entity';
+import { StockTakeItem } from 'src/modules/stock-takes/entities/stock-take-item.entity';
 import * as winston from 'winston';
 import { ErrorsService } from './errors/errors.service';
 import { JwtAuthGuard, PermissionsGuard, RolesGuard } from './guards';
@@ -80,8 +82,8 @@ import { JournalLine } from 'src/modules/accounting/entities/journal-line.entity
         password: configService.get<string>('DB_PASS'),
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: true, // TEMPORARY: Set to true once to create tables in production DB, then set back to configService.get<string>('NODE_ENV') !== 'production'
-        // synchronize: configService.get<string>('NODE_ENV') !== 'development', // mode production
+        // synchronize: true, // TEMPORARY: Set to true once to create tables in production DB, then set back to configService.get<string>('NODE_ENV') !== 'production'
+        synchronize: configService.get<string>('NODE_ENV') !== 'production', // mode production
         // ssl: {
         //   rejectUnauthorized: false, // mode production
         // },
@@ -128,6 +130,8 @@ import { JournalLine } from 'src/modules/accounting/entities/journal-line.entity
       Accounts,
       JournalEntry,
       JournalLine,
+      StockTake,
+      StockTakeItem,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

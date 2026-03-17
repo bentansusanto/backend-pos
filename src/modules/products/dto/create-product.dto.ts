@@ -13,11 +13,6 @@ export class CreateProductDto {
   @IsString({ message: 'Category must be a string' })
   category_id: string;
 
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({}, { message: 'Price must be a number' })
-  price: number;
-
   @IsNotEmpty({ message: 'Description is required' })
   @IsString({ message: 'Description must be a string' })
   description: string;

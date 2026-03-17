@@ -19,6 +19,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderItem } from './entities/order-item.entity';
 import { Order, OrderStatus } from './entities/order.entity';
+import { StockTake, StockTakeStatus } from '../stock-takes/entities/stock-take.entity';
 
 @Injectable()
 export class OrdersService {
@@ -38,6 +39,8 @@ export class OrdersService {
     private readonly taxRepository: Repository<Tax>,
     @InjectRepository(Discount)
     private readonly discountRepository: Repository<Discount>,
+    @InjectRepository(StockTake)
+    private readonly stockTakeRepository: Repository<StockTake>,
     private readonly userLogsService: UserLogsService,
     private readonly posSessionsService: PosSessionsService,
   ) {}
@@ -76,6 +79,25 @@ export class OrdersService {
     try {
       const { notes, order_id, branch_id, user_id, customer_id } =
         createOrderDto;
+
+      // New: Check if branch is frozen for Stock Take
+      if (branch_id) {
+        const activeFrozenAudit = await this.stockTakeRepository.findOne({
+          where: {
+            branch: { id: branch_id },
+            status: StockTakeStatus.DRAFT,
+            isFrozen: true,
+          },
+        });
+
+        if (activeFrozenAudit) {
+          throw new HttpException(
+            'Cannot process transaction: Inventory is locked for audit (Stock Take in progress).',
+            HttpStatus.CONFLICT,
+          );
+        }
+      }
+
       const items = createOrderDto.items || [];
       const resolvedUserId = user_id || currentUserId;
       // Step 1: Normalize items so each product/variant has a single entry

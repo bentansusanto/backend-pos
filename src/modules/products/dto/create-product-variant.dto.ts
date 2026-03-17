@@ -18,6 +18,11 @@ export class CreateProductVariantDto {
 
   @IsOptional()
   @Type(() => Number)
+  @IsNumber({}, { message: 'Cost Price must be a number' })
+  cost_price: number;
+
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber({}, { message: 'Weight must be a number' })
   weight?: number;
 

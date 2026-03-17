@@ -35,9 +35,6 @@ export class Product {
   @Column({ unique: true })
   sku: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  price: number;
-
   @ManyToOne(() => Category, (category) => category.products)
   @JoinColumn({ name: 'categoryId' })
   category: Category;

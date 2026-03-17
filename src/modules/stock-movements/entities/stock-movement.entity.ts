@@ -22,6 +22,7 @@ export enum ReferenceType {
   EXPIRED = 'expired',
   DAMAGE = 'damage',
   OPENING_STOCK = 'opening_stock',
+  STOCK_TAKE = 'stock_take',
 }
 
 @Entity('stock_movements')

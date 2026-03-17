@@ -28,6 +28,7 @@ import { UsersModule } from './modules/rbac/users/users.module';
 import { SalesReportsModule } from './modules/sales-reports/sales-reports.module';
 import { SeederModule } from './modules/seeder/seeder.module';
 import { StockMovementsModule } from './modules/stock-movements/stock-movements.module';
+import { StockTakesModule } from './modules/stock-takes/stock-takes.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
 import { TaxModule } from './modules/tax/tax.module';
 
@@ -46,6 +47,7 @@ import { TaxModule } from './modules/tax/tax.module';
     CategoriesModule,
     ProductStocksModule,
     StockMovementsModule,
+    StockTakesModule,
     CustomersModule,
     OrdersModule,
     PaymentsModule,

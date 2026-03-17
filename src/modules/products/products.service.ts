@@ -31,17 +31,18 @@ export class ProductsService {
     private readonly userLogsService: UserLogsService,
   ) {}
 
-  // Helper function to generate slug
+  // Helper function to generate slug with a small random component to avoid collisions
   private generateSlug(name: string): string {
-    return name.toLowerCase().replace(/\s+/g, '-');
+    const baseSlug = name.toLowerCase().replace(/\s+/g, '-');
+    const randomSuffix = Math.random().toString(36).substring(2, 6);
+    return `${baseSlug}-${randomSuffix}`;
   }
 
-  // helper function to generate sku like SKU-namesonly 3 characters-4digitrandomnumber
-  // example: SKU-APP-1234
+  // helper function to generate sku like SKU-XXXX-XXXXX
   private generateSku(name: string): string {
-    return `SKU-${name.substring(0, 4).toUpperCase()}-${Math.floor(
-      1000 + Math.random() * 9000,
-    )}`;
+    const cleanName = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
+    const randomPart = Math.floor(10000 + Math.random() * 90000); // 5 digits
+    return `SKU-${cleanName}-${randomPart}`;
   }
 
   // Helper function to handle file uploads to Cloudinary
@@ -109,7 +110,6 @@ export class ProductsService {
       });
       await this.productRepository.save(newProduct);
 
-
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
@@ -119,7 +119,6 @@ export class ProductsService {
         description: `Product "${newProduct.name_product}" created (SKU: ${newProduct.sku})`,
         metadata: {
           sku: newProduct.sku,
-          price: newProduct.price,
           category_id: createProductDto.category_id,
         },
       });
@@ -133,7 +132,6 @@ export class ProductsService {
         data: {
           id: newProduct.id,
           name_product: newProduct.name_product,
-          price: newProduct.price,
           category_id: newProduct.category.id,
           slug: newProduct.slug,
           sku: newProduct.sku,
@@ -189,31 +187,51 @@ export class ProductsService {
       return {
         message: successProductMessage.SUCCESS_FIND_ALL_PRODUCT,
         datas: products.map((product) => {
-          let stocks =
-            product.productVariants?.flatMap(
-              (variant) => variant.productStocks || [],
-            ) || [];
+          const variants =
+            product.productVariants && product.productVariants.length > 0
+              ? product.productVariants.map((variant) => {
+                  let stocks = variant.productStocks || [];
 
-          if (branchId) {
-            stocks = stocks.filter(
-              (stock) => stock.branch && stock.branch.id === branchId,
-            );
-          }
+                  if (branchId) {
+                    stocks = stocks.filter(
+                      (stock) => stock.branch && stock.branch.id === branchId,
+                    );
+                  }
 
-          const totalStock = stocks.reduce((acc, curr) => acc + curr.stock, 0);
+                  const variantStock = stocks.reduce(
+                    (acc, curr) => acc + curr.stock,
+                    0,
+                  );
+
+                  return {
+                    id: variant.id,
+                    product_id: product.id,
+                    sku: variant.sku,
+                    name_variant: variant.name_variant,
+                    price: variant.price,
+                    cost_price: variant.cost_price ?? 0,
+                    thumbnail: variant.thumbnail,
+                    stock: variantStock,
+                    createdAt: variant.createdAt,
+                    updatedAt: variant.updatedAt,
+                  };
+                })
+              : [];
+
+          const totalStock = variants.reduce((acc, curr) => acc + curr.stock, 0);
 
           return {
             id: product.id,
             name_product: product.name_product,
-            price: product.price,
-            category_id: product.category.id,
-            category_name: product.category.name,
+            category_id: product.category?.id,
+            category_name: product.category?.name,
             slug: product.slug,
             sku: product.sku,
             description: product.description,
             thumbnail: product.thumbnail,
             images: Array.isArray(product.images) ? product.images : [],
             stock: totalStock,
+            variants: variants,
             createdAt: product.createdAt,
             updatedAt: product.updatedAt,
           };
@@ -279,6 +297,7 @@ export class ProductsService {
                 color: variant.color,
                 name_variant: variant.name_variant,
                 price: variant.price,
+                cost_price: variant.cost_price,
                 thumbnail: variant.thumbnail,
                 stock: variantStock,
                 createdAt: variant.createdAt,
@@ -295,7 +314,6 @@ export class ProductsService {
         data: {
           id: product.id,
           name_product: product.name_product,
-          price: product.price,
           category_id: product.category.id,
           category_name: product.category.name,
           slug: product.slug,
@@ -304,7 +322,7 @@ export class ProductsService {
           thumbnail: product.thumbnail,
           images: Array.isArray(product.images) ? product.images : [],
           stock: totalStock,
-          variants: variants,
+          variants: variants.map(v => ({...v, cost_price: v.cost_price ?? 0})),
           createdAt: product.createdAt,
           updatedAt: product.updatedAt,
         },
@@ -366,7 +384,6 @@ export class ProductsService {
       // update product
       await this.productRepository.update(id, {
         name_product: updateProductDto.name_product,
-        price: updateProductDto.price,
         category: {
           id: findCategory.data.id,
         },
@@ -377,7 +394,6 @@ export class ProductsService {
         images: imageUrls,
       });
 
-
       // fire-and-forget log
       this.userLogsService.log({
         userId: userId ?? '',
@@ -386,7 +402,6 @@ export class ProductsService {
         entityId: id,
         description: `Product "${updateProductDto.name_product}" updated`,
         metadata: {
-          price: updateProductDto.price,
           category_id: updateProductDto.category_id,
         },
       });
@@ -400,7 +415,6 @@ export class ProductsService {
         data: {
           id: findProduct.id,
           name_product: findProduct.name_product,
-          price: findProduct.price,
           category_id: findProduct.category.id,
           slug: findProduct.slug,
           sku: findProduct.sku,
@@ -446,7 +460,6 @@ export class ProductsService {
 
       // delete product
       await this.productRepository.softDelete(id);
-
 
       // fire-and-forget log
       this.userLogsService.log({

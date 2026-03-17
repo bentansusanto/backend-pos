@@ -138,6 +138,7 @@ export class ProductVariantsService {
         metadata: {
           sku: newProductVariant.sku,
           price: newProductVariant.price,
+          cost_price: newProductVariant.cost_price,
         },
       });
 
@@ -148,6 +149,7 @@ export class ProductVariantsService {
           product_id: newProductVariant.product.id,
           name_variant: newProductVariant.name_variant,
           price: newProductVariant.price,
+          cost_price: newProductVariant.cost_price,
           sku: newProductVariant.sku,
           weight: newProductVariant.weight,
           color: newProductVariant.color,
@@ -230,6 +232,7 @@ export class ProductVariantsService {
         product: { id: updateProductVariantDto.productId },
         name_variant: updateProductVariantDto.name_variant,
         price: Number(updateProductVariantDto.price || 0),
+        cost_price: Number(updateProductVariantDto.cost_price || 0),
         weight: Number(updateProductVariantDto.weight || 0),
         color: updateProductVariantDto.color,
         thumbnail: thumbnailUrl,
@@ -243,7 +246,7 @@ export class ProductVariantsService {
         entityType: EntityType.PRODUCT_VARIANT,
         entityId: id,
         description: `Variant "${updateProductVariantDto.name_variant}" updated`,
-        metadata: { sku, price: updateProductVariantDto.price },
+        metadata: { sku, price: updateProductVariantDto.price, cost_price: updateProductVariantDto.cost_price },
       });
 
       return {
@@ -253,6 +256,7 @@ export class ProductVariantsService {
           product_id: productVariant.product.id,
           name_variant: productVariant.name_variant,
           price: productVariant.price,
+          cost_price: productVariant.cost_price,
           sku: productVariant.sku,
           weight: productVariant.weight,
           color: productVariant.color,
@@ -342,6 +346,7 @@ export class ProductVariantsService {
           product_id: productVariant.product.id,
           name_variant: productVariant.name_variant,
           price: productVariant.price,
+          cost_price: productVariant.cost_price,
           sku: productVariant.sku,
           weight: productVariant.weight,
           color: productVariant.color,
@@ -403,6 +408,7 @@ export class ProductVariantsService {
             product_id: productVariant.product.id,
             name_variant: productVariant.name_variant,
             price: productVariant.price,
+            cost_price: productVariant.cost_price,
             sku: productVariant.sku,
             weight: productVariant.weight,
             color: productVariant.color,
