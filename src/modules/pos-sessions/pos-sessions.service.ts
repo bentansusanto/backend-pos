@@ -133,7 +133,6 @@ export class PosSessionsService {
     }
 
     // --- Calculate total sales from COMPLETED orders in this session ---
-    // Orders are directly related to session (posSession FK), so sum their subtotal
     const completedOrdersForClose =
       session.orders?.filter((o) => o.status === OrderStatus.COMPLETED) || [];
     const totalSales = completedOrdersForClose.reduce(
@@ -146,8 +145,15 @@ export class PosSessionsService {
     );
 
     const openingBal = Number(session.openingBalance || 0);
-    const closingBal = Number(closePosSessionDto.closingBalance || 0);
     const expectedCash = openingBal + totalSales;
+
+    // --- Compute closing balance from cashier's payment declarations ---
+    const declarations = closePosSessionDto.paymentDeclarations || [];
+    const salesCollected = declarations.reduce(
+      (sum, d) => sum + Number(d.declaredAmount || 0),
+      0,
+    );
+    const closingBal = openingBal + salesCollected;
     const diff = closingBal - expectedCash;
 
     session.endTime = new Date();
@@ -155,10 +161,10 @@ export class PosSessionsService {
     session.expected_cash = expectedCash;
     session.difference = diff;
     session.notes = closePosSessionDto.notes;
+    session.paymentDeclarations = declarations;
     session.status = PosSessionStatus.CLOSED;
 
     const saved = await this.posSessionRepository.save(session);
-
 
     return {
       message: 'POS session closed successfully',
@@ -172,6 +178,7 @@ export class PosSessionsService {
         expected_cash: Number(expectedCash.toFixed(2)),
         closingBalance: closingBal,
         difference: Number(diff.toFixed(2)),
+        paymentDeclarations: declarations,
         notes: saved.notes,
         branch: session.branch ? { id: session.branch.id } : null,
         user: session.user ? { id: session.user.id } : null,
@@ -253,6 +260,26 @@ export class PosSessionsService {
           ? closingBal - expectedCash
           : null;
 
+    // --- Payment breakdown: group VERIFIED payments by method ---
+    const sessionOrderIds = directOrders.map((o) => o.id);
+    let paymentBreakdown: { method: string; total: number }[] = [];
+    if (sessionOrderIds.length > 0) {
+      const payments = await this.paymentRepository.find({
+        where: sessionOrderIds.map((oid) => ({
+          orderId: oid,
+          status: PaymentStatus.SUCCESS,
+        })),
+      });
+      const grouped: Record<string, number> = {};
+      for (const p of payments) {
+        grouped[p.method] = (grouped[p.method] || 0) + Number(p.amount);
+      }
+      paymentBreakdown = Object.entries(grouped).map(([method, total]) => ({
+        method,
+        total: Number(total.toFixed(2)),
+      }));
+    }
+
     return {
       message: 'Session summary retrieved successfully',
       data: {
@@ -269,6 +296,8 @@ export class PosSessionsService {
         difference: difference !== null ? Number(difference.toFixed(2)) : null,
         transactionsCount: completedCount,
         totalPaymentsProcessed: totalTransactions,
+        paymentBreakdown,
+        paymentDeclarations: session.paymentDeclarations ?? [],
         notes: session.notes ?? null,
       },
     };

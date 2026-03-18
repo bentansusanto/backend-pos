@@ -379,6 +379,13 @@ export class SeederService implements OnModuleInit {
         action: 'settings:update',
         description: 'Update settings',
       },
+
+      // Stock Takes
+      {
+        module: 'stock_takes',
+        action: 'stock_takes:check_frozen',
+        description: 'Check if branch inventory is frozen',
+      },
     ];
 
     for (const perm of permissions) {
@@ -555,7 +562,8 @@ export class SeederService implements OnModuleInit {
             ['create', 'read', 'update', 'delete'].some((a) =>
               p.action.endsWith(a),
             )) ||
-          (p.action.startsWith('payments:') && ['create', 'read']),
+          (p.action.startsWith('payments:') && ['create', 'read']) ||
+          p.action === 'stock_takes:check_frozen',
       );
       for (const permission of cashierPermissions) {
         await this.assignPermissionToRole(cashier.id, permission.id);

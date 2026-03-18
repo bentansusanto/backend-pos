@@ -83,11 +83,18 @@ export class OrdersService {
       // New: Check if branch is frozen for Stock Take
       if (branch_id) {
         const activeFrozenAudit = await this.stockTakeRepository.findOne({
-          where: {
-            branch: { id: branch_id },
-            status: StockTakeStatus.DRAFT,
-            isFrozen: true,
-          },
+          where: [
+            {
+              branch: { id: branch_id },
+              status: StockTakeStatus.DRAFT,
+              isFrozen: true,
+            },
+            {
+              branch: { id: branch_id },
+              status: StockTakeStatus.PENDING_APPROVAL,
+              isFrozen: true,
+            },
+          ],
         });
 
         if (activeFrozenAudit) {
@@ -203,23 +210,25 @@ export class OrdersService {
         existingOrderPromise,
       ]);
 
-      const variantStockMap = new Map(
-        productStocks
-          .filter((stock) => stock.productVariant?.id)
-          .map((stock) => [stock.productVariant.id, stock]),
-      );
+      const variantStockMap = new Map<string, number>();
+      productStocks.forEach((stock) => {
+        if (stock.productVariant?.id) {
+          const current = variantStockMap.get(stock.productVariant.id) || 0;
+          variantStockMap.set(stock.productVariant.id, current + stock.stock);
+        }
+      });
 
       // Step 4: Ensure stock is sufficient for each requested item (variant only)
       aggregatedItems.forEach((item) => {
         if (item.variantId) {
-          const stock = variantStockMap.get(item.variantId);
-          if (!stock) {
+          const availableStock = variantStockMap.get(item.variantId);
+          if (availableStock === undefined) {
             throw new HttpException(
               'Product variant stock not found',
               HttpStatus.BAD_REQUEST,
             );
           }
-          if (stock.stock < item.quantity) {
+          if (availableStock < item.quantity) {
             throw new HttpException(
               'Product variant stock is insufficient',
               HttpStatus.BAD_REQUEST,

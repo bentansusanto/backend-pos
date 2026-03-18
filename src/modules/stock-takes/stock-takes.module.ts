@@ -9,6 +9,7 @@ import { StockMovementsModule } from '../stock-movements/stock-movements.module'
 import { ProductVariantsModule } from '../products/product-variants/product-variants.module';
 import { BranchesModule } from '../branches/branches.module';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ProductStock } from '../product-stocks/entities/product-stock.entity';
     StockMovementsModule,
     ProductVariantsModule,
     BranchesModule,
+    EventsModule,
   ],
   controllers: [StockTakesController],
   providers: [StockTakesService],

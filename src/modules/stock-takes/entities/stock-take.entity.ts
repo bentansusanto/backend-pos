@@ -16,7 +16,9 @@ import { StockTakeItem } from './stock-take-item.entity';
 
 export enum StockTakeStatus {
   DRAFT = 'draft',
+  PENDING_APPROVAL = 'pending_approval',
   COMPLETED = 'completed',
+  REJECTED = 'rejected',
 }
 
 @Entity('stock_takes')
@@ -53,6 +55,13 @@ export class StockTake {
     cascade: true,
   })
   items: StockTakeItem[];
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'approved_by' })
+  approvedBy: User;
+
+  @Column({ type: 'timestamp', nullable: true })
+  approvedAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;

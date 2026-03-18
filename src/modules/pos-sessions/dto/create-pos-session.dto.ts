@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class OpenPosSessionDto {
   @IsNotEmpty({ message: 'Branch ID is required' })
@@ -14,10 +15,22 @@ export class OpenPosSessionDto {
   notes?: string;
 }
 
+export class PaymentDeclarationDto {
+  @IsNotEmpty()
+  @IsString()
+  method: string;
+
+  @IsNotEmpty()
+  @IsNumber({}, { message: 'Declared amount must be a number' })
+  declaredAmount: number;
+}
+
 export class ClosePosSessionDto {
-  @IsNotEmpty({ message: 'Closing balance is required' })
-  @IsNumber({}, { message: 'Closing balance must be a number' })
-  closingBalance: number;
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PaymentDeclarationDto)
+  paymentDeclarations?: PaymentDeclarationDto[];
 
   @IsOptional()
   @IsString({ message: 'Notes must be a string' })

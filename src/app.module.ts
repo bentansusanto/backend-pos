@@ -31,6 +31,7 @@ import { StockMovementsModule } from './modules/stock-movements/stock-movements.
 import { StockTakesModule } from './modules/stock-takes/stock-takes.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
 import { TaxModule } from './modules/tax/tax.module';
+import { EventsModule } from './modules/events/events.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { TaxModule } from './modules/tax/tax.module';
     ExpensesModule,
     AccountingModule,
     PosSessionsModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

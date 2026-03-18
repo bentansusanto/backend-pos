@@ -9,6 +9,10 @@ class StockTakeItemDto {
   @IsNotEmpty()
   @IsNumber()
   countedQty: number;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 export class SubmitStockTakeDto {

@@ -103,6 +103,9 @@ export class PosSession {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  paymentDeclarations: { method: string; declaredAmount: number }[];
+
   @OneToMany(() => Order, (order) => order.posSession)
   orders: Order[];
 

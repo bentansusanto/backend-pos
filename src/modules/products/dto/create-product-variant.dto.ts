@@ -11,6 +11,10 @@ export class CreateProductVariantDto {
   @IsString({ message: 'Name variant must be a string' })
   name_variant: string;
 
+  @IsOptional()
+  @IsString({ message: 'Barcode must be a string' })
+  barcode?: string;
+
   @IsNotEmpty({ message: 'Price is required' })
   @Type(() => Number)
   @IsNumber({}, { message: 'Price must be a number' })

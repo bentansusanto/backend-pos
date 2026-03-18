@@ -9,10 +9,12 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('product_stocks')
+@Unique(['productVariant', 'branch'])
 export class ProductStock {
   @PrimaryColumn()
   id: string;

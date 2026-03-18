@@ -34,7 +34,7 @@ export class StockMovementsService {
     try {
       const stockMovements = await this.stockMovementRepository.find({
         where: branchId ? { branch: { id: branchId } } : undefined,
-        relations: ['productVariant', 'branch'],
+        relations: ['productVariant', 'productVariant.product', 'branch'],
         order: { createdAt: 'DESC' },
       });
 

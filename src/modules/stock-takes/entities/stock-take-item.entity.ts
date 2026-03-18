@@ -20,9 +20,14 @@ export class StockTakeItem {
   @BeforeInsert()
   generateId() {
     if (!this.id) {
-      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
+      const now = Date.now();
+      const random = Math.floor(Math.random() * 1000);
+      this.id = new Hashids(process.env.ID_SECRET, 10).encode(now, random);
     }
   }
+
+  @Column({ name: 'stock_take_id', nullable: true })
+  stockTakeId: string;
 
   @ManyToOne(() => StockTake, (stockTake) => stockTake.items, {
     onDelete: 'CASCADE',
@@ -42,6 +47,9 @@ export class StockTakeItem {
 
   @Column({ default: 0 })
   difference: number;
+
+  @Column({ type: 'varchar', nullable: true })
+  reason: string;
 
   @CreateDateColumn()
   createdAt: Date;

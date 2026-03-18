@@ -14,6 +14,7 @@ import { ReferenceType } from '../stock-movements/entities/stock-movement.entity
 import { StockMovementsService } from '../stock-movements/stock-movements.service';
 import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
 import { UserLogsService } from '../user_logs/user_logs.service';
+import { EventsGateway } from '../events/events.gateway';
 import {
   CreateProductStockDto,
   UpdateProductStockDto,
@@ -30,6 +31,7 @@ export class ProductStocksService {
     private readonly branchService: BranchesService,
     private readonly stockMovementsService: StockMovementsService,
     private readonly userLogsService: UserLogsService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   // create product stock
@@ -114,6 +116,13 @@ export class ProductStocksService {
           branchId: branch.data.id,
           stock: createProductStockDto.stock,
         },
+      });
+
+      // Broadcast real-time update
+      this.eventsGateway.broadcastStockUpdate({
+        variantId: productVariant?.data?.id,
+        branchId: branch.data.id,
+        newStock: (productStock as any).stock,
       });
 
       return {
@@ -275,6 +284,13 @@ export class ProductStocksService {
         });
       }
 
+      // Broadcast real-time update
+      this.eventsGateway.broadcastStockUpdate({
+        variantId: productStock.productVariant?.id,
+        branchId: productStock.branch?.id,
+        newStock: updateProductStockDto.stock,
+      });
+
       this.logger.debug(
         successProductStockMessage.SUCCESS_UPDATE_PRODUCT_STOCK,
         productStock,
@@ -327,7 +343,7 @@ export class ProductStocksService {
         successProductStockMessage.SUCCESS_DELETE_PRODUCT_STOCK,
         productStock,
       );
-      return {
+      const response = {
         message: successProductStockMessage.SUCCESS_DELETE_PRODUCT_STOCK,
         data: {
           id: productStock.id,
@@ -339,6 +355,16 @@ export class ProductStocksService {
           updatedAt: productStock.updatedAt,
         },
       };
+
+      // Broadcast real-time update
+      this.eventsGateway.broadcastStockUpdate({
+        variantId: productStock.productVariant.id,
+        branchId: productStock.branch.id,
+        newStock: 0,
+        removed: true,
+      });
+
+      return response;
     } catch (error) {
       this.logger.error(
         errProductStockMessage.ERR_DELETE_PRODUCT_STOCK,

@@ -6,6 +6,7 @@ import { Order } from '../orders/entities/order.entity';
 import { OrdersModule } from '../orders/orders.module';
 import { PosSessionsModule } from '../pos-sessions/pos-sessions.module';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
+import { EventsModule } from '../events/events.module';
 import { SalesReportsModule } from '../sales-reports/sales-reports.module';
 import { StockMovement } from '../stock-movements/entities/stock-movement.entity';
 import { Payment } from './entities/payment.entity';
@@ -22,6 +23,7 @@ import { PaymentsService } from './payments.service';
     SalesReportsModule,
     ConfigModule,
     AccountingModule,
+    EventsModule,
   ],
   exports: [PaymentsService],
 })

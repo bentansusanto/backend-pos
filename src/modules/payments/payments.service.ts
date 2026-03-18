@@ -13,6 +13,7 @@ import { OrdersService } from '../orders/orders.service';
 import { PosSessionsService } from '../pos-sessions/pos-sessions.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { SalesReportsService } from '../sales-reports/sales-reports.service';
+import { EventsGateway } from '../events/events.gateway';
 import { AccountingService } from '../accounting/accounting.service';
 import { ReferenceType as AccReferenceType } from '../accounting/entities/accounting.enums';
 import {
@@ -40,6 +41,7 @@ export class PaymentsService {
     private readonly salesReportsService: SalesReportsService,
     private readonly configService: ConfigService,
     private readonly accountingService: AccountingService,
+    private readonly eventsGateway: EventsGateway,
   ) {
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     this.logger.debug(
@@ -234,29 +236,31 @@ export class PaymentsService {
 
             if (item.variant?.id) {
               // Handle variant stock updates
-              const productStock = await stockRepo.findOne({
+              const productStocks = await stockRepo.find({
                 where: {
                   productVariant: { id: item.variant.id },
                   ...(branchId ? { branch: { id: branchId } } : {}),
                 },
                 relations: ['productVariant', 'branch'],
               });
-              if (!productStock) {
+              if (productStocks.length === 0) {
                 throw new HttpException(
                   'Product variant stock not found',
                   HttpStatus.NOT_FOUND,
                 );
               }
-              if (productStock.stock < quantity) {
+              const totalAvailableStock = productStocks.reduce((sum, s) => sum + s.stock, 0);
+              if (totalAvailableStock < quantity) {
                 throw new HttpException(
                   'Product variant stock is insufficient',
                   HttpStatus.BAD_REQUEST,
                 );
               }
-              // Update stock quantity
-              productStock.stock = productStock.stock - quantity;
-              productStock.updatedAt = new Date();
-              await stockRepo.save(productStock);
+              // Update stock quantity (deduct from the first record)
+              const primaryStock = productStocks[0];
+              primaryStock.stock = primaryStock.stock - quantity;
+              primaryStock.updatedAt = new Date();
+              await stockRepo.save(primaryStock);
 
               if (branchId) {
                 // Create stock movement record
@@ -299,6 +303,30 @@ export class PaymentsService {
             where: { id: order.id },
             relations: ['items', 'items.variant', 'branch', 'posSession'],
           });
+          // Broadcast real-time stock updates
+          if (updatedOrder?.items) {
+            for (const item of updatedOrder.items) {
+              if (item.variant) {
+                // Fetch new stock level for this variant at this branch
+                // (Already updated in verifyPayment transaction)
+                const freshStock = await manager.findOne(ProductStock, {
+                  where: {
+                    productVariant: { id: item.variant.id },
+                    branch: { id: updatedOrder.branch.id },
+                  },
+                });
+                
+                if (freshStock) {
+                  this.eventsGateway.broadcastStockUpdate({
+                    variantId: item.variant.id,
+                    branchId: updatedOrder.branch.id,
+                    newStock: freshStock.stock,
+                  });
+                }
+              }
+            }
+          }
+
           // Mark payment as successful
           payment.status = PaymentStatus.SUCCESS;
           payment.paid_at = new Date();

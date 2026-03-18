@@ -41,6 +41,9 @@ export class ProductVariant {
   sku: string;
 
   @Column({ nullable: true })
+  barcode?: string;
+
+  @Column({ nullable: true })
   weight?: number;
 
   @Column({ nullable: true })
