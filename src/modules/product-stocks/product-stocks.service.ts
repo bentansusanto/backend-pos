@@ -72,22 +72,50 @@ export class ProductStocksService {
         productId = productVariant.data.product_id;
       }
 
-      // create product stock (only variant-based now)
-      const productStockData: any = {
-        ...createProductStockDto,
-        branch: {
-          id: branch.data.id,
-        },
-      };
-
+      // Check if stock already exists for this variant and branch
+      let productStock;
       if (productVariant) {
-        productStockData.productVariant = {
-          id: productVariant.data.id,
-        };
+        productStock = await this.productStockRepository.findOne({
+          where: {
+            productVariant: { id: productVariant.data.id },
+            branch: { id: branch.data.id },
+          },
+        });
+      } else {
+        // If somehow variant is missing, fallback logic (though unlikely)
+        productStock = await this.productStockRepository.findOne({
+          where: {
+             // using generic query without variant since we enforce variant-based
+             branch: { id: branch.data.id }
+          },
+        });
       }
 
-      const productStock = this.productStockRepository.create(productStockData);
-      await this.productStockRepository.save(productStock);
+      if (productStock) {
+        // Upsert: Add to existing stock
+        productStock.stock += Number(createProductStockDto.stock);
+        if (createProductStockDto.minStock !== undefined) {
+           productStock.minStock = createProductStockDto.minStock;
+        }
+        await this.productStockRepository.save(productStock);
+      } else {
+        // Create new stock record
+        const productStockData: any = {
+          ...createProductStockDto,
+          branch: {
+            id: branch.data.id,
+          },
+        };
+
+        if (productVariant) {
+          productStockData.productVariant = {
+            id: productVariant.data.id,
+          };
+        }
+
+        productStock = this.productStockRepository.create(productStockData);
+        await this.productStockRepository.save(productStock);
+      }
 
       // Create stock movement for adjustment
       await this.stockMovementsService.create({

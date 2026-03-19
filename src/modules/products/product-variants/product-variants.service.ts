@@ -151,6 +151,7 @@ export class ProductVariantsService {
           price: newProductVariant.price,
           cost_price: newProductVariant.cost_price,
           sku: newProductVariant.sku,
+          barcode: newProductVariant.barcode,
           weight: newProductVariant.weight,
           color: newProductVariant.color,
           thumbnail: newProductVariant.thumbnail,
@@ -237,6 +238,7 @@ export class ProductVariantsService {
         color: updateProductVariantDto.color,
         thumbnail: thumbnailUrl,
         sku,
+        barcode: updateProductVariantDto.barcode,
       });
 
       // fire-and-forget log
@@ -258,6 +260,7 @@ export class ProductVariantsService {
           price: productVariant.price,
           cost_price: productVariant.cost_price,
           sku: productVariant.sku,
+          barcode: productVariant.barcode,
           weight: productVariant.weight,
           color: productVariant.color,
           thumbnail: productVariant.thumbnail,
@@ -348,6 +351,7 @@ export class ProductVariantsService {
           price: productVariant.price,
           cost_price: productVariant.cost_price,
           sku: productVariant.sku,
+          barcode: productVariant.barcode,
           weight: productVariant.weight,
           color: productVariant.color,
           thumbnail: productVariant.thumbnail,
@@ -410,6 +414,7 @@ export class ProductVariantsService {
             price: productVariant.price,
             cost_price: productVariant.cost_price,
             sku: productVariant.sku,
+            barcode: productVariant.barcode,
             weight: productVariant.weight,
             color: productVariant.color,
             thumbnail: productVariant.thumbnail,

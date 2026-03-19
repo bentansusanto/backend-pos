@@ -31,4 +31,8 @@ export class CreateStockMovementDto {
   @IsNotEmpty()
   @IsString()
   referenceId: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

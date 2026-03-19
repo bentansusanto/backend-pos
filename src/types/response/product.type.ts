@@ -8,6 +8,7 @@ export class ProductData {
   description: string;
   slug: string;
   sku: string;
+  barcode?: string;
   thumbnail: string;
   images: string[];
   stock?: number;
@@ -28,6 +29,7 @@ export class ProductVariantData {
   id: string;
   product_id: string;
   sku: string;
+  barcode?: string;
   weight?: number;
   color?: string;
   name_variant: string;

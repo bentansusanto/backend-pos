@@ -26,6 +26,7 @@ export enum EntityType {
   USER = 'user',
   TAX = 'tax',
   DISCOUNT = 'discount',
+  STOCK_TAKE = 'stock_take',
 }
 
 export enum ActionType {
@@ -35,6 +36,7 @@ export enum ActionType {
   LOGIN = 'login',
   LOGOUT = 'logout',
   APPROVE = 'approve',
+  REJECT = 'reject',
   CANCEL = 'cancel',
 }
 

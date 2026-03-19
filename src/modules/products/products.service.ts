@@ -207,6 +207,7 @@ export class ProductsService {
                     id: variant.id,
                     product_id: product.id,
                     sku: variant.sku,
+                    barcode: variant.barcode,
                     name_variant: variant.name_variant,
                     price: variant.price,
                     cost_price: variant.cost_price ?? 0,
@@ -242,6 +243,9 @@ export class ProductsService {
         errProductMessage.ERROR_FIND_ALL_PRODUCT,
         error.message,
       );
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_FIND_ALL_PRODUCT,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -293,6 +297,7 @@ export class ProductsService {
                 id: variant.id,
                 product_id: product.id,
                 sku: variant.sku,
+                barcode: variant.barcode,
                 weight: variant.weight,
                 color: variant.color,
                 name_variant: variant.name_variant,
@@ -329,6 +334,9 @@ export class ProductsService {
       };
     } catch (error) {
       this.logger.error(errProductMessage.ERROR_FIND_PRODUCT, error.message);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         errProductMessage.ERROR_FIND_PRODUCT,
         HttpStatus.INTERNAL_SERVER_ERROR,

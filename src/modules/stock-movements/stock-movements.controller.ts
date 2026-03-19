@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { WebResponse } from 'src/types/response/index.type';
@@ -24,13 +25,15 @@ export class StockMovementsController {
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createStockMovementDto: CreateStockMovementDto,
+    @Req() req: any,
   ): Promise<WebResponse> {
     const result = await this.stockMovementsService.create(
       createStockMovementDto,
+      req.user?.id,
     );
     return {
-      message: 'Stock movement created successfully',
-      data: result,
+      message: result.message,
+      data: result.data,
     };
   }
 
@@ -42,8 +45,8 @@ export class StockMovementsController {
     const branchId = queryBranchId || headerBranchId;
     const result = await this.stockMovementsService.findAll(branchId);
     return {
-      message: 'Stock movements retrieved successfully',
-      data: result,
+      message: result.message,
+      data: result.datas,
     };
   }
 
@@ -51,8 +54,8 @@ export class StockMovementsController {
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.stockMovementsService.findOne(id);
     return {
-      message: 'Stock movement retrieved successfully',
-      data: result,
+      message: result.message,
+      data: result.data,
     };
   }
 
@@ -60,23 +63,28 @@ export class StockMovementsController {
   async update(
     @Param('id') id: string,
     @Body() updateStockMovementDto: UpdateStockMovementDto,
+    @Req() req: any,
   ): Promise<WebResponse> {
     const result = await this.stockMovementsService.update(
       id,
       updateStockMovementDto,
+      req.user?.id,
     );
     return {
-      message: 'Stock movement updated successfully',
-      data: result,
+      message: result.message,
+      data: result.data,
     };
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<WebResponse> {
-    const result = await this.stockMovementsService.remove(id);
+  async remove(
+    @Param('id') id: string,
+    @Req() req: any,
+  ): Promise<WebResponse> {
+    const result = await this.stockMovementsService.remove(id, req.user?.id);
     return {
-      message: 'Stock movement deleted successfully',
-      data: result,
+      message: result.message,
+      data: result.data,
     };
   }
 }

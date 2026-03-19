@@ -10,6 +10,7 @@ import { ProductVariantsModule } from '../products/product-variants/product-vari
 import { BranchesModule } from '../branches/branches.module';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { EventsModule } from '../events/events.module';
+import { UserLogsModule } from '../user_logs/user_logs.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { EventsModule } from '../events/events.module';
     ProductVariantsModule,
     BranchesModule,
     EventsModule,
+    UserLogsModule,
   ],
   controllers: [StockTakesController],
   providers: [StockTakesService],

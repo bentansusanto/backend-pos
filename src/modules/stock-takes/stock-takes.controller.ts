@@ -57,8 +57,16 @@ export class StockTakesController {
   }
 
   @Post(':id/submit')
-  async submit(@Param('id') id: string, @Body() submitStockTakeDto: SubmitStockTakeDto) {
-    const result = await this.stockTakesService.submit(id, submitStockTakeDto);
+  async submit(
+    @Param('id') id: string,
+    @Body() submitStockTakeDto: SubmitStockTakeDto,
+    @Req() req: any,
+  ) {
+    const result = await this.stockTakesService.submit(
+      id,
+      submitStockTakeDto,
+      req.user?.id,
+    );
     return {
       message: result.message,
       data: result.data,
@@ -75,8 +83,8 @@ export class StockTakesController {
   }
 
   @Post(':id/reject')
-  async reject(@Param('id') id: string) {
-    const result = await this.stockTakesService.reject(id);
+  async reject(@Param('id') id: string, @Req() req: any) {
+    const result = await this.stockTakesService.reject(id, req.user?.id);
     return {
       message: result.message,
       data: result.data,

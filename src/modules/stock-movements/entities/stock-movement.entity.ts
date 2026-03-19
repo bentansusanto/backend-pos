@@ -58,6 +58,9 @@ export class StockMovement {
   @Column()
   referenceId: string;
 
+  @Column({ type: "varchar", nullable: true })
+  reason: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
