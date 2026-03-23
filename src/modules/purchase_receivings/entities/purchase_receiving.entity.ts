@@ -2,6 +2,7 @@ import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { Purchase } from 'src/modules/purchases/entities/purchase.entity';
 import { Supplier } from 'src/modules/supplier/entities/supplier.entity';
+import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 import {
   BeforeInsert,
   Column,
@@ -41,6 +42,9 @@ export class PurchaseReceiving {
 
   @OneToMany(() => PurchaseReceivingItem, (item) => item.purchaseReceiving)
   items: PurchaseReceivingItem[];
+
+  @OneToMany(() => ProductBatch, (productBatch) => productBatch.purchaseReceiving)
+  productBatches: ProductBatch[];
 
   @Column({ type: 'text' })
   note: string;

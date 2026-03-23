@@ -9,6 +9,7 @@ import { Purchase } from 'src/modules/purchases/entities/purchase.entity';
 import { StockMovement } from 'src/modules/stock-movements/entities/stock-movement.entity';
 import { Tax } from 'src/modules/tax/entities/tax.entity';
 import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
+import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 import {
   BeforeInsert,
   Column,
@@ -97,6 +98,12 @@ export class Branch {
 
   @OneToMany(() => Expense, (expense) => expense.branch)
   expenses: Expense[];
+
+  @OneToMany(() => ProductBatch, (productBatch) => productBatch.branch)
+  productBatches: ProductBatch[];
+
+  @OneToMany('PromotionBranch', 'branch')
+  promotionBranches: any[];
 
   @CreateDateColumn()
   createdAt: Date;

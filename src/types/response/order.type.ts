@@ -10,12 +10,10 @@ export class OrderData {
   subtotal: number;
   tax_amount: number;
   discount_amount?: number;
-  discount_id?: string;
-  discount?: {
+  promotion_id?: string;
+  promotion?: {
     id: string;
     name: string;
-    type: string;
-    value: number;
   };
   total_amount: number;
   status: string;

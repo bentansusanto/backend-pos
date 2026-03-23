@@ -18,7 +18,7 @@ import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { UserBranch } from 'src/modules/branches/entities/user-branch.entity';
 import { CostLayer } from 'src/modules/cost_layers/entities/cost_layer.entity';
 import { Customer } from 'src/modules/customers/entities/customer.entity';
-import { Discount } from 'src/modules/discounts/entities/discount.entity';
+
 import { ExpenseCategory } from 'src/modules/expenses/entities/expense-category.entity';
 import { Expense } from 'src/modules/expenses/entities/expense.entity';
 import { OrderItem } from 'src/modules/orders/entities/order-item.entity';
@@ -84,7 +84,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
         // synchronize: true, // TEMPORARY: Set to true once to create tables in production DB, then set back to configService.get<string>('NODE_ENV') !== 'production'
-        synchronize: configService.get<string>('NODE_ENV') !== 'production', // mode production
+        synchronize: configService.get<string>('NODE_ENV') !== 'development', // mode production
         // ssl: {
         //   rejectUnauthorized: false, // required for connecting to production RDS/Neon/Supabase
         // },
@@ -117,7 +117,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       Payment,
       AiJob,
       AiInsight,
-      Discount,
       Purchase,
       Supplier,
       PurchaseItems,

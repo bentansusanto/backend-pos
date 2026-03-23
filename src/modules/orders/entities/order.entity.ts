@@ -1,9 +1,10 @@
 import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { Customer } from 'src/modules/customers/entities/customer.entity';
-import { Discount } from 'src/modules/discounts/entities/discount.entity';
+
 import { User } from 'src/modules/rbac/users/entities/user.entity';
 import { Tax } from 'src/modules/tax/entities/tax.entity';
+import { Promotion } from '../../promotions/entities/promotion.entity';
 import {
   BeforeInsert,
   Column,
@@ -101,9 +102,10 @@ export class Order {
   @JoinColumn({ name: 'tax_id' })
   tax?: Tax;
 
-  @ManyToOne(() => Discount, (discount) => discount.orders, { nullable: true })
-  @JoinColumn({ name: 'discount_id' })
-  discount?: Discount;
+
+  @ManyToOne(() => Promotion, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'promotion_id' })
+  promotion?: Promotion;
 
   @ManyToOne(() => PosSession, (posSession) => posSession.orders, {
     nullable: true,

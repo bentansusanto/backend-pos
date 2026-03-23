@@ -3,45 +3,73 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   CreateProductBatchDto,
   UpdateProductBatchDto,
 } from './dto/create-product-batch.dto';
 import { ProductBatchesService } from './product-batches.service';
+import { WebResponse } from 'src/types/response/index.type';
 
 @Controller('product-batches')
 export class ProductBatchesController {
   constructor(private readonly productBatchesService: ProductBatchesService) {}
 
-  @Post()
-  create(@Body() createProductBatchDto: CreateProductBatchDto) {
-    return this.productBatchesService.create(createProductBatchDto);
+  @Post('create')
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Body() createProductBatchDto: CreateProductBatchDto): Promise<WebResponse> {
+    const result = await this.productBatchesService.create(createProductBatchDto);
+    return {
+      message: result.message,
+      data: result.data,
+    };
   }
 
-  @Get()
-  findAll() {
-    return this.productBatchesService.findAll();
+  @Get('find-all')
+  @HttpCode(HttpStatus.OK)
+  async findAll(@Query() query: { branch_id?: string; variant_id?: string }): Promise<WebResponse> {
+    const result = await this.productBatchesService.findAll(query);
+    return {
+      message: result.message,
+      data: result.datas,
+    };
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.productBatchesService.findOne(id);
+  @HttpCode(HttpStatus.OK)
+  async findOne(@Param('id') id: string): Promise<WebResponse> {
+    const result = await this.productBatchesService.findOne(id);
+    return {
+      message: result.message,
+      data: result.data,
+    };
   }
 
-  @Patch(':id')
-  update(
+  @Patch('update/:id')
+  @HttpCode(HttpStatus.OK)
+  async update(
     @Param('id') id: string,
     @Body() updateProductBatchDto: UpdateProductBatchDto,
-  ) {
-    return this.productBatchesService.update(id, updateProductBatchDto);
+  ): Promise<WebResponse> {
+    const result = await this.productBatchesService.update(id, updateProductBatchDto);
+    return {
+      message: result.message,
+      data: result.data,
+    };
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productBatchesService.remove(id);
+  @Delete('delete/:id')
+  @HttpCode(HttpStatus.OK)
+  async remove(@Param('id') id: string): Promise<WebResponse> {
+    const result = await this.productBatchesService.remove(id);
+    return {
+      message: result.message,
+    };
   }
 }

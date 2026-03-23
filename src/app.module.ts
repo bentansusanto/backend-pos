@@ -7,7 +7,6 @@ import { AiInsightModule } from './modules/ai-insight/ai-insight.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { CostLayersModule } from './modules/cost_layers/cost_layers.module';
 import { CustomersModule } from './modules/customers/customers.module';
-import { DiscountsModule } from './modules/discounts/discounts.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -32,6 +31,8 @@ import { StockTakesModule } from './modules/stock-takes/stock-takes.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
 import { TaxModule } from './modules/tax/tax.module';
 import { EventsModule } from './modules/events/events.module';
+import { ProductBatchesModule } from './modules/product-batches/product-batches.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
 
 @Module({
   imports: [
@@ -56,7 +57,6 @@ import { EventsModule } from './modules/events/events.module';
     AiInsightModule,
     PermissionsModule,
     RolePermissionsModule,
-    DiscountsModule,
     SupplierModule,
     TaxModule,
     PurchasesModule,
@@ -66,6 +66,8 @@ import { EventsModule } from './modules/events/events.module';
     AccountingModule,
     PosSessionsModule,
     EventsModule,
+    ProductBatchesModule,
+    PromotionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

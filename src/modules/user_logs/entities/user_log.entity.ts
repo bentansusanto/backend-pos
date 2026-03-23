@@ -27,6 +27,7 @@ export enum EntityType {
   TAX = 'tax',
   DISCOUNT = 'discount',
   STOCK_TAKE = 'stock_take',
+  PROMOTION = 'promotion',
 }
 
 export enum ActionType {

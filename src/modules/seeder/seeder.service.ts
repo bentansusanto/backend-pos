@@ -4,6 +4,13 @@ import { Repository } from 'typeorm';
 import { Permission } from '../rbac/permissions/entities/permission.entity';
 import { RolePermission } from '../rbac/role-permissions/entities/role_permission.entity';
 import { Role } from '../rbac/roles/entities/role.entity';
+import { Promotion } from '../promotions/entities/promotion.entity';
+import { PromotionRule } from '../promotions/entities/promotion-rule.entity';
+import { PromotionBranch } from '../promotions/entities/promotion-branch.entity';
+import { Branch } from '../branches/entities/branch.entity';
+import { PromotionStatus, PromotionConditionType, PromotionActionType } from '../promotions/enums/promotion.enum';
+import { ProductVariant } from '../products/entities/product-variant.entity';
+import { Category } from '../products/entities/category.entities';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
@@ -14,6 +21,18 @@ export class SeederService implements OnModuleInit {
     private permissionRepository: Repository<Permission>,
     @InjectRepository(RolePermission)
     private rolePermissionRepository: Repository<RolePermission>,
+    @InjectRepository(Promotion)
+    private promotionRepository: Repository<Promotion>,
+    @InjectRepository(PromotionRule)
+    private promotionRuleRepository: Repository<PromotionRule>,
+    @InjectRepository(PromotionBranch)
+    private promotionBranchRepository: Repository<PromotionBranch>,
+    @InjectRepository(Branch)
+    private branchRepository: Repository<Branch>,
+    @InjectRepository(ProductVariant)
+    private productVariantRepository: Repository<ProductVariant>,
+    @InjectRepository(Category)
+    private categoryRepository: Repository<Category>,
   ) {}
 
   async onModuleInit() {
@@ -26,6 +45,7 @@ export class SeederService implements OnModuleInit {
     await this.seedPermissions();
     await this.seedRoles();
     await this.seedRolePermissions();
+    await this.seedPromotions();
 
     console.log('✅ Database seeding completed!');
   }
@@ -144,6 +164,27 @@ export class SeederService implements OnModuleInit {
         description: 'Delete product stock',
       },
 
+      // Product Batches
+      {
+        module: "product_batches",
+        action: "product_batches:create",
+        description: "Create product batches"
+      },
+      {
+        module: "product_batches",
+        action: "product_batches:read",
+        description: "View product batches"
+      },
+      {
+        module: "product_batches",
+        action: "product_batches:update",
+        description: "Update product batches"
+      },
+      {
+        module: "product_batches",
+        action: "product_batches:delete",
+        description: "Delete product batches"
+      },
       // Stock Movements
       {
         module: 'stock_movements',
@@ -386,6 +427,27 @@ export class SeederService implements OnModuleInit {
         action: 'stock_takes:check_frozen',
         description: 'Check if branch inventory is frozen',
       },
+      // Promotions
+      {
+        module: 'promotions',
+        action: 'promotions:create',
+        description: 'Create promotions',
+      },
+      {
+        module: 'promotions',
+        action: 'promotions:read',
+        description: 'View promotions',
+      },
+      {
+        module: 'promotions',
+        action: 'promotions:update',
+        description: 'Update promotions',
+      },
+      {
+        module: 'promotions',
+        action: 'promotions:delete',
+        description: 'Delete promotions',
+      },
     ];
 
     for (const perm of permissions) {
@@ -563,7 +625,8 @@ export class SeederService implements OnModuleInit {
               p.action.endsWith(a),
             )) ||
           (p.action.startsWith('payments:') && ['create', 'read']) ||
-          p.action === 'stock_takes:check_frozen',
+          p.action === 'stock_takes:check_frozen' ||
+          p.action === 'promotions:read',
       );
       for (const permission of cashierPermissions) {
         await this.assignPermissionToRole(cashier.id, permission.id);
@@ -625,5 +688,124 @@ export class SeederService implements OnModuleInit {
       });
       await this.rolePermissionRepository.save(rolePermission);
     }
+  }
+
+  private async seedPromotions() {
+    console.log('📢 Seeding promotions...');
+
+    const branches = await this.branchRepository.find();
+    if (branches.length === 0) {
+      console.log('⚠️ No branches found, skipping branch-specific promotions');
+    }
+
+    const variants = await this.productVariantRepository.find({ take: 5 });
+    const categories = await this.categoryRepository.find({ take: 2 });
+
+    const promotions = [
+      {
+        name: 'Grand Opening Flash Sale',
+        description: 'Get 20% off on all items for our grand opening!',
+        status: PromotionStatus.ACTIVE,
+        priority: 10,
+        isStackable: true,
+        startDate: new Date(),
+        endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+        rules: [
+          {
+            conditionType: PromotionConditionType.ALWAYS_TRUE,
+            conditionValue: {},
+            actionType: PromotionActionType.PERCENT_DISCOUNT,
+            actionValue: { percentage: 20 },
+            // Applies to everything
+          },
+        ],
+      },
+      {
+        name: 'Beverage Boom: 10% Off Categories',
+        description: 'Get 10% off when you buy from specific categories!',
+        status: PromotionStatus.ACTIVE,
+        priority: 8,
+        isStackable: true,
+        startDate: new Date(),
+        endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+        rules: [
+          {
+            conditionType: PromotionConditionType.MIN_SPEND,
+            conditionValue: { minSpend: 50 },
+            actionType: PromotionActionType.PERCENT_DISCOUNT,
+            actionValue: { percentage: 10 },
+            conditionCategories: categories.slice(0, 1), // Only if spend $50 on Category 1
+            actionCategories: categories.slice(0, 1),
+          },
+        ],
+      },
+      {
+        name: 'Exclusive Variant Deal',
+        description: 'Special 50% discount on targeted item!',
+        status: PromotionStatus.ACTIVE,
+        priority: 15, // Higher priority
+        isStackable: true,
+        startDate: new Date(),
+        endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+        rules: [
+          {
+            conditionType: PromotionConditionType.MIN_QTY,
+            conditionValue: { minQty: 1 },
+            actionType: PromotionActionType.PERCENT_DISCOUNT,
+            actionValue: { percentage: 50 },
+            conditionVariants: variants.slice(0, 1),
+            actionVariants: variants.slice(0, 1),
+          },
+        ],
+      },
+    ];
+
+    for (const promoData of promotions) {
+      const exists = await this.promotionRepository.findOne({
+        where: { name: promoData.name },
+      });
+
+      if (!exists) {
+        const { rules, ...pData } = promoData;
+        const promotion = this.promotionRepository.create(pData);
+        const savedPromotion = await this.promotionRepository.save(promotion);
+
+        // Seed rules
+        for (const ruleData of rules) {
+          const { 
+            conditionVariants, 
+            conditionCategories, 
+            actionVariants, 
+            actionCategories, 
+            ...ruleProps 
+          } = ruleData as any;
+
+          const rule = this.promotionRuleRepository.create({
+            ...ruleProps,
+            promotion: savedPromotion,
+            conditionVariants,
+            conditionCategories,
+            actionVariants,
+            actionCategories,
+          });
+          await this.promotionRuleRepository.save(rule);
+        }
+
+        // Seed branches (associate with first branch if exists)
+        if (branches.length > 0) {
+          const promoBranchArr = this.promotionBranchRepository.create({
+            promotion: savedPromotion,
+            branch: branches[0],
+            // Branch-specific exclusions could be added here
+            variants: variants.slice(1, 2), // Example: Only apply this branch-specific rule to variant #2
+          });
+          await this.promotionBranchRepository.save(promoBranchArr);
+        }
+
+        console.log(`  ✓ Created promotion: ${promoData.name}`);
+      }
+    }
+
+    console.log('✅ Promotions seeded');
   }
 }

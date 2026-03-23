@@ -347,6 +347,15 @@ export class ProductVariantsService {
         data: {
           id: productVariant.id,
           product_id: productVariant.product.id,
+          product_name: productVariant.product.name_product,
+          display_name: `${productVariant.product.name_product} - ${productVariant.name_variant}`,
+          product: {
+            id: productVariant.product.id,
+            name_product: productVariant.product.name_product,
+            slug: productVariant.product.slug,
+            sku: productVariant.product.sku,
+            thumbnail: productVariant.product.thumbnail,
+          },
           name_variant: productVariant.name_variant,
           price: productVariant.price,
           cost_price: productVariant.cost_price,
@@ -410,6 +419,15 @@ export class ProductVariantsService {
           return {
             id: productVariant.id,
             product_id: productVariant.product.id,
+            product_name: productVariant.product.name_product,
+            display_name: `${productVariant.product.name_product} - ${productVariant.name_variant}`,
+            product: {
+              id: productVariant.product.id,
+              name_product: productVariant.product.name_product,
+              slug: productVariant.product.slug,
+              sku: productVariant.product.sku,
+              thumbnail: productVariant.product.thumbnail,
+            },
             name_variant: productVariant.name_variant,
             price: productVariant.price,
             cost_price: productVariant.cost_price,

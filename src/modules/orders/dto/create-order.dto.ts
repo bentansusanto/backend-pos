@@ -42,9 +42,10 @@ export class CreateOrderDto {
   @IsString({ message: 'Customer ID must be a string' })
   customer_id: string;
 
+
   @IsOptional()
-  @IsString({ message: 'Discount ID must be a string' })
-  discount_id?: string;
+  @IsString({ message: 'Promotion ID must be a string' })
+  promotion_id?: string;
 
   @IsArray()
   @ArrayMinSize(1)

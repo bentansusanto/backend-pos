@@ -5,12 +5,12 @@ export class ProductData {
   name_product: string;
   category_id?: string;
   category_name?: string;
-  description: string;
+  description?: string;
   slug: string;
   sku: string;
   barcode?: string;
   thumbnail: string;
-  images: string[];
+  images?: string[];
   stock?: number;
   product_stock?: number;
   variants?: ProductVariantData[];
@@ -37,6 +37,9 @@ export class ProductVariantData {
   cost_price: number;
   thumbnail: string;
   stock?: number;
+  product_name?: string;
+  display_name?: string;
+  product?: ProductData;
   createdAt?: Date;
   updatedAt?: Date;
 }

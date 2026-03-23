@@ -1,5 +1,6 @@
 import Hashids from 'hashids';
 import { PurchaseReceiving } from 'src/modules/purchase_receivings/entities/purchase_receiving.entity';
+import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 import {
   BeforeInsert,
   Column,
@@ -52,6 +53,9 @@ export class Supplier {
     (purchaseReceiving) => purchaseReceiving.supplier,
   )
   purchaseReceivings: PurchaseReceiving[];
+
+  @OneToMany(() => ProductBatch, (productBatch) => productBatch.supplier)
+  productBatches: ProductBatch[];
 
   @CreateDateColumn()
   createdAt: Date;

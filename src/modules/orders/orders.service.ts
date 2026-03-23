@@ -8,7 +8,6 @@ import { OrderResponse } from 'src/types/response/order.type';
 import { In, Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { Customer } from '../customers/entities/customer.entity';
-import { Discount } from '../discounts/entities/discount.entity';
 import { PosSessionsService } from '../pos-sessions/pos-sessions.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
@@ -20,6 +19,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderItem } from './entities/order-item.entity';
 import { Order, OrderStatus } from './entities/order.entity';
 import { StockTake, StockTakeStatus } from '../stock-takes/entities/stock-take.entity';
+import { Promotion } from '../promotions/entities/promotion.entity';
 
 @Injectable()
 export class OrdersService {
@@ -37,10 +37,10 @@ export class OrdersService {
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(Tax)
     private readonly taxRepository: Repository<Tax>,
-    @InjectRepository(Discount)
-    private readonly discountRepository: Repository<Discount>,
     @InjectRepository(StockTake)
     private readonly stockTakeRepository: Repository<StockTake>,
+    @InjectRepository(Promotion)
+    private readonly promotionRepository: Repository<Promotion>,
     private readonly userLogsService: UserLogsService,
     private readonly posSessionsService: PosSessionsService,
   ) {}
@@ -69,6 +69,79 @@ export class OrdersService {
       price: item.price,
       subtotal: item.subtotal,
     };
+  }
+
+  private calculatePromotionDiscount(items: OrderItem[], subtotal: number, promotion: Promotion): number {
+    if (!promotion || !promotion.rules || promotion.rules.length === 0) return 0;
+
+    // For now, evaluate the first rule
+    const rule = promotion.rules[0];
+    let conditionMet = true;
+
+    const hasConditionVariantTarget = rule.conditionVariants && rule.conditionVariants.length > 0;
+    const hasConditionCategoryTarget = rule.conditionCategories && rule.conditionCategories.length > 0;
+
+    // Filter items that count towards the condition
+    const eligibleConditionItems = items?.filter(item => {
+      const variantId = item.variant?.id || (item as any).variantId;
+      const categoryId = item.variant?.product?.category?.id;
+
+      if (!hasConditionVariantTarget && !hasConditionCategoryTarget) return true;
+
+      const inVariantList = hasConditionVariantTarget && rule.conditionVariants.some(v => v.id === variantId);
+      const inCategoryList = hasConditionCategoryTarget && rule.conditionCategories.some(c => c.id === categoryId);
+
+      return inVariantList || inCategoryList;
+    }) || [];
+
+    const conditionSubtotal = eligibleConditionItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0);
+    const totalQty = eligibleConditionItems.reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+
+    if (rule.conditionType === 'MIN_QTY') {
+      if (totalQty < Number(rule.conditionValue?.minQty || 0)) conditionMet = false;
+    } else if (rule.conditionType === 'MIN_SPEND') {
+      if (conditionSubtotal < Number(rule.conditionValue?.minSpend || 0)) conditionMet = false;
+    } else if (rule.conditionType === 'ALWAYS_TRUE') {
+      // If targets are specified, we should have at least one eligible item
+      if ((hasConditionVariantTarget || hasConditionCategoryTarget) && eligibleConditionItems.length === 0) {
+        conditionMet = false;
+      }
+    }
+
+    if (!conditionMet) return 0;
+
+    const hasActionVariantTarget = rule.actionVariants && rule.actionVariants.length > 0;
+    const hasActionCategoryTarget = rule.actionCategories && rule.actionCategories.length > 0;
+
+    // Filter items that receive the action (discount)
+    const eligibleActionItems = items?.filter(item => {
+      const variantId = item.variant?.id || (item as any).variantId;
+      const categoryId = item.variant?.product?.category?.id;
+
+      if (!hasActionVariantTarget && !hasActionCategoryTarget) return true;
+
+      const inVariantList = hasActionVariantTarget && rule.actionVariants.some(v => v.id === variantId);
+      const inCategoryList = hasActionCategoryTarget && rule.actionCategories.some(c => c.id === categoryId);
+
+      return inVariantList || inCategoryList;
+    }) || [];
+
+    const actionSubtotal = eligibleActionItems.reduce((sum, i) => sum + Number(i.subtotal || 0), 0);
+
+    if (rule.actionType === 'PERCENT_DISCOUNT') {
+      return actionSubtotal * (Number(rule.actionValue?.percentage || 0) / 100);
+    } else if (rule.actionType === 'FIXED_DISCOUNT') {
+      // If action targets are specified, only apply if we have eligible items
+      if ((hasActionVariantTarget || hasActionCategoryTarget) && eligibleActionItems.length === 0) return 0;
+
+      return Number(rule.actionValue?.amount || 0);
+    } else if (rule.actionType === 'FIXED_PRICE') {
+      if (eligibleActionItems.length === 0) return 0;
+      const fixedPrice = Number(rule.actionValue?.amount || 0);
+      return Math.max(0, actionSubtotal - fixedPrice);
+    }
+
+    return 0;
   }
 
   // create orders
@@ -160,7 +233,7 @@ export class OrdersService {
       const variants = variantIds.length
         ? await this.productVariantRepository.find({
             where: { id: In(variantIds) },
-            relations: ['product'],
+            relations: ['product', 'product.category'],
           })
         : [];
 
@@ -196,10 +269,17 @@ export class OrdersService {
             relations: [
               'items',
               'items.variant',
+              'items.variant.product',
+              'items.variant.product.category',
               'branch',
               'user',
               'customer',
-              'discount',
+              'promotion',
+              'promotion.rules',
+              'promotion.rules.conditionVariants',
+              'promotion.rules.conditionCategories',
+              'promotion.rules.actionVariants',
+              'promotion.rules.actionCategories',
               'posSession',
             ],
           })
@@ -390,7 +470,7 @@ export class OrdersService {
 
             const savedItem = await orderItemRepo.findOne({
               where: { id: newId },
-              relations: ['variant', 'variant.product'],
+              relations: ['variant', 'variant.product', 'variant.product.category'],
             });
             savedNewItems.push(savedItem);
           }
@@ -425,14 +505,26 @@ export class OrdersService {
             0,
           );
 
-          let updatedDiscountAmount = existingOrder.discount_amount ?? 0;
-          if (existingOrder.discount) {
-            if (existingOrder.discount.type === 'percentage') {
-              updatedDiscountAmount =
-                subtotal * (Number(existingOrder.discount.value) / 100);
-            } else {
-              updatedDiscountAmount = Number(existingOrder.discount.value);
+          // Handle new promotion attachment if provided
+          if (createOrderDto.promotion_id) {
+            const promo = await this.promotionRepository.findOne({
+              where: { id: createOrderDto.promotion_id },
+              relations: [
+                'rules',
+                'rules.conditionVariants',
+                'rules.conditionCategories',
+                'rules.actionVariants',
+                'rules.actionCategories',
+              ],
+            });
+            if (promo) {
+              existingOrder.promotion = promo;
             }
+          }
+
+          let updatedDiscountAmount = existingOrder.discount_amount ?? 0;
+          if (existingOrder.promotion && existingOrder.promotion.rules) {
+            updatedDiscountAmount = this.calculatePromotionDiscount(mergedItems, subtotal, existingOrder.promotion);
           }
 
           // Step 5b: Ensure session is linked if missing but active session exists
@@ -465,7 +557,7 @@ export class OrdersService {
 
           const savedOrder = await orderRepo.findOne({
             where: { id: existingOrder.id },
-            relations: ['customer', 'branch', 'user', 'discount'],
+            relations: ['customer', 'branch', 'user', 'discount', 'promotion'],
           });
 
           return { order: savedOrder, items: mergedItems };
@@ -508,13 +600,11 @@ export class OrdersService {
           subtotal: result.order.subtotal ?? 0,
           tax_amount: result.order.tax_amount ?? 0,
           discount_amount: result.order.discount_amount ?? 0,
-          discount_id: result.order.discount?.id,
-          discount: result.order.discount
+          promotion_id: result.order.promotion?.id,
+          promotion: result.order.promotion
             ? {
-                id: result.order.discount.id,
-                name: result.order.discount.name,
-                type: result.order.discount.type,
-                value: Number(result.order.discount.value),
+                id: result.order.promotion.id,
+                name: result.order.promotion.name,
               }
             : undefined,
           total_amount: totalAmount,
@@ -596,13 +686,11 @@ export class OrdersService {
             subtotal: order.subtotal ?? 0,
             tax_amount: order.tax_amount ?? 0,
             discount_amount: order.discount_amount ?? 0,
-            discount_id: order.discount?.id,
-            discount: order.discount
+            promotion_id: order.promotion?.id,
+            promotion: order.promotion
               ? {
-                  id: order.discount.id,
-                  name: order.discount.name,
-                  type: order.discount.type,
-                  value: Number(order.discount.value),
+                  id: order.promotion.id,
+                  name: order.promotion.name,
                 }
               : undefined,
             total_amount: totalAmount,
@@ -666,15 +754,6 @@ export class OrdersService {
           subtotal: order.subtotal ?? 0,
           tax_amount: order.tax_amount ?? 0,
           discount_amount: order.discount_amount ?? 0,
-          discount_id: order.discount?.id,
-          discount: order.discount
-            ? {
-                id: order.discount.id,
-                name: order.discount.name,
-                type: order.discount.type,
-                value: Number(order.discount.value),
-              }
-            : undefined,
           total_amount: totalAmount,
           status: order.status,
           created_at: order.createdAt,
@@ -704,6 +783,7 @@ export class OrdersService {
           'items',
           'items.variant',
           'items.variant.product',
+          'items.variant.product.category',
           'customer',
           'branch',
           'user',
@@ -727,22 +807,25 @@ export class OrdersService {
         }
       }
 
-      if (updateOrderDto.discount_id) {
-        if (updateOrderDto.discount_id === 'remove') {
-          updateData.discount = null;
+
+      if (updateOrderDto.promotion_id) {
+        if (updateOrderDto.promotion_id === 'remove') {
+          updateData.promotion = null;
           updateData.discount_amount = 0;
         } else {
-          const discount = await this.discountRepository.findOne({
-            where: { id: updateOrderDto.discount_id },
+          const promotion = await this.promotionRepository.findOne({
+            where: { id: updateOrderDto.promotion_id },
+            relations: [
+              'rules',
+              'rules.conditionVariants',
+              'rules.conditionCategories',
+              'rules.actionVariants',
+              'rules.actionCategories',
+            ],
           });
-          if (discount) {
-            let discountAmount = 0;
-            if (discount.type === 'percentage') {
-              discountAmount = order.subtotal * (Number(discount.value) / 100);
-            } else {
-              discountAmount = Number(discount.value);
-            }
-            updateData.discount = { id: discount.id };
+          if (promotion) {
+            const discountAmount = this.calculatePromotionDiscount(order.items || [], order.subtotal, promotion);
+            updateData.promotion = { id: promotion.id };
             updateData.discount_amount = discountAmount;
           }
         }
@@ -788,13 +871,11 @@ export class OrdersService {
           subtotal: updatedOrder.subtotal ?? 0,
           tax_amount: updatedOrder.tax_amount ?? 0,
           discount_amount: updatedOrder.discount_amount ?? 0,
-          discount_id: updatedOrder.discount?.id,
-          discount: updatedOrder.discount
+          promotion_id: updatedOrder.promotion?.id,
+          promotion: updatedOrder.promotion
             ? {
-                id: updatedOrder.discount.id,
-                name: updatedOrder.discount.name,
-                type: updatedOrder.discount.type,
-                value: Number(updatedOrder.discount.value),
+                id: updatedOrder.promotion.id,
+                name: updatedOrder.promotion.name,
               }
             : undefined,
           total_amount: totalAmount,
@@ -840,10 +921,16 @@ export class OrdersService {
           'items',
           'items.variant',
           'items.variant.product',
+          'items.variant.product.category',
           'customer',
           'branch',
           'user',
-          'discount',
+          'promotion',
+          'promotion.rules',
+          'promotion.rules.conditionVariants',
+          'promotion.rules.conditionCategories',
+          'promotion.rules.actionVariants',
+          'promotion.rules.actionCategories',
           'posSession',
         ],
       });
@@ -887,13 +974,8 @@ export class OrdersService {
       const taxRate = await this.getActiveTaxRate();
       order.tax_amount = order.subtotal * taxRate;
 
-      if (order.discount) {
-        if (order.discount.type === 'percentage') {
-          order.discount_amount =
-            order.subtotal * (Number(order.discount.value) / 100);
-        } else {
-          order.discount_amount = Number(order.discount.value);
-        }
+      if (order.promotion && order.promotion.rules) {
+        order.discount_amount = this.calculatePromotionDiscount(order.items, order.subtotal, order.promotion);
       }
 
       const savedOrder = await this.orderRepository.save(order);
@@ -918,15 +1000,6 @@ export class OrdersService {
           subtotal: savedOrder.subtotal ?? 0,
           tax_amount: savedOrder.tax_amount ?? 0,
           discount_amount: savedOrder.discount_amount ?? 0,
-          discount_id: savedOrder.discount?.id,
-          discount: savedOrder.discount
-            ? {
-                id: savedOrder.discount.id,
-                name: savedOrder.discount.name,
-                type: savedOrder.discount.type,
-                value: Number(savedOrder.discount.value),
-              }
-            : undefined,
           total_amount: totalAmount,
           status: savedOrder.status,
           created_at: savedOrder.createdAt,
@@ -967,10 +1040,16 @@ export class OrdersService {
           'items',
           'items.variant',
           'items.variant.product',
+          'items.variant.product.category',
           'customer',
           'branch',
           'user',
-          'discount',
+          'promotion',
+          'promotion.rules',
+          'promotion.rules.conditionVariants',
+          'promotion.rules.conditionCategories',
+          'promotion.rules.actionVariants',
+          'promotion.rules.actionCategories',
           'posSession',
         ],
       });
@@ -1012,12 +1091,8 @@ export class OrdersService {
       const newTaxAmount = newSubtotal * taxRate;
 
       let newDiscountAmount = order.discount_amount ?? 0;
-      if (order.discount) {
-        if (order.discount.type === 'percentage') {
-          newDiscountAmount = newSubtotal * (Number(order.discount.value) / 100);
-        } else {
-          newDiscountAmount = Number(order.discount.value);
-        }
+      if (order.promotion && order.promotion.rules) {
+        newDiscountAmount = this.calculatePromotionDiscount(remainingItems, newSubtotal, order.promotion);
       }
 
       // Use QueryBuilder to update the order totals WITHOUT touching items relation (prevents cascade re-insert)
@@ -1058,15 +1133,6 @@ export class OrdersService {
           subtotal: refreshedOrder.subtotal ?? 0,
           tax_amount: refreshedOrder.tax_amount ?? 0,
           discount_amount: refreshedOrder.discount_amount ?? 0,
-          discount_id: refreshedOrder.discount?.id,
-          discount: refreshedOrder.discount
-            ? {
-                id: refreshedOrder.discount.id,
-                name: refreshedOrder.discount.name,
-                type: refreshedOrder.discount.type,
-                value: Number(refreshedOrder.discount.value),
-              }
-            : undefined,
           total_amount: totalAmount,
           status: refreshedOrder.status,
           created_at: refreshedOrder.createdAt,
