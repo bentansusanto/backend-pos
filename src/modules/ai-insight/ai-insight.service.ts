@@ -7,7 +7,9 @@ import { Repository } from 'typeorm';
 import { Logger } from 'winston';
 import { AiJob, AiJobStatus } from '../ai-jobs/entities/ai-job.entity';
 import { Order } from '../orders/entities/order.entity';
+import { ProductBatch } from '../product-batches/entities/product-batch.entity';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
+import { StockMovement, ReferenceType } from '../stock-movements/entities/stock-movement.entity';
 import { AiInsight, InsightType } from './entities/ai-insight.entity';
 
 @Injectable()
@@ -22,6 +24,10 @@ export class AiInsightService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(ProductStock)
     private readonly productStockRepository: Repository<ProductStock>,
+    @InjectRepository(StockMovement)
+    private readonly stockMovementRepository: Repository<StockMovement>,
+    @InjectRepository(ProductBatch)
+    private readonly productBatchRepository: Repository<ProductBatch>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -55,7 +61,6 @@ export class AiInsightService {
       `Generating insights for branch ${branchId} with range ${timeRange}...`,
     );
 
-    // Create and save job
     const job = new AiJob();
     job.branch = { id: branchId } as any;
     job.status = AiJobStatus.PENDING;
@@ -67,22 +72,32 @@ export class AiInsightService {
       job.status = AiJobStatus.PROCESSING;
       await this.aiJobRepository.save(job);
 
-      // 1. Gather Data
+      // 1. Gather rich, contextual data
       const salesData = await this.getSalesData(branchId, timeRange);
-      const stockData = await this.getStockData(branchId);
+      const stockData = await this.getStockData(branchId, timeRange);
+      const anomalyData = await this.getAnomalyData(branchId, timeRange);
+      const expiryData = await this.getExpiryData(branchId);
 
       const promptData = {
-        [`sales_summary_${timeRange}`]: salesData.dailySales,
-        top_selling_products: salesData.topProducts,
-        low_stock_items: stockData.lowStock,
-        overstock_candidates: stockData.highStock, // potential overstock based on high quantity
         time_range: timeRange,
+        // Sales intelligence
+        daily_revenue_trend: salesData.dailySales,
+        top_selling_products: salesData.topProducts,
+        slow_moving_products: salesData.slowMovingProducts,
+        dead_stock_products: salesData.deadStockProducts,
+        // Stock intelligence
+        critical_low_stock: stockData.criticalLowStock,
+        overstock_candidates: stockData.overstockCandidates,
+        // Expiry intelligence
+        batches_expiring_soon: expiryData.expiringSoon,
+        // Anomaly intelligence
+        stock_anomalies: anomalyData.suspiciousMovements,
       };
 
-      // 2. Call AI Service
+      // 2. Call AI (or rule-based fallback)
       const aiResponse = await this.callOpenAI(promptData);
 
-      // 3. Save Insights
+      // 3. Save insights
       await this.saveInsights(aiResponse, branchId);
 
       job.status = AiJobStatus.COMPLETED;
@@ -106,7 +121,6 @@ export class AiInsightService {
   }
 
   private mapToInsightType(type: string): InsightType {
-    // Normalize string: lowercase, replace spaces with underscores
     const normalized = type.toLowerCase().replace(/\s+/g, '_');
 
     const validTypes = Object.values(InsightType);
@@ -114,24 +128,25 @@ export class AiInsightService {
       return normalized as InsightType;
     }
 
-    // Fallback mapping for common AI hallucinations
     if (normalized.includes('overstock')) return InsightType.STOCK_SUGGESTION;
     if (normalized.includes('restock')) return InsightType.STOCK_SUGGESTION;
     if (normalized.includes('sales')) return InsightType.SALES_TREND;
     if (normalized.includes('best')) return InsightType.BEST_SELLER;
     if (normalized.includes('slow')) return InsightType.SLOW_MOVING;
+    if (normalized.includes('dead')) return InsightType.SLOW_MOVING;
     if (normalized.includes('low')) return InsightType.LOW_STOCK_ALERT;
-    if (normalized.includes('expiry')) return InsightType.EXPIRY_ALERT;
-    if (normalized.includes('anomaly')) return InsightType.ANOMALY_ALERT;
+    if (normalized.includes('expiry') || normalized.includes('expire')) return InsightType.EXPIRY_ALERT;
+    if (normalized.includes('anomaly') || normalized.includes('shrinkage')) return InsightType.ANOMALY_ALERT;
     if (normalized.includes('promo')) return InsightType.PROMO_SUGGESTION;
 
-    // Default fallback
     return InsightType.REPORT_SUMMARY;
   }
 
+  /**
+   * Sales data: daily trend, top-selling, slow-moving, and dead stock (with current stock context).
+   */
   private async getSalesData(branchId: string, timeRange: string = 'monthly') {
     const startDate = new Date();
-
     switch (timeRange) {
       case 'weekly':
         startDate.setDate(startDate.getDate() - 7);
@@ -139,79 +154,251 @@ export class AiInsightService {
       case 'yearly':
         startDate.setFullYear(startDate.getFullYear() - 1);
         break;
-      case 'monthly':
+      default: // monthly
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+    }
+
+    // Daily revenue trend
+    const dailySales = await this.orderRepository
+      .createQueryBuilder('order')
+      .select("TO_CHAR(order.createdAt, 'YYYY-MM-DD')", 'date')
+      .addSelect('SUM(order.subtotal)', 'totalRevenue')
+      .addSelect('COUNT(order.id)', 'totalOrders')
+      .where('order.branch_id = :branchId', { branchId })
+      .andWhere('order.createdAt >= :startDate', { startDate })
+      .andWhere("order.status = 'completed'")
+      .groupBy("TO_CHAR(order.createdAt, 'YYYY-MM-DD')")
+      .orderBy('date', 'ASC')
+      .getRawMany();
+
+    // Top-selling products with current stock context
+    const topProducts = await this.orderRepository
+      .createQueryBuilder('order')
+      .innerJoin('order.items', 'item')
+      .innerJoin('item.variant', 'variant')
+      .innerJoin('variant.product', 'product')
+      .leftJoin(
+        'variant.productStocks',
+        'stock',
+        'stock.branch_id = :branchId',
+        { branchId },
+      )
+      .select('product.name_product', 'productName')
+      .addSelect('variant.name_variant', 'variantName')
+      .addSelect('variant.sku', 'sku')
+      .addSelect('SUM(item.quantity)', 'totalUnitsSold')
+      .addSelect('SUM(item.subtotal)', 'totalRevenue')
+      .addSelect('MAX(stock.stock)', 'currentStock')
+      .addSelect('MAX(stock.minStock)', 'minStock')
+      .where('order.branch_id = :branchId', { branchId })
+      .andWhere('order.createdAt >= :startDate', { startDate })
+      .andWhere("order.status = 'completed'")
+      .groupBy('product.name_product')
+      .addGroupBy('variant.name_variant')
+      .addGroupBy('variant.sku')
+      .orderBy('"totalUnitsSold"', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    // Slow-moving: products with very low sales but significant stock
+    const slowMovingProducts = await this.orderRepository
+      .createQueryBuilder('order')
+      .innerJoin('order.items', 'item')
+      .innerJoin('item.variant', 'variant')
+      .innerJoin('variant.product', 'product')
+      .leftJoin(
+        'variant.productStocks',
+        'stock',
+        'stock.branch_id = :branchId',
+        { branchId },
+      )
+      .select('product.name_product', 'productName')
+      .addSelect('variant.name_variant', 'variantName')
+      .addSelect('SUM(item.quantity)', 'totalUnitsSold')
+      .addSelect('SUM(item.subtotal)', 'totalRevenue')
+      .addSelect('MAX(stock.stock)', 'currentStock')
+      .where('order.branch_id = :branchId', { branchId })
+      .andWhere('order.createdAt >= :startDate', { startDate })
+      .andWhere("order.status = 'completed'")
+      .groupBy('product.name_product')
+      .addGroupBy('variant.name_variant')
+      .having('SUM(item.quantity) < 5')
+      .andHaving('MAX(stock.stock) > 10')
+      .orderBy('"currentStock"', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    // Dead stock: products with stock but ZERO sales in the period
+    // Use a simple approach: get all stocks with > 5 units, then filter out those with sales
+    const deadStockProducts = await this.productStockRepository
+      .createQueryBuilder('stock')
+      .innerJoin('stock.productVariant', 'variant')
+      .innerJoin('variant.product', 'product')
+      .select('product.name_product', 'productName')
+      .addSelect('variant.name_variant', 'variantName')
+      .addSelect('variant.sku', 'sku')
+      .addSelect('stock.stock', 'currentStock')
+      .where('stock.branch_id = :branchId', { branchId })
+      .andWhere('stock.stock > 5')
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM order_items oi
+          INNER JOIN orders o ON o.id = oi.order_id
+          WHERE oi.variant_id = variant.id
+          AND o.branch_id = :branchId
+          AND o.status = 'completed'
+          AND o."createdAt" >= :startDate
+        )`,
+        { branchId, startDate },
+      )
+      .orderBy('stock.stock', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    return { dailySales, topProducts, slowMovingProducts, deadStockProducts };
+  }
+
+  /**
+   * Stock data: critical low stock and overstock candidates.
+   */
+  private async getStockData(branchId: string, timeRange: string = 'monthly') {
+    const startDate = new Date();
+    switch (timeRange) {
+      case 'weekly':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'yearly':
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
       default:
         startDate.setDate(startDate.getDate() - 30);
         break;
     }
 
-    // Daily Sales Trend
-    const dailySales = await this.orderRepository
-      .createQueryBuilder('order')
-      .select("TO_CHAR(order.createdAt, 'YYYY-MM-DD')", 'date')
-      .addSelect('SUM(order.subtotal)', 'totalSales')
-      .where('order.branch_id = :branchId', { branchId })
-      .andWhere('order.createdAt >= :startDate', { startDate })
-      .groupBy("TO_CHAR(order.createdAt, 'YYYY-MM-DD')")
-      .orderBy('date', 'ASC')
-      .getRawMany();
-
-    // Top Selling Products
-    const topProducts = await this.orderRepository
-      .createQueryBuilder('order')
-      .innerJoin('order.items', 'item')
-      .leftJoin('item.variant', 'variant')
-      .leftJoin('variant.product', 'product')
+    // Products at or below minStock
+    const criticalLowStock = await this.productStockRepository
+      .createQueryBuilder('stock')
+      .innerJoin('stock.productVariant', 'variant')
+      .innerJoin('variant.product', 'product')
       .select('product.name_product', 'productName')
-      .addSelect('SUM(item.quantity)', 'totalQuantity')
-      .addSelect('SUM(item.subtotal)', 'totalRevenue')
-      .where('order.branch_id = :branchId', { branchId })
-      .andWhere('order.createdAt >= :startDate', { startDate })
-      .groupBy('product.name_product')
-      .orderBy('"totalQuantity"', 'DESC')
+      .addSelect('variant.name_variant', 'variantName')
+      .addSelect('variant.sku', 'sku')
+      .addSelect('stock.stock', 'currentStock')
+      .addSelect('stock.minStock', 'minStock')
+      .where('stock.branch_id = :branchId', { branchId })
+      .andWhere('stock.stock <= stock.minStock')
+      .orderBy('stock.stock', 'ASC')
       .limit(10)
       .getRawMany();
 
-    return { dailySales, topProducts };
+    // Overstock: high stock, low sales velocity (using subquery for sales count)
+    const overstockCandidates = await this.productStockRepository
+      .createQueryBuilder('stock')
+      .innerJoin('stock.productVariant', 'variant')
+      .innerJoin('variant.product', 'product')
+      .select('product.name_product', 'productName')
+      .addSelect('variant.name_variant', 'variantName')
+      .addSelect('variant.sku', 'sku')
+      .addSelect('stock.stock', 'currentStock')
+      .addSelect('stock.minStock', 'minStock')
+      .addSelect(
+        `(
+          SELECT COALESCE(SUM(oi.quantity), 0)
+          FROM order_items oi
+          INNER JOIN orders o ON o.id = oi.order_id
+          WHERE oi.variant_id = variant.id
+          AND o.branch_id = :branchId
+          AND o.status = 'completed'
+          AND o."createdAt" >= :startDate
+        )`,
+        'unitsSold',
+      )
+      .where('stock.branch_id = :branchId', { branchId })
+      .andWhere('stock.stock > 50')
+      .setParameters({ branchId, startDate })
+      .orderBy('stock.stock', 'DESC')
+      .limit(5)
+      .getRawMany()
+      .then((rows) => rows.filter((r) => parseInt(r.unitsSold || '0') < 3));
+
+    return { criticalLowStock, overstockCandidates };
   }
 
-  private async getStockData(branchId: string) {
-    // Critical Stock (stock <= minStock) using QueryBuilder
-    const criticalStock = await this.productStockRepository
-      .createQueryBuilder('stock')
-      .leftJoinAndSelect('stock.productVariant', 'productVariant')
-      .leftJoinAndSelect('productVariant.product', 'product')
-      .where('stock.branch_id = :branchId', { branchId })
-      .andWhere('stock.stock <= stock.minStock')
-      .limit(20)
-      .getMany();
+  /**
+   * Expiry data: product batches expiring within 30 days.
+   */
+  private async getExpiryData(branchId: string) {
+    const today = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    // High Stock (just top 20 by quantity for now as "potential overstock")
-    const highStock = await this.productStockRepository.find({
-      where: { branch: { id: branchId } },
-      relations: ['productVariant', 'productVariant.product'],
-      order: { stock: 'DESC' },
-      take: 20,
-    });
+    const expiringSoon = await this.productBatchRepository
+      .createQueryBuilder('batch')
+      .innerJoin('batch.productVariant', 'variant')
+      .innerJoin('variant.product', 'product')
+      .select('product.name_product', 'productName')
+      .addSelect('variant.name_variant', 'variantName')
+      .addSelect('variant.sku', 'sku')
+      .addSelect('batch.batchNumber', 'batchNumber')
+      .addSelect('batch.expiryDate', 'expiryDate')
+      .addSelect('batch.currentQuantity', 'currentQuantity')
+      .where('batch.branch_id = :branchId', { branchId })
+      .andWhere('batch.expiryDate >= :today', { today })
+      .andWhere('batch.expiryDate <= :thirtyDaysFromNow', { thirtyDaysFromNow })
+      .andWhere('batch.currentQuantity > 0')
+      .orderBy('batch.expiryDate', 'ASC')
+      .getRawMany();
 
-    return {
-      lowStock: criticalStock.map((s) => ({
-        product: s.productVariant?.product?.name_product || 'Unknown Product',
-        stock: s.stock,
-        min: s.minStock,
-      })),
-      highStock: highStock.map((s) => ({
-        product: s.productVariant?.product?.name_product || 'Unknown Product',
-        stock: s.stock,
-      })),
-    };
+    return { expiringSoon };
+  }
+
+  /**
+   * Anomaly data: suspicious stock movement patterns (damage, unexplained adjustments).
+   */
+  private async getAnomalyData(branchId: string, timeRange: string = 'monthly') {
+    const startDate = new Date();
+    switch (timeRange) {
+      case 'weekly':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'yearly':
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+    }
+
+    const suspiciousMovements = await this.stockMovementRepository
+      .createQueryBuilder('movement')
+      .innerJoin('movement.productVariant', 'variant')
+      .innerJoin('variant.product', 'product')
+      .select('product.name_product', 'productName')
+      .addSelect('variant.name_variant', 'variantName')
+      .addSelect('variant.sku', 'sku')
+      .addSelect('movement.referenceType', 'referenceType')
+      .addSelect('movement.qty', 'qty')
+      .addSelect('movement.reason', 'reason')
+      .addSelect("TO_CHAR(movement.createdAt, 'YYYY-MM-DD')", 'date')
+      .where('movement.branch_id = :branchId', { branchId })
+      .andWhere('movement.createdAt >= :startDate', { startDate })
+      .andWhere('movement.qty < 0')
+      .andWhere(
+        `movement.referenceType IN ('${ReferenceType.DAMAGE}', '${ReferenceType.ADJUST}', '${ReferenceType.EXPIRED}', '${ReferenceType.STOCK_TAKE}')`,
+      )
+      .orderBy('movement.qty', 'ASC')
+      .limit(10)
+      .getRawMany();
+
+    return { suspiciousMovements };
   }
 
   private async callOpenAI(data: any) {
     const apiKey = this.configService.get('AI_API_KEY');
     if (!apiKey || apiKey === 'your_ai_api_key_here') {
-      this.logger.warn('AI_API_KEY is not set. Returning mock data.');
-      return this.getMockInsights();
+      this.logger.warn('AI_API_KEY not configured — running rule-based insight engine on real data.');
+      return this.generateRuleBasedInsights(data);
     }
 
     const apiUrl =
@@ -219,37 +406,25 @@ export class AiInsightService {
       'https://api.openai.com/v1/chat/completions';
     const model = this.configService.get('AI_MODEL') || 'gpt-4-turbo';
 
-    const prompt = `
-      You are an AI Business Analyst for a Retail POS system.
-      Analyze the following sales and stock data for a store branch and provide actionable insights.
+    const systemPrompt = `You are a precise retail business analyst for a POS system.
+You output ONLY valid JSON. No markdown, no explanations, just JSON.
+Your JSON must be an object with a key "insights" containing an array.`;
 
-      Data:
-      ${JSON.stringify(data)}
+    const userPrompt = `Analyze this store data and return a JSON object with key "insights" containing an array of insight objects.
 
-      Requirements:
-      1. Identify sales trends (up/down).
-      2. Identify fast-moving and slow-moving items.
-      3. Recommend restocks for low stock items.
-      4. Identify potential overstock (items with high stock but low sales).
-      5. Detect any anomalies.
-      6. Recommend promotions for: products with high stock but low sales (overstock), slow-moving items, and products nearing expiry date (if available). Each promo suggestion should include a recommended discount percentage or promo type to boost sales and reduce potential losses.
+STORE DATA:
+${JSON.stringify(data, null, 2)}
 
-      Output Format: JSON Array of objects.
-      Each object must have:
-      - type: One of ['sales_trend', 'stock_suggestion', 'best_seller', 'slow_moving', 'low_stock_alert', 'anomaly_alert', 'promo_suggestion', 'report_summary']
-      - summary: Short title/summary.
-      - metadata: A structured object (not string) containing details.
+Each insight object must have:
+- "type": one of ['report_summary', 'sales_trend', 'best_seller', 'slow_moving', 'low_stock_alert', 'expiry_alert', 'anomaly_alert', 'stock_suggestion', 'promo_suggestion']
+- "summary": short specific human-readable title using actual product names from the data
+- "metadata": structured object specific to the type
 
-      Specific Metadata Structures:
-      - For 'stock_suggestion': { "product_name": string, "current_stock": number, "recommended_quantity": number, "priority": "high"|"medium"|"low" }
-      - For 'low_stock_alert', 'anomaly_alert': { "severity": "critical"|"warning"|"info", "message": string, "type": "critical"|"warning"|"info" }
-      - For 'sales_trend': { "trend": "up"|"down"|"stable", "percentage": number, "details": string }
-      - For 'best_seller', 'slow_moving': { "product_name": string, "quantity_sold": number, "revenue": number }
-      - For 'promo_suggestion': { "product_name": string, "reason": "overstock"|"slow_moving"|"near_expiry", "recommended_discount_pct": number, "promo_type": string, "urgency": "high"|"medium"|"low" }
-      - For 'report_summary': { "executive_summary": string, "highlights": string[] }
-
-      Important: For stock suggestions and alerts, generate ONE entry per product/alert so they can be listed individually.
-    `;
+RULES:
+- Only use product names and SKUs from the actual data provided
+- Do NOT fabricate products not in the data
+- If data for a category is empty, skip that insight type
+- Generate individual entries per product, not grouped lists`;
 
     try {
       const response = await fetch(apiUrl, {
@@ -261,14 +436,11 @@ export class AiInsightService {
         body: JSON.stringify({
           model,
           messages: [
-            {
-              role: 'system',
-              content:
-                'You are a helpful AI business analyst that outputs JSON only.',
-            },
-            { role: 'user', content: prompt },
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
           ],
-          temperature: 0.7,
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
         }),
       });
 
@@ -278,25 +450,237 @@ export class AiInsightService {
 
       const result = await response.json();
       const content = result.choices[0].message.content;
+      const parsed = JSON.parse(content);
 
-      // Clean up markdown code blocks if present
-      const jsonString = content
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
-
-      return JSON.parse(jsonString);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed.insights && Array.isArray(parsed.insights)) return parsed.insights;
+      const firstArrayVal = Object.values(parsed).find((v) => Array.isArray(v));
+      return firstArrayVal || this.generateRuleBasedInsights(data);
     } catch (error) {
-      this.logger.error('Failed to call AI API', error);
-      return this.getMockInsights(); // Fallback
+      this.logger.error('Failed to call AI API, falling back to rule-based engine', error);
+      return this.generateRuleBasedInsights(data);
     }
   }
 
-  private async saveInsights(insights: any[], branchId: string) {
-    // Clear old insights for this branch (optional, or keep history)
-    // For MVP, let's keep history but maybe we want to show only latest?
-    // Let's just add new ones.
+  /**
+   * Rule-based insight engine: generates insights from real DB data when no AI API key is set.
+   * All product names come from the actual database — no hardcoded values.
+   */
+  private generateRuleBasedInsights(data: any): any[] {
+    const insights: any[] = [];
 
+    const totalRevenue = (data.daily_revenue_trend || []).reduce(
+      (sum: number, d: any) => sum + parseFloat(d.totalRevenue || 0),
+      0,
+    );
+    const topSellers: string[] = (data.top_selling_products || [])
+      .slice(0, 3)
+      .map((p: any) => p.productName || 'Unknown');
+    const criticalCount = (data.critical_low_stock || []).length;
+    const expiryCount = (data.batches_expiring_soon || []).length;
+    const anomalyCount = (data.stock_anomalies || []).length;
+
+    // 1. Executive Summary
+    insights.push({
+      type: 'report_summary',
+      summary: 'Business Summary for This Period',
+      metadata: {
+        executive_summary:
+          `Total revenue for this period ${totalRevenue > 0 ? `is $ ${totalRevenue.toLocaleString('en-US')}` : 'is not yet available'}. ` +
+          `${criticalCount > 0 ? `There are ${criticalCount} products with critical stock that need immediate restocking. ` : 'There are no products with critical stock at this time. '}` +
+          `${expiryCount > 0 ? `${expiryCount} product batches will expire within the next 30 days. ` : ''}` +
+          `${anomalyCount > 0 ? `Found ${anomalyCount} suspicious stock movements that require attention.` : ''}`,
+        highlights: [
+          ...(topSellers.length > 0 ? [`Top selling products: ${topSellers.join(', ')}`] : []),
+          ...(criticalCount > 0 ? [`${criticalCount} products with critical stock`] : []),
+          ...(expiryCount > 0 ? [`${expiryCount} batches nearing expiration`] : []),
+          ...(anomalyCount > 0 ? [`${anomalyCount} stock movement anomalies`] : []),
+        ],
+        total_revenue: totalRevenue > 0 ? totalRevenue : null,
+        top_concern:
+          criticalCount > 0
+            ? `Critical stock for ${criticalCount} products`
+            : expiryCount > 0
+              ? `${expiryCount} batches nearing expiration`
+              : 'No critical issues at this time',
+      },
+    });
+
+    // 2. Best Sellers
+    for (const p of (data.top_selling_products || []).slice(0, 5)) {
+      const variantSuffix = p.variantName !== p.productName ? ` (${p.variantName})` : '';
+      const isStockLow =
+        parseFloat(p.currentStock) > 0 && parseFloat(p.currentStock) <= parseFloat(p.minStock || 10);
+      insights.push({
+        type: 'best_seller',
+        summary: `${p.productName}${variantSuffix} — ${p.totalUnitsSold} unit terjual`,
+        metadata: {
+          product_name: p.productName,
+          sku: p.sku || '-',
+          units_sold: parseInt(p.totalUnitsSold || 0),
+          revenue: parseFloat(p.totalRevenue || 0),
+          current_stock: parseInt(p.currentStock || 0),
+          stock_warning: isStockLow,
+        },
+      });
+    }
+
+    // 3. Low Stock Alerts + Restock Suggestions
+    for (const s of data.critical_low_stock || []) {
+      const variantSuffix = s.variantName !== s.productName ? ` (${s.variantName})` : '';
+      const isCritical = parseInt(s.currentStock) === 0;
+      insights.push({
+        type: 'low_stock_alert',
+        summary: `${s.productName}${variantSuffix} — Stok ${isCritical ? 'Habis' : 'Kritis'}: ${s.currentStock} tersisa`,
+        metadata: {
+          product_name: s.productName,
+          sku: s.sku || '-',
+          current_stock: parseInt(s.currentStock || 0),
+          min_stock: parseInt(s.minStock || 0),
+          severity: isCritical ? 'critical' : 'warning',
+        },
+      });
+      insights.push({
+        type: 'stock_suggestion',
+        summary: `Restock ${s.productName}${variantSuffix} — Prioritas ${isCritical ? 'Tinggi' : 'Sedang'}`,
+        metadata: {
+          product_name: s.productName,
+          sku: s.sku || '-',
+          current_stock: parseInt(s.currentStock || 0),
+          recommended_quantity: Math.max(parseInt(s.minStock || 10) * 3, 20),
+          priority: isCritical ? 'high' : 'medium',
+        },
+      });
+    }
+
+    // 4. Slow Moving Products
+    for (const p of (data.slow_moving_products || []).slice(0, 5)) {
+      const variantSuffix = p.variantName !== p.productName ? ` (${p.variantName})` : '';
+      const daysRemaining =
+        parseInt(p.totalUnitsSold || 1) > 0
+          ? Math.round((parseInt(p.currentStock || 0) / parseInt(p.totalUnitsSold || 1)) * 30)
+          : null;
+      insights.push({
+        type: 'slow_moving',
+        summary: `${p.productName}${variantSuffix} — Hanya ${p.totalUnitsSold} unit terjual, stok ${p.currentStock}`,
+        metadata: {
+          product_name: p.productName,
+          sku: p.sku || '-',
+          units_sold_in_period: parseInt(p.totalUnitsSold || 0),
+          current_stock: parseInt(p.currentStock || 0),
+          days_of_stock_remaining: daysRemaining,
+        },
+      });
+      insights.push({
+        type: 'promo_suggestion',
+        summary: `Promosikan ${p.productName}${variantSuffix} — Stok menumpuk`,
+        metadata: {
+          product_name: p.productName,
+          sku: p.sku || '-',
+          reason: 'slow_moving',
+          current_stock: parseInt(p.currentStock || 0),
+          recommended_discount_pct: 15,
+          promo_type: 'PERCENT_DISCOUNT',
+          urgency: 'medium',
+        },
+      });
+    }
+
+    // 5. Dead Stock
+    for (const p of (data.dead_stock_products || []).slice(0, 3)) {
+      const variantSuffix = p.variantName !== p.productName ? ` (${p.variantName})` : '';
+      insights.push({
+        type: 'slow_moving',
+        summary: `${p.productName}${variantSuffix} — Tidak ada penjualan dalam periode ini (stok: ${p.currentStock})`,
+        metadata: {
+          product_name: p.productName,
+          sku: p.sku || '-',
+          units_sold_in_period: 0,
+          current_stock: parseInt(p.currentStock || 0),
+          days_of_stock_remaining: null,
+        },
+      });
+    }
+
+    // 6. Expiry Alerts
+    for (const b of data.batches_expiring_soon || []) {
+      const variantSuffix = b.variantName !== b.productName ? ` (${b.variantName})` : '';
+      const today = new Date();
+      const expiryDate = new Date(b.expiryDate);
+      const daysLeft = Math.round((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const severity = daysLeft <= 7 ? 'critical' : daysLeft <= 14 ? 'warning' : 'info';
+      insights.push({
+        type: 'expiry_alert',
+        summary: `${b.productName}${variantSuffix} — Batch ${b.batchNumber || '-'} kadaluarsa dalam ${daysLeft} hari`,
+        metadata: {
+          product_name: b.productName,
+          batch_number: b.batchNumber || '-',
+          qty_at_risk: parseInt(b.currentQuantity || 0),
+          expiry_date: b.expiryDate,
+          days_until_expiry: daysLeft,
+          severity,
+        },
+      });
+      if (parseInt(b.currentQuantity || 0) > 0) {
+        insights.push({
+          type: 'promo_suggestion',
+          summary: `Flash Sale ${b.productName}${variantSuffix} — Batch kadaluarsa ${daysLeft} hari lagi`,
+          metadata: {
+            product_name: b.productName,
+            sku: b.sku || '-',
+            reason: 'near_expiry',
+            current_stock: parseInt(b.currentQuantity || 0),
+            recommended_discount_pct: daysLeft <= 7 ? 40 : daysLeft <= 14 ? 25 : 15,
+            promo_type: 'PERCENT_DISCOUNT',
+            urgency: severity,
+          },
+        });
+      }
+    }
+
+    // 7. Stock Anomalies
+    for (const m of (data.stock_anomalies || []).slice(0, 5)) {
+      const variantSuffix = m.variantName !== m.productName ? ` (${m.variantName})` : '';
+      insights.push({
+        type: 'anomaly_alert',
+        summary: `${m.productName}${variantSuffix} — ${m.referenceType}: ${Math.abs(m.qty)} unit berkurang (${m.date})`,
+        metadata: {
+          product_name: m.productName,
+          sku: m.sku || '-',
+          movement_type: m.referenceType,
+          qty_lost: Math.abs(parseInt(m.qty || 0)),
+          date: m.date,
+          reason: m.reason || null,
+          severity: Math.abs(parseInt(m.qty || 0)) > 20 ? 'critical' : 'warning',
+          message: m.reason
+            ? `Pengurangan stok (${m.referenceType}): ${m.reason}`
+            : `Pengurangan stok ${m.referenceType} tanpa keterangan — perlu investigasi`,
+        },
+      });
+    }
+
+    // 8. Overstock Candidates
+    for (const p of (data.overstock_candidates || []).slice(0, 3)) {
+      const variantSuffix = p.variantName !== p.productName ? ` (${p.variantName})` : '';
+      insights.push({
+        type: 'promo_suggestion',
+        summary: `${p.productName}${variantSuffix} — Overstock: ${p.currentStock} unit, penjualan rendah`,
+        metadata: {
+          product_name: p.productName,
+          sku: p.sku || '-',
+          reason: 'overstock',
+          current_stock: parseInt(p.currentStock || 0),
+          recommended_discount_pct: 20,
+          promo_type: 'PERCENT_DISCOUNT',
+          urgency: 'medium',
+        },
+      });
+    }
+
+    return insights;
+  }
+
+  private async saveInsights(insights: any[], branchId: string) {
     const hashids = new Hashids(process.env.ID_SECRET, 10);
     const timestamp = Date.now();
 
@@ -306,79 +690,10 @@ export class AiInsightService {
       entity.type = this.mapToInsightType(insight.type);
       entity.summary = insight.summary;
       entity.metadata = insight.metadata;
-      // Ensure unique ID for batch processing by adding index offset
-      // This prevents duplicate key errors when Date.now() is identical for all items
       entity.id = hashids.encode(timestamp + index);
       return entity;
     });
 
     await this.aiInsightRepository.save(entities);
-  }
-
-  private getMockInsights() {
-    return [
-      {
-        type: 'report_summary',
-        summary: 'Weekly Business Overview',
-        metadata: {
-          executive_summary:
-            'Sales have shown a positive trend this week with a 15% increase compared to last week.',
-          highlights: [
-            'Sales up 15%',
-            'New best seller identified',
-            'Stock levels stable',
-          ],
-        },
-      },
-      {
-        type: 'sales_trend',
-        summary: 'Sales have increased by 15% this week.',
-        metadata: {
-          trend: 'up',
-          percentage: 15,
-          details: 'Total sales: $5000, Previous week: $4300',
-        },
-      },
-      {
-        type: 'stock_suggestion',
-        summary: 'Restock Coffee Beans',
-        metadata: {
-          product_name: 'Coffee Beans (1kg)',
-          current_stock: 5,
-          recommended_quantity: 20,
-          priority: 'high',
-        },
-      },
-      {
-        type: 'stock_suggestion',
-        summary: 'Restock Milk',
-        metadata: {
-          product_name: 'Fresh Milk (1L)',
-          current_stock: 2,
-          recommended_quantity: 50,
-          priority: 'medium',
-        },
-      },
-      {
-        type: 'low_stock_alert',
-        summary: 'Critical Low Stock',
-        metadata: {
-          severity: 'critical',
-          message: 'Coffee Beans inventory is critically low.',
-          type: 'critical',
-        },
-      },
-      {
-        type: 'promo_suggestion',
-        summary: 'Flash Sale for Slow-Moving Stock',
-        metadata: {
-          product_name: 'Instant Noodles (Bulk Pack)',
-          reason: 'slow_moving',
-          recommended_discount_pct: 20,
-          promo_type: 'Flash Sale',
-          urgency: 'medium',
-        },
-      },
-    ];
   }
 }

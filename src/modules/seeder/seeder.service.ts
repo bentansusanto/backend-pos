@@ -1,16 +1,20 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Branch } from '../branches/entities/branch.entity';
+import { Category } from '../products/entities/category.entities';
+import { ProductVariant } from '../products/entities/product-variant.entity';
+import { PromotionBranch } from '../promotions/entities/promotion-branch.entity';
+import { PromotionRule } from '../promotions/entities/promotion-rule.entity';
+import { Promotion } from '../promotions/entities/promotion.entity';
+import {
+  PromotionActionType,
+  PromotionConditionType,
+  PromotionStatus,
+} from '../promotions/enums/promotion.enum';
 import { Permission } from '../rbac/permissions/entities/permission.entity';
 import { RolePermission } from '../rbac/role-permissions/entities/role_permission.entity';
 import { Role } from '../rbac/roles/entities/role.entity';
-import { Promotion } from '../promotions/entities/promotion.entity';
-import { PromotionRule } from '../promotions/entities/promotion-rule.entity';
-import { PromotionBranch } from '../promotions/entities/promotion-branch.entity';
-import { Branch } from '../branches/entities/branch.entity';
-import { PromotionStatus, PromotionConditionType, PromotionActionType } from '../promotions/enums/promotion.enum';
-import { ProductVariant } from '../products/entities/product-variant.entity';
-import { Category } from '../products/entities/category.entities';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
@@ -166,24 +170,24 @@ export class SeederService implements OnModuleInit {
 
       // Product Batches
       {
-        module: "product_batches",
-        action: "product_batches:create",
-        description: "Create product batches"
+        module: 'product_batches',
+        action: 'product_batches:create',
+        description: 'Create product batches',
       },
       {
-        module: "product_batches",
-        action: "product_batches:read",
-        description: "View product batches"
+        module: 'product_batches',
+        action: 'product_batches:read',
+        description: 'View product batches',
       },
       {
-        module: "product_batches",
-        action: "product_batches:update",
-        description: "Update product batches"
+        module: 'product_batches',
+        action: 'product_batches:update',
+        description: 'Update product batches',
       },
       {
-        module: "product_batches",
-        action: "product_batches:delete",
-        description: "Delete product batches"
+        module: 'product_batches',
+        action: 'product_batches:delete',
+        description: 'Delete product batches',
       },
       // Stock Movements
       {
@@ -447,6 +451,111 @@ export class SeederService implements OnModuleInit {
         module: 'promotions',
         action: 'promotions:delete',
         description: 'Delete promotions',
+      },
+      // Supplier
+      {
+        module: 'suppliers',
+        action: 'suppliers:create',
+        description: 'Create suppliers',
+      },
+      {
+        module: 'suppliers',
+        action: 'suppliers:read',
+        description: 'View suppliers',
+      },
+      {
+        module: 'suppliers',
+        action: 'suppliers:update',
+        description: 'Update suppliers',
+      },
+      {
+        module: 'suppliers',
+        action: 'suppliers:delete',
+        description: 'Delete suppliers',
+      },
+      // Purchases
+      {
+        module: 'purchases',
+        action: 'purchases:create',
+        description: 'Create purchases',
+      },
+      {
+        module: 'purchases',
+        action: 'purchases:read',
+        description: 'View purchases',
+      },
+      {
+        module: 'purchases',
+        action: 'purchases:update',
+        description: 'Update purchases',
+      },
+      {
+        module: 'purchases',
+        action: 'purchases:delete',
+        description: 'Delete purchases',
+      },
+      // Purchase Receivings
+      {
+        module: 'purchase_receivings',
+        action: 'purchase_receivings:create',
+        description: 'Create purchase receivings',
+      },
+      {
+        module: 'purchase_receivings',
+        action: 'purchase_receivings:read',
+        description: 'View purchase receivings',
+      },
+      {
+        module: 'purchase_receivings',
+        action: 'purchase_receivings:update',
+        description: 'Update purchase receivings',
+      },
+      {
+        module: 'purchase_receivings',
+        action: 'purchase_receivings:delete',
+        description: 'Delete purchase receivings',
+      },
+      // Expenses
+      {
+        module: 'expenses',
+        action: 'expenses:create',
+        description: 'Create expenses',
+      },
+      {
+        module: 'expenses',
+        action: 'expenses:read',
+        description: 'View expenses',
+      },
+      {
+        module: 'expenses',
+        action: 'expenses:update',
+        description: 'Update expenses',
+      },
+      {
+        module: 'expenses',
+        action: 'expenses:delete',
+        description: 'Delete expenses',
+      },
+      // Expense Categories
+      {
+        module: 'expense_categories',
+        action: 'expense_categories:create',
+        description: 'Create expense categories',
+      },
+      {
+        module: 'expense_categories',
+        action: 'expense_categories:read',
+        description: 'View expense categories',
+      },
+      {
+        module: 'expense_categories',
+        action: 'expense_categories:update',
+        description: 'Update expense categories',
+      },
+      {
+        module: 'expense_categories',
+        action: 'expense_categories:delete',
+        description: 'Delete expense categories',
       },
     ];
 
@@ -772,12 +881,12 @@ export class SeederService implements OnModuleInit {
 
         // Seed rules
         for (const ruleData of rules) {
-          const { 
-            conditionVariants, 
-            conditionCategories, 
-            actionVariants, 
-            actionCategories, 
-            ...ruleProps 
+          const {
+            conditionVariants,
+            conditionCategories,
+            actionVariants,
+            actionCategories,
+            ...ruleProps
           } = ruleData as any;
 
           const rule = this.promotionRuleRepository.create({

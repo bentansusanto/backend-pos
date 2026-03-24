@@ -68,6 +68,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
     EventsModule,
     ProductBatchesModule,
     PromotionsModule,
+    PurchasesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

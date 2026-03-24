@@ -6,8 +6,8 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
-  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -25,13 +25,15 @@ export class Expense {
     }
   }
 
-  @OneToMany(() => Branch, (branch) => branch.expenses)
+  @ManyToOne(() => Branch, (branch) => branch.expenses)
+  @JoinColumn()
   branch: Branch;
 
   @ManyToOne(
     () => ExpenseCategory,
     (expenseCategory) => expenseCategory.expenses,
   )
+  @JoinColumn()
   expense_category: ExpenseCategory;
 
   @Column({ unique: true })

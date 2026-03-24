@@ -43,7 +43,7 @@ export class ExpenseCategoriesController {
     }
   }
 
-  @Get(':id')
+  @Get('find-one/:id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string):Promise<WebResponse> {
     const result = await this.expenseCategoriesService.findOne(id);
@@ -65,7 +65,7 @@ export class ExpenseCategoriesController {
     }
   }
 
-  @Delete(':id')
+  @Delete('delete/:id')
   async remove(@Param('id') id: string):Promise<WebResponse> {
     const result = await this.expenseCategoriesService.remove(id);
     return{

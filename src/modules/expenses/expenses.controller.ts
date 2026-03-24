@@ -39,7 +39,7 @@ export class ExpensesController {
     };
   }
 
-  @Get(':id')
+  @Get('find-one/:id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.expensesService.findOne(id);

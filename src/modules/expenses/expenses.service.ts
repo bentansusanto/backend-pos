@@ -55,6 +55,9 @@ export class ExpensesService {
         expense_category: { id: createExpenseDto.expense_category_id },
         branch: { id: createExpenseDto.branch_id },
       });
+      // Remove relation ID fields so they don't clash with entity properties
+      delete (expense as any).expense_category_id;
+      delete (expense as any).branch_id;
 
       // Step 3: Save the new expense record to the database
       await this.expenseRepository.save(expense);

@@ -5,6 +5,7 @@ import { Order } from '../orders/entities/order.entity';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { Product } from '../products/entities/product.entity';
 import { StockMovement } from '../stock-movements/entities/stock-movement.entity';
+import { ProductBatch } from '../product-batches/entities/product-batch.entity';
 import { AiInsightController } from './ai-insight.controller';
 import { AiInsightService } from './ai-insight.service';
 import { AiInsight } from './entities/ai-insight.entity';
@@ -18,6 +19,7 @@ import { AiInsight } from './entities/ai-insight.entity';
       Product,
       ProductStock,
       StockMovement,
+      ProductBatch,
     ]),
   ],
   controllers: [AiInsightController],

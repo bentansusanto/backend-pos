@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProductStocksService } from '../product-stocks/product-stocks.service';
 import { PurchasesService } from '../purchases/purchases.service';
+import { StockMovementsService } from '../stock-movements/stock-movements.service';
+import { ReferenceType } from '../stock-movements/entities/stock-movement.entity';
 import { CreatePurchaseReceivingDto } from './dto/create-purchase_receiving.dto';
 import { UpdatePurchaseReceivingDto } from './dto/update-purchase_receiving.dto';
 import { PurchaseReceiving } from './entities/purchase_receiving.entity';
@@ -17,6 +19,7 @@ export class PurchaseReceivingsService {
     private readonly purchaseReceivingItemRepo: Repository<PurchaseReceivingItem>,
     private readonly productStocksService: ProductStocksService,
     private readonly purchasesService: PurchasesService,
+    private readonly stockMovementsService: StockMovementsService,
   ) {}
 
   async create(createDto: CreatePurchaseReceivingDto, userId?: string) {
@@ -44,52 +47,74 @@ export class PurchaseReceivingsService {
 
         // NATIVELY ADD INVENTORY: Check if product stock row exists for this variant + branch
         try {
-          // fetch all existing stock for branch and variant
-          const existingStocks = await this.productStocksService.findAll(
-            createDto.branch_id,
+          // The `create` method natively handles upserts (adding to existing stock if the row exists)
+          await this.productStocksService.create(
+            {
+              productId: '', // service auto-fetches if variantId is sent
+              variantId: itemDto.product_variant_id,
+              branchId: createDto.branch_id,
+              stock: itemDto.qty,
+              minStock: 0,
+            },
+            userId,
           );
-          const variantStock = existingStocks.datas.find(
-            (s) => s.variantId === itemDto.product_variant_id,
-          );
-
-          if (variantStock) {
-            // Update existing stock (additive logic)
-            await this.productStocksService.update(
-              variantStock.id,
-              { stock: variantStock.stock + itemDto.qty },
-              userId,
-            );
-          } else {
-            // No stock row exists, create one with the starting quantity
-            await this.productStocksService.create(
-              {
-                productId: '', // service auto-fetches if variantId is sent
-                variantId: itemDto.product_variant_id,
-                branchId: createDto.branch_id,
-                stock: itemDto.qty,
-                minStock: 0,
-              },
-              userId,
-            );
-          }
         } catch (error) {
           console.error(
             `Failed to automatically allocate stock for receiving variant ${itemDto.product_variant_id}`,
             error,
           );
         }
+
+        // NATIVELY LOG STOCK MOVEMENT
+        try {
+          await this.stockMovementsService.create(
+            {
+              variantId: itemDto.product_variant_id,
+              branchId: createDto.branch_id,
+              referenceType: ReferenceType.PURCHASE,
+              referenceId: savedReceiving.id,
+              qty: itemDto.qty,
+              reason: `Dari Penerimaan Barang: ${savedReceiving.id}`,
+            },
+            userId,
+          );
+        } catch (error) {
+          console.error(
+            `Failed to log stock movement for receiving ${savedReceiving.id}`,
+            error,
+          );
+        }
       }
     }
 
-    // 3. Mark the original Purchase Order as COMPLETED
+    // 3. Evaluate and update Purchase Order status (PARTIAL vs COMPLETED)
     try {
+      const allReceivings = await this.purchaseReceivingRepo.find({
+        where: { purchase: { id: createDto.purchase_id } },
+        relations: ['items'],
+      });
+
+      const totalReceived = allReceivings.reduce(
+        (sum, r) => sum + r.items.reduce((acc, item) => acc + item.qty, 0),
+        0,
+      );
+
+      const purchase = await this.purchasesService.findOne(
+        createDto.purchase_id,
+      );
+      const totalOrdered = purchase.purchaseItems.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      );
+
+      const newStatus = totalReceived >= totalOrdered ? 'COMPLETED' : 'PARTIAL';
       await this.purchasesService.updateStatus(
         createDto.purchase_id,
-        'COMPLETED',
+        newStatus,
       );
     } catch (e) {
       console.error(
-        `Failed to update Purchase Order ${createDto.purchase_id} status`,
+        `Failed to evaluate Purchase Order ${createDto.purchase_id} status`,
         e,
       );
     }

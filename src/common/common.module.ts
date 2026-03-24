@@ -84,7 +84,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
         // synchronize: true, // TEMPORARY: Set to true once to create tables in production DB, then set back to configService.get<string>('NODE_ENV') !== 'production'
-        synchronize: configService.get<string>('NODE_ENV') !== 'development', // mode production
+        synchronize: configService.get<string>('NODE_ENV') === 'development', // Enable sync in dev mode
         // ssl: {
         //   rejectUnauthorized: false, // required for connecting to production RDS/Neon/Supabase
         // },

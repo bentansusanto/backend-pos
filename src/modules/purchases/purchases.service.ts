@@ -78,15 +78,41 @@ export class PurchasesService {
 
   async update(id: string, updatePurchaseDto: UpdatePurchaseDto) {
     const purchase = await this.findOne(id);
+    let newTotal = purchase.total;
 
-    // Simplistic update; in reality might need to wipe items and recreate.
+    if (updatePurchaseDto.items && updatePurchaseDto.items.length > 0) {
+      newTotal = updatePurchaseDto.items.reduce(
+        (acc, item) => acc + item.quantity * item.price,
+        0,
+      );
+
+      // wipe existing items
+      await this.purchaseItemsRepository.delete({ purchase: { id } });
+
+      // recreate them
+      const newItems = updatePurchaseDto.items.map((i) => {
+        return this.purchaseItemsRepository.create({
+          purchase: { id },
+          product_id: i.product_id,
+          quantity: i.quantity,
+          price: i.price,
+          total: i.quantity * i.price,
+        });
+      });
+      await this.purchaseItemsRepository.save(newItems);
+    } else if (updatePurchaseDto.items && updatePurchaseDto.items.length === 0) {
+      // If client deliberately clears items, delete all
+      await this.purchaseItemsRepository.delete({ purchase: { id } });
+      newTotal = 0;
+    }
+
+    const { items, branch_id, ...rest } = updatePurchaseDto;
+
     await this.purchaseRepository.update(id, {
-      ...updatePurchaseDto,
-      branch: updatePurchaseDto.branch_id
-        ? { id: updatePurchaseDto.branch_id }
-        : purchase.branch,
+      ...rest,
+      total: newTotal,
+      branch: branch_id ? { id: branch_id } : purchase.branch,
     });
-
 
     return this.findOne(id);
   }

@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 import { IsDate, IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
 export class CreateExpenseDto {
@@ -22,6 +22,7 @@ export class CreateExpenseDto {
   @IsNotEmpty({ message: 'notes is required' })
   notes: string;
 
+  @Type(() => Date)
   @IsDate({ message: 'expense_date must be a valid date' })
   @IsNotEmpty({ message: 'expense_date is required' })
   expense_date: Date;
@@ -31,4 +32,6 @@ export class CreateExpenseDto {
   payment_method: string;
 }
 
+
+import { PartialType } from '@nestjs/mapped-types';
 export class UpdateExpenseDto extends PartialType(CreateExpenseDto) {}
