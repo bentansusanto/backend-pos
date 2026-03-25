@@ -18,7 +18,7 @@ import { ProfilesService } from './profiles.service';
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @CurrentUser() user: User,
@@ -51,7 +51,7 @@ export class ProfilesController {
     };
   }
 
-  @Put('update/:id')
+  @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(
     @CurrentUser() user: User,

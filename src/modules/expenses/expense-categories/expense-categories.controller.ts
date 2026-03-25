@@ -23,7 +23,7 @@ export class ExpenseCategoriesController {
     private readonly expenseCategoriesService: ExpenseCategoriesService,
   ) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createExpenseCategoryDto: CreateExpenseCategoryDto):Promise<WebResponse> {
     const result = await this.expenseCategoriesService.create(createExpenseCategoryDto);
@@ -33,7 +33,7 @@ export class ExpenseCategoriesController {
     }
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll():Promise<WebResponse> {
     const result = await this.expenseCategoriesService.findAll();
@@ -43,7 +43,7 @@ export class ExpenseCategoriesController {
     }
   }
 
-  @Get('find-one/:id')
+  @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string):Promise<WebResponse> {
     const result = await this.expenseCategoriesService.findOne(id);
@@ -53,7 +53,7 @@ export class ExpenseCategoriesController {
     }
   }
 
-  @Put('update/:id')
+  @Put(':id')
   async update(
     @Param('id') id: string,
     @Body() updateExpenseCategoryDto: UpdateExpenseCategoryDto,
@@ -65,7 +65,7 @@ export class ExpenseCategoriesController {
     }
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   async remove(@Param('id') id: string):Promise<WebResponse> {
     const result = await this.expenseCategoriesService.remove(id);
     return{

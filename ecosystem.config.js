@@ -8,8 +8,14 @@ module.exports = {
       instances: 1, // 2 instances (adjust based on CPU cores)
       exec_mode: 'cluster',
 
-      // Environment variables
+      // Default Environment variables (available in all modes)
       env: {
+        NODE_ENV: 'development',
+        PORT: 8083,
+      },
+
+      // Production Environment variables (activated with --env production)
+      env_production: {
         NODE_ENV: 'production',
         PORT: 8083,
       },
@@ -36,7 +42,7 @@ module.exports = {
       listen_timeout: 3000, // Time to wait for app to listen
       shutdown_with_message: true,
 
-      // Environment file
+      // Environment file (this tells PM2 to parse the .env file)
       env_file: '.env',
 
       // Cron restart (optional - restart daily at 3 AM)

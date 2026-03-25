@@ -3,6 +3,7 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Get,
   Post,
   Query,
   Req,
@@ -19,10 +20,20 @@ import {
   ResetPasswordDto,
 } from '../users/dto/create-user.dto';
 import { AuthService } from './auth.service';
+import { generateCsrfToken } from 'src/common/config/csrf.config';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+  
+  // get csrf token
+  @Public()
+  @Get('csrf-token')
+  async getCsrfToken(@Req() req: Request, @Res() res: Response) {
+    const token = generateCsrfToken(req, res);
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.json({ csrfToken: token });
+  }
 
   // register
   @Public()
@@ -88,8 +99,9 @@ export class AuthController {
     // Set session token in cookie
     res.cookie('session_pos', result.data.session_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
     });
 
@@ -113,7 +125,7 @@ export class AuthController {
   ): Promise<WebResponse> {
     const sessionToken = req.cookies['session_pos'] || body?.session_token;
     const result = await this.authService.logout(sessionToken, req.user);
-    res.clearCookie('session_pos');
+    res.clearCookie('session_pos', { path: '/' });
     return {
       message: result.message,
     };
@@ -131,8 +143,9 @@ export class AuthController {
     const result = await this.authService.refreshToken(sessionToken);
     res.cookie('session_pos', result.data.session_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
     });
     res.setHeader('Authorization', `Bearer ${result.data.token}`);

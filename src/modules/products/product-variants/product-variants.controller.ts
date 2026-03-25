@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
   UploadedFile,
   UseGuards,
@@ -27,7 +29,7 @@ export class ProductVariantsController {
     private readonly productVariantsService: ProductVariantsService,
   ) {}
 
-  @Post('create')
+  @Post()
   @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -46,7 +48,7 @@ export class ProductVariantsController {
     };
   }
 
-  @Post('update/:id')
+  @Put(':id')
   @UseInterceptors(FileInterceptor('thumbnail'))
   async update(
     @Param('id') id: string,
@@ -66,7 +68,7 @@ export class ProductVariantsController {
     };
   }
 
-  @Post('delete/:id')
+  @Delete(':id')
   async delete(
     @Param('id') id: string,
     @CurrentUser() currentUser: User,
@@ -80,7 +82,7 @@ export class ProductVariantsController {
     };
   }
 
-  @Get('get/:id')
+  @Get(':id')
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productVariantsService.findOne(id);
     return {
@@ -89,7 +91,7 @@ export class ProductVariantsController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   async findAll(
     @Query('branch_id') queryBranchId?: string,
     @CurrentBranchId() headerBranchId?: string,

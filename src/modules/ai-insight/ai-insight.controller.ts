@@ -26,7 +26,7 @@ export class AiInsightController {
     return this.aiInsightService.generateInsights(branchId, body.timeRange);
   }
 
-  @Get('find')
+  @Get()
   async findAll(
     @Query('branchId') queryBranchId?: string,
     @CurrentBranchId() headerBranchId?: string,

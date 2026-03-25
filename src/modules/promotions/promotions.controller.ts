@@ -23,7 +23,7 @@ import { PromotionsService } from './promotions.service';
 export class PromotionsController {
   constructor(private readonly promotionsService: PromotionsService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createPromotionDto: CreatePromotionDto,
@@ -36,7 +36,7 @@ export class PromotionsController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   async findAll(
     @Query('status') status?: string,
     @Query('branch_id') branchId?: string,
@@ -57,7 +57,7 @@ export class PromotionsController {
     };
   }
 
-  @Patch('update/:id')
+  @Patch(':id')
   async update(
     @Param('id') id: string,
     @Body() updatePromotionDto: UpdatePromotionDto,
@@ -70,7 +70,7 @@ export class PromotionsController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   async remove(
     @Param('id') id: string,
     @CurrentUser() currentUser: User,

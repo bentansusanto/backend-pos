@@ -23,7 +23,7 @@ export class UsersController {
 
   // create user
   @Roles('owner', 'admin')
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createUserDto: CreateUserByOwnerDto,
@@ -35,9 +35,9 @@ export class UsersController {
       data: result.data,
     };
   }
-
+  
   // get all users
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
     const result = await this.usersService.findAll();
@@ -72,7 +72,7 @@ export class UsersController {
   }
 
   // update user
-  @Put('update/:id')
+  @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: string,
@@ -86,7 +86,7 @@ export class UsersController {
   }
 
   // soft delete user
-  @Delete('delete/:id')
+  @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.usersService.remove(id);

@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
@@ -21,7 +22,7 @@ export class PosSessionsController {
   constructor(private readonly posSessionsService: PosSessionsService) {}
 
 
-  @Post('open')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async openSession(
     @Body() openPosSessionDto: OpenPosSessionDto,
@@ -37,7 +38,7 @@ export class PosSessionsController {
     };
   }
 
-  @Post('close/:id')
+  @Patch(':id/close')
   @HttpCode(HttpStatus.OK)
   async closeSession(
     @Param('id') id: string,

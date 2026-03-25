@@ -1,4 +1,10 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { WinstonModule, utilities as nestWinstonModuleUtilities } from 'nest-winston';
+import * as winston from 'winston';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonModule } from './common/common.module';
@@ -33,9 +39,53 @@ import { TaxModule } from './modules/tax/tax.module';
 import { EventsModule } from './modules/events/events.module';
 import { ProductBatchesModule } from './modules/product-batches/product-batches.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
+import { doubleCsrfProtection } from './common/config/csrf.config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '.env.production', '.env.development', '.env.local'],
+    }),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 100,
+    }]),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const dbConfig = {
+          type: 'postgres' as const,
+          host: configService.get<string>('DB_HOST') || process.env.DB_HOST,
+          port: Number(configService.get('DB_PORT') || process.env.DB_PORT || 5432),
+          username: configService.get<string>('DB_USER') || process.env.DB_USER,
+          password: configService.get<string>('DB_PASS') || process.env.DB_PASS,
+          database: configService.get<string>('DB_NAME') || process.env.DB_NAME,
+          entities: [__dirname + '/**/*.entity{.ts,.js}', __dirname + '/**/*.entities{.ts,.js}'],
+          autoLoadEntities: true,
+          synchronize: (configService.get<string>('NODE_ENV') || process.env.NODE_ENV) === 'development',
+          ssl: false,
+        };
+        
+        console.log(`[DB DEBUG] Connecting to ${dbConfig.host} as user ${dbConfig.username}`);
+        return dbConfig;
+      },
+    }),
+    WinstonModule.forRoot({
+      transports: [
+        new winston.transports.Console({
+          format: winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.ms(),
+            nestWinstonModuleUtilities.format.nestLike('AI Powered POS', {
+              colors: true,
+              prettyPrint: true,
+            }),
+          ),
+        }),
+      ],
+    }),
     CommonModule,
     AuthModule,
     UsersModule,
@@ -68,9 +118,30 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
     EventsModule,
     ProductBatchesModule,
     PromotionsModule,
-    PurchasesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(doubleCsrfProtection)
+      .exclude(
+        { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'auth/register', method: RequestMethod.POST },
+        { path: 'auth/csrf-token', method: RequestMethod.GET },
+        { path: 'auth/verify-account', method: RequestMethod.POST },
+        { path: 'auth/resend-verify-account', method: RequestMethod.POST },
+        { path: 'auth/forgot-password', method: RequestMethod.POST },
+        { path: 'auth/reset-password', method: RequestMethod.POST },
+        { path: 'auth/refresh-token', method: RequestMethod.POST },
+      )
+      .forRoutes('*');
+  }
+}

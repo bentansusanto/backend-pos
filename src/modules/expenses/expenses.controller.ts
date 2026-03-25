@@ -17,7 +17,7 @@ import { ExpensesService } from './expenses.service';
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createExpenseDto: CreateExpenseDto,
@@ -29,7 +29,7 @@ export class ExpensesController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
     const result = await this.expensesService.findAll();
@@ -39,7 +39,7 @@ export class ExpensesController {
     };
   }
 
-  @Get('find-one/:id')
+  @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.expensesService.findOne(id);
@@ -49,7 +49,7 @@ export class ExpensesController {
     };
   }
 
-  @Put('update/:id')
+  @Put(':id')
   async update(
     @Param('id') id: string,
     @Body() updateExpenseDto: UpdateExpenseDto,
@@ -61,7 +61,7 @@ export class ExpensesController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   async remove(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.expensesService.remove(id);
     return {

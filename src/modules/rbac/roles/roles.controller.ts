@@ -20,7 +20,7 @@ import { RolesService } from './roles.service';
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createRoleDto: CreateRoleDto): Promise<WebResponse> {
     const result = await this.rolesService.create(createRoleDto);
@@ -31,7 +31,7 @@ export class RolesController {
   }
 
   @Permissions('roles:read')
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
     const result = await this.rolesService.findAll();

@@ -17,7 +17,7 @@ import { CreateBranchDto, UpdateBranchDto } from './dto/create-branch.dto';
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createBranchDto: CreateBranchDto): Promise<WebResponse> {
     const result = await this.branchesService.create(createBranchDto);
@@ -27,7 +27,7 @@ export class BranchesController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   async findAll(): Promise<WebResponse> {
     const result = await this.branchesService.findAll();
     return {
@@ -45,7 +45,7 @@ export class BranchesController {
     };
   }
 
-  @Put('update/:id')
+  @Put(':id')
   async update(
     @Param('id') id: string,
     @Body() updateBranchDto: UpdateBranchDto,
@@ -57,7 +57,7 @@ export class BranchesController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   async remove(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.branchesService.remove(id);
     return {

@@ -19,7 +19,7 @@ import { SupplierService } from './supplier.service';
 export class SupplierController {
   constructor(private readonly supplierService: SupplierService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createSupplierDto: CreateSupplierDto,
@@ -35,7 +35,7 @@ export class SupplierController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
     const result = await this.supplierService.findAll();
@@ -55,7 +55,7 @@ export class SupplierController {
     };
   }
 
-  @Put('update/:id')
+  @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: string,
@@ -73,7 +73,7 @@ export class SupplierController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string, @Req() req: any): Promise<WebResponse> {
     const result = await this.supplierService.remove(id, req.user?.id);

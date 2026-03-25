@@ -1,13 +1,20 @@
+import { config } from 'dotenv';
+// Load .env explicitly before anything else runs to fix PM2 cluster issues
+config({ path: process.env.NODE_ENV === 'production' ? '.env' : '.env.development' });
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { XssSanitizerPipe } from './common/pipes/xss-sanitizer.pipe';
 import { ErrorsService } from './common/errors/errors.service';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { doubleCsrfProtection } from './common/config/csrf.config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -21,6 +28,7 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api/v1');
+  app.use(helmet());
   app.useGlobalFilters(new ErrorsService());
   app.use(cookieParser());
 
@@ -35,6 +43,7 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
       transform: true,
     }),
+    new XssSanitizerPipe(),
   );
 
   const origins = process.env.CORS_ORIGINS
@@ -61,6 +70,8 @@ async function bootstrap() {
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
+    exposedHeaders: ['x-csrf-token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'x-branch-id'],
   });
 
   const config = new DocumentBuilder()

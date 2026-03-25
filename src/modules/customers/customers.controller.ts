@@ -22,7 +22,7 @@ import {
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createCustomerDto: CreateCustomerDto,
@@ -34,7 +34,7 @@ export class CustomersController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(
     @Query('branch_id') queryBranchId?: string,

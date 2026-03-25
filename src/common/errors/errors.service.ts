@@ -14,6 +14,10 @@ export class ErrorsService implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
+    console.error('--- Exception Caught in ErrorsService ---');
+    console.error(exception);
+    if (exception.stack) console.error(exception.stack);
+
     // --- 🧩 HTTP EXCEPTION HANDLING ---
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
@@ -68,11 +72,18 @@ export class ErrorsService implements ExceptionFilter {
     }
 
     // --- 🧩 FALLBACK UNTUK ERROR TAK TERDUGA ---
-    const status = HttpStatus.INTERNAL_SERVER_ERROR;
+    const status =
+      exception?.code === 'EBADCSRFTOKEN'
+        ? HttpStatus.FORBIDDEN
+        : HttpStatus.INTERNAL_SERVER_ERROR;
+
     response.status(status).json({
       Status: status,
-      Message: 'Internal server error',
-      Error: exception?.message || 'Unexpected error',
+      Message: this.getMessageByStatus(status),
+      Error:
+        exception?.code === 'EBADCSRFTOKEN'
+          ? 'Invalid or missing CSRF token'
+          : exception?.message || 'Unexpected error',
     });
   }
 

@@ -1,8 +1,6 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Repository } from 'typeorm';
-import { Logger } from 'winston';
 import { Branch } from '../branches/entities/branch.entity';
 import { User } from '../rbac/users/entities/user.entity';
 import {
@@ -26,7 +24,6 @@ export class PosSessionsService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
   ) {}
 
   private mapSessionResponse(session: PosSession) {
@@ -75,26 +72,14 @@ export class PosSessionsService {
     });
 
     const savedSession = await this.posSessionRepository.save(newSession);
-    this.logger.debug(
-      `New POS session ${savedSession.id} opened by user ${user.id} at branch ${branch_id}`,
-    );
 
     // Link existing PENDING orders for this user and branch to the new session
     // Using raw SQL to avoid TypeORM QueryBuilder "pos_session_id" not found error
-    this.logger.debug(
-      `Attempting to link pending orders to new session ${savedSession.id} for user ${user.id} and branch ${branch_id}`,
-    );
 
     // Using query() directly on the repository
-    const updateResult = await this.orderRepository.query(
+    await this.orderRepository.query(
       `UPDATE orders SET pos_session_id = $1 WHERE user_id = $2 AND branch_id = $3 AND status = $4 AND pos_session_id IS NULL`,
       [savedSession.id, user.id, branch_id, OrderStatus.PENDING],
-    );
-
-    const affectedCount = Array.isArray(updateResult) ? updateResult.length : (updateResult[1] || 0);
-
-    this.logger.debug(
-      `Session ${savedSession.id} opened: ${affectedCount} pending orders linked`,
     );
 
 
@@ -195,11 +180,6 @@ export class PosSessionsService {
       relations: ['branch', 'user'],
     });
 
-    this.logger.debug(
-      `Active session lookup for user ${user?.id}: ${session ? session.id : 'NOT FOUND'}`,
-    );
-
-
     if (!session) {
       return {
         message: 'No active session found',
@@ -235,14 +215,14 @@ export class PosSessionsService {
       (o) => o.status === OrderStatus.COMPLETED,
     );
     const totalSales = completedOrders.reduce(
-      (acc, o) => acc + Number(o.subtotal || 0) + Number(o.tax_amount || 0) - Number(o.discount_amount || 0),
+      (acc, o) =>
+        acc +
+        Number(o.subtotal || 0) +
+        Number(o.tax_amount || 0) -
+        Number(o.discount_amount || 0),
       0,
     );
     const totalTransactions = completedOrders.length;
-    this.logger.debug(
-      `Session ${id} summary: ${completedOrders.length} completed orders, totalSales=${totalSales}`,
-    );
-
 
     const completedCount = completedOrders.length;
 

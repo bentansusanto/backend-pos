@@ -1,10 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
@@ -20,7 +23,7 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   // create category
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
@@ -33,7 +36,7 @@ export class CategoriesController {
   }
 
   // find all categories
-  @Post('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(
     @Query('branch_id') queryBranchId?: string,
@@ -48,7 +51,7 @@ export class CategoriesController {
   }
 
   // find category by id
-  @Post(':id')
+  @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findById(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.categoriesService.findOne(id);
@@ -59,7 +62,7 @@ export class CategoriesController {
   }
 
   // update category
-  @Post(':id/update')
+  @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: string,
@@ -73,7 +76,7 @@ export class CategoriesController {
   }
 
   // delete category
-  @Post(':id/delete')
+  @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async delete(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.categoriesService.remove(id);

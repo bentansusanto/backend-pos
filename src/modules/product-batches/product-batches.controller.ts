@@ -21,7 +21,7 @@ import { WebResponse } from 'src/types/response/index.type';
 export class ProductBatchesController {
   constructor(private readonly productBatchesService: ProductBatchesService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createProductBatchDto: CreateProductBatchDto): Promise<WebResponse> {
     const result = await this.productBatchesService.create(createProductBatchDto);
@@ -31,7 +31,7 @@ export class ProductBatchesController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(@Query() query: { branch_id?: string; variant_id?: string }): Promise<WebResponse> {
     const result = await this.productBatchesService.findAll(query);
@@ -51,7 +51,7 @@ export class ProductBatchesController {
     };
   }
 
-  @Patch('update/:id')
+  @Patch(':id')
   @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: string,
@@ -64,7 +64,7 @@ export class ProductBatchesController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.productBatchesService.remove(id);

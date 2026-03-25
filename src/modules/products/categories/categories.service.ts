@@ -1,11 +1,9 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { errProductMessage } from 'src/libs/errors/error_product';
 import { successProductMessage } from 'src/libs/success/success_product';
 import { CategoryResponse } from 'src/types/response/product.type';
 import { Repository } from 'typeorm';
-import { Logger } from 'winston';
 import {
   CreateCategoryDto,
   UpdateCategoryDto,
@@ -15,7 +13,6 @@ import { Category } from '../entities/category.entities';
 @Injectable()
 export class CategoriesService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
   ) {}
@@ -24,141 +21,72 @@ export class CategoriesService {
   async create(
     createCategoryDto: CreateCategoryDto,
   ): Promise<CategoryResponse> {
-    try {
-      // check category name is exist
-      const categoryName = await this.categoryRepository.findOne({
-        where: {
-          name: createCategoryDto.name,
-        },
-      });
-      if (categoryName) {
-        this.logger.error(errProductMessage.ERROR_CATEGORY_NAME_EXIST);
-        throw new HttpException(
-          errProductMessage.ERROR_CATEGORY_NAME_EXIST,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      // creating category
-      const category = this.categoryRepository.create(createCategoryDto);
-      await this.categoryRepository.save(category);
-
-      this.logger.debug(
-        `${successProductMessage.SUCCESS_CREATE_CATEGORY} with name: ${category.name}`,
-      );
-      return {
-        message: successProductMessage.SUCCESS_CREATE_CATEGORY,
-        data: {
-          id: category.id,
-          name: category.name,
-          createdAt: category.createdAt,
-          updatedAt: category.updatedAt,
-        },
-      };
-    } catch (error) {
-      const errorMessage =
-        error?.message || errProductMessage.ERROR_CREATE_CATEGORY;
-      this.logger.error(errProductMessage.ERROR_CREATE_CATEGORY, errorMessage);
-      if (error instanceof HttpException) {
-        throw error;
-      }
+    // check category name is exist
+    const categoryName = await this.categoryRepository.findOne({
+      where: {
+        name: createCategoryDto.name,
+      },
+    });
+    if (categoryName) {
       throw new HttpException(
-        {
-          Error: {
-            field: 'general',
-            body: errorMessage,
-          },
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        errProductMessage.ERROR_CATEGORY_NAME_EXIST,
+        HttpStatus.BAD_REQUEST,
       );
     }
+    // creating category
+    const category = this.categoryRepository.create(createCategoryDto);
+    await this.categoryRepository.save(category);
+
+    return {
+      message: successProductMessage.SUCCESS_CREATE_CATEGORY,
+      data: {
+        id: category.id,
+        name: category.name,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt,
+      },
+    };
   }
 
   // find all categories
   async findAll(_branchId?: string): Promise<CategoryResponse> {
-    try {
-      // check category is exist
-      const categories = await this.categoryRepository.find();
+    const categories = await this.categoryRepository.find();
 
-      this.logger.debug(
-        `${successProductMessage.SUCCESS_FIND_ALL_CATEGORY} with ${categories.length} categories`,
-      );
-      return {
-        message: successProductMessage.SUCCESS_FIND_ALL_CATEGORY,
-        datas: categories.map((category) => ({
-          id: category.id,
-          name: category.name,
-          createdAt: category.createdAt,
-          updatedAt: category.updatedAt,
-        })),
-      };
-    } catch (error) {
-      const errorMessage =
-        error?.message || errProductMessage.ERROR_FIND_ALL_CATEGORY;
-      this.logger.error(
-        errProductMessage.ERROR_FIND_ALL_CATEGORY,
-        errorMessage,
-      );
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new HttpException(
-        {
-          Error: {
-            field: 'general',
-            body: errorMessage,
-          },
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    return {
+      message: successProductMessage.SUCCESS_FIND_ALL_CATEGORY,
+      datas: categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt,
+      })),
+    };
   }
 
   // find category by id
   async findOne(id: string): Promise<CategoryResponse> {
-    try {
-      // check category is exist
-      const category = await this.categoryRepository.findOne({
-        where: {
-          id,
-        },
-      });
+    const category = await this.categoryRepository.findOne({
+      where: {
+        id,
+      },
+    });
 
-      if (!category) {
-        this.logger.warn(errProductMessage.ERROR_FIND_CATEGORY);
-        throw new HttpException(
-          errProductMessage.ERROR_FIND_CATEGORY,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      this.logger.debug(
-        `${successProductMessage.SUCCESS_FIND_CATEGORY} with id: ${category.id}`,
-      );
-      return {
-        message: successProductMessage.SUCCESS_FIND_CATEGORY,
-        data: {
-          id: category.id,
-          name: category.name,
-          createdAt: category.createdAt,
-          updatedAt: category.updatedAt,
-        },
-      };
-    } catch (error) {
-      const errorMessage =
-        error?.message || errProductMessage.ERROR_FIND_CATEGORY;
-      this.logger.error(errProductMessage.ERROR_FIND_CATEGORY, errorMessage);
-      if (error instanceof HttpException) {
-        throw error;
-      }
+    if (!category) {
       throw new HttpException(
-        {
-          Error: {
-            field: 'general',
-            body: errorMessage,
-          },
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        errProductMessage.ERROR_FIND_CATEGORY,
+        HttpStatus.NOT_FOUND,
       );
     }
+
+    return {
+      message: successProductMessage.SUCCESS_FIND_CATEGORY,
+      data: {
+        id: category.id,
+        name: category.name,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt,
+      },
+    };
   }
 
   // update category
@@ -166,81 +94,49 @@ export class CategoriesService {
     id: string,
     updateCategoryDto: UpdateCategoryDto,
   ): Promise<CategoryResponse> {
-    try {
-      // check category is exist
-      const category = await this.categoryRepository.findOne({
-        where: {
-          id,
-        },
-      });
-      if (!category) {
-        this.logger.warn(errProductMessage.ERROR_FIND_CATEGORY);
-        throw new HttpException(
-          errProductMessage.ERROR_FIND_CATEGORY,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      // update category
-      await this.categoryRepository.update(id, updateCategoryDto);
-
-      this.logger.debug(
-        `${successProductMessage.SUCCESS_UPDATE_CATEGORY} with id: ${category.id}`,
-      );
-      return {
-        message: successProductMessage.SUCCESS_UPDATE_CATEGORY,
-        data: {
-          id: category.id,
-          name: category.name,
-          createdAt: category.createdAt,
-          updatedAt: category.updatedAt,
-        },
-      };
-    } catch (error) {
-      this.logger.error(errProductMessage.ERROR_UPDATE_CATEGORY, error.message);
-      if (error instanceof HttpException) {
-        throw error;
-      }
+    const category = await this.categoryRepository.findOne({
+      where: {
+        id,
+      },
+    });
+    if (!category) {
       throw new HttpException(
-        errProductMessage.ERROR_UPDATE_CATEGORY,
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        errProductMessage.ERROR_FIND_CATEGORY,
+        HttpStatus.NOT_FOUND,
       );
     }
+    // update category
+    await this.categoryRepository.update(id, updateCategoryDto);
+
+    return {
+      message: successProductMessage.SUCCESS_UPDATE_CATEGORY,
+      data: {
+        id: category.id,
+        name: category.name,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt,
+      },
+    };
   }
 
   // delete category
   async remove(id: string): Promise<CategoryResponse> {
-    try {
-      // check category is exist
-      const category = await this.categoryRepository.findOne({
-        where: {
-          id,
-        },
-      });
-      if (!category) {
-        this.logger.warn(errProductMessage.ERROR_FIND_CATEGORY);
-        throw new HttpException(
-          errProductMessage.ERROR_FIND_CATEGORY,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-      // delete category
-      await this.categoryRepository.delete(id);
-
-      this.logger.debug(
-        `${successProductMessage.SUCCESS_DELETE_CATEGORY} with id: ${category.id}`,
-      );
-      return {
-        message: successProductMessage.SUCCESS_DELETE_CATEGORY,
-      };
-    } catch (error) {
-      this.logger.error(errProductMessage.ERROR_DELETE_CATEGORY, error.message);
-      if (error instanceof HttpException) {
-        throw error;
-      }
+    const category = await this.categoryRepository.findOne({
+      where: {
+        id,
+      },
+    });
+    if (!category) {
       throw new HttpException(
-        errProductMessage.ERROR_DELETE_CATEGORY,
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        errProductMessage.ERROR_FIND_CATEGORY,
+        HttpStatus.NOT_FOUND,
       );
     }
+    // delete category
+    await this.categoryRepository.delete(id);
+
+    return {
+      message: successProductMessage.SUCCESS_DELETE_CATEGORY,
+    };
   }
 }

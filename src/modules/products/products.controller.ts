@@ -27,7 +27,7 @@ import { ProductsService } from './products.service';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
-  @Post('create')
+  @Post()
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'thumbnail', maxCount: 1 },
@@ -56,7 +56,7 @@ export class ProductsController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(
     @Query('branch_id') queryBranchId?: string,
@@ -85,7 +85,7 @@ export class ProductsController {
     };
   }
 
-  @Put('update/:id')
+  @Put(':id')
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'thumbnail', maxCount: 1 },
@@ -115,7 +115,7 @@ export class ProductsController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   async remove(
     @Param('id') id: string,
     @CurrentUser() currentUser: User,

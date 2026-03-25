@@ -27,7 +27,7 @@ import { ProductStocksService } from './product-stocks.service';
 export class ProductStocksController {
   constructor(private readonly productStocksService: ProductStocksService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createProductStockDto: CreateProductStockDto,
@@ -43,7 +43,7 @@ export class ProductStocksController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(
     @Query('branch_id') queryBranchId?: string,
@@ -67,7 +67,7 @@ export class ProductStocksController {
     };
   }
 
-  @Put('update/:id')
+  @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: string,
@@ -85,7 +85,7 @@ export class ProductStocksController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async remove(
     @Param('id') id: string,

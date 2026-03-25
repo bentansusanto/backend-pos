@@ -21,7 +21,7 @@ import { PaymentsService } from './payments.service';
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createPaymentDto: CreatePaymentDto,
@@ -33,7 +33,7 @@ export class PaymentsController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(
     @Query('branch_id') queryBranchId?: string,
@@ -57,7 +57,7 @@ export class PaymentsController {
     };
   }
 
-  @Put('verify-payment/:id')
+  @Put(':id/verify')
   @HttpCode(HttpStatus.OK)
   async verifyPayment(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.paymentsService.verifyPayment(id);

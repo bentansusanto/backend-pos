@@ -17,12 +17,12 @@ export class PurchaseReceivingsController {
     private readonly purchaseReceivingsService: PurchaseReceivingsService,
   ) {}
 
-  @Post('create')
+  @Post()
   create(@Body() createPurchaseReceivingDto: CreatePurchaseReceivingDto) {
     return this.purchaseReceivingsService.create(createPurchaseReceivingDto);
   }
 
-  @Get('find-all')
+  @Get()
   findAll() {
     return this.purchaseReceivingsService.findAll();
   }
@@ -32,7 +32,7 @@ export class PurchaseReceivingsController {
     return this.purchaseReceivingsService.findOne(id);
   }
 
-  @Patch('update/:id')
+  @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() updatePurchaseReceivingDto: UpdatePurchaseReceivingDto,
@@ -43,7 +43,7 @@ export class PurchaseReceivingsController {
     );
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   remove(@Param('id') id: string) {
     return this.purchaseReceivingsService.remove(id);
   }

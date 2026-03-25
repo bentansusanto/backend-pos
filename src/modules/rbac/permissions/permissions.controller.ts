@@ -20,7 +20,7 @@ import { PermissionsService } from './permissions.service';
 export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createPermissionDto: CreatePermissionDto,
@@ -32,7 +32,7 @@ export class PermissionsController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll(): Promise<WebResponse> {
     const result = await this.permissionsService.findAll();
@@ -42,7 +42,7 @@ export class PermissionsController {
     };
   }
 
-  @Get('find-one/:id')
+  @Get(':id')
   @HttpCode(HttpStatus.OK)
   async findOne(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.permissionsService.findOne(id);
@@ -52,7 +52,7 @@ export class PermissionsController {
     };
   }
 
-  @Put('update/:id')
+  @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: string,
@@ -68,7 +68,7 @@ export class PermissionsController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string): Promise<WebResponse> {
     const result = await this.permissionsService.remove(id);

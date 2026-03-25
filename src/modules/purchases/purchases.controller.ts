@@ -15,12 +15,12 @@ import { PurchasesService } from './purchases.service';
 export class PurchasesController {
   constructor(private readonly purchasesService: PurchasesService) {}
 
-  @Post('create')
+  @Post()
   create(@Body() createPurchaseDto: CreatePurchaseDto) {
     return this.purchasesService.create(createPurchaseDto);
   }
 
-  @Get('find-all')
+  @Get()
   findAll() {
     return this.purchasesService.findAll();
   }
@@ -30,7 +30,7 @@ export class PurchasesController {
     return this.purchasesService.findOne(id);
   }
 
-  @Patch('update/:id')
+  @Patch(':id')
   update(
     @Param('id') id: string,
     @Body() updatePurchaseDto: UpdatePurchaseDto,
@@ -38,7 +38,7 @@ export class PurchasesController {
     return this.purchasesService.update(id, updatePurchaseDto);
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   remove(@Param('id') id: string) {
     return this.purchasesService.remove(id);
   }

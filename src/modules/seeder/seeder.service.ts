@@ -378,7 +378,16 @@ export class SeederService implements OnModuleInit {
         action: 'sales_reports:export',
         description: 'Export sales reports',
       },
-
+      {
+        module: 'sales_reports',
+        action: 'sales_reports:exportExcel',
+        description: 'Export sales reports to excel',
+      },
+      {
+        module: 'sales_reports',
+        action: 'sales_reports:exportPdf',
+        description: 'Export sales reports to pdf',
+      },
       // AI Insight
       {
         module: 'ai_insight',
@@ -593,12 +602,6 @@ export class SeederService implements OnModuleInit {
         description: 'Owner with full system access',
       },
       {
-        name: 'super_admin',
-        code: 'super_admin',
-        self_registered: false,
-        description: 'Super Admin with full system access',
-      },
-      {
         name: 'developer',
         code: 'developer',
         self_registered: false,
@@ -621,18 +624,6 @@ export class SeederService implements OnModuleInit {
         code: 'cashier',
         self_registered: false,
         description: 'Cashier with sales and basic inventory access',
-      },
-      {
-        name: 'inventory_staff',
-        code: 'inventory_staff',
-        self_registered: false,
-        description: 'Inventory Staff with inventory management access',
-      },
-      {
-        name: 'accountant',
-        code: 'accountant',
-        self_registered: false,
-        description: 'Accountant with financial reports access',
       },
     ];
 

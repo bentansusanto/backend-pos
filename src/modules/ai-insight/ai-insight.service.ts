@@ -1,10 +1,8 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import Hashids from 'hashids';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Repository } from 'typeorm';
-import { Logger } from 'winston';
 import { AiJob, AiJobStatus } from '../ai-jobs/entities/ai-job.entity';
 import { Order } from '../orders/entities/order.entity';
 import { ProductBatch } from '../product-batches/entities/product-batch.entity';
@@ -15,7 +13,6 @@ import { AiInsight, InsightType } from './entities/ai-insight.entity';
 @Injectable()
 export class AiInsightService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     @InjectRepository(AiInsight)
     private readonly aiInsightRepository: Repository<AiInsight>,
     @InjectRepository(AiJob)
@@ -32,34 +29,21 @@ export class AiInsightService {
   ) {}
 
   async findAll(branchId: string) {
-    try {
-      return await this.aiInsightRepository.find({
-        where: { branch: { id: branchId } },
-        order: { createdAt: 'DESC' },
-      });
-    } catch (error) {
-      this.logger.error('Error finding all ai insights', error);
-      throw error;
-    }
+    return await this.aiInsightRepository.find({
+      where: { branch: { id: branchId } },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOne(id: string) {
-    try {
-      const insight = await this.aiInsightRepository.findOne({ where: { id } });
-      if (!insight) {
-        throw new HttpException('Insight not found', HttpStatus.NOT_FOUND);
-      }
-      return insight;
-    } catch (error) {
-      this.logger.error(`Error finding insight with id ${id}`, error);
-      throw error;
+    const insight = await this.aiInsightRepository.findOne({ where: { id } });
+    if (!insight) {
+      throw new HttpException('Insight not found', HttpStatus.NOT_FOUND);
     }
+    return insight;
   }
 
   async generateInsights(branchId: string, timeRange: string = 'monthly') {
-    this.logger.debug(
-      `Generating insights for branch ${branchId} with range ${timeRange}...`,
-    );
 
     const job = new AiJob();
     job.branch = { id: branchId } as any;
@@ -115,7 +99,6 @@ export class AiInsightService {
       job.result = [error.message];
       await this.aiJobRepository.save(job);
 
-      this.logger.error(`Error generating insights: ${error.message}`, error);
       throw error;
     }
   }
@@ -397,7 +380,6 @@ export class AiInsightService {
   private async callOpenAI(data: any) {
     const apiKey = this.configService.get('AI_API_KEY');
     if (!apiKey || apiKey === 'your_ai_api_key_here') {
-      this.logger.warn('AI_API_KEY not configured — running rule-based insight engine on real data.');
       return this.generateRuleBasedInsights(data);
     }
 
@@ -457,7 +439,6 @@ RULES:
       const firstArrayVal = Object.values(parsed).find((v) => Array.isArray(v));
       return firstArrayVal || this.generateRuleBasedInsights(data);
     } catch (error) {
-      this.logger.error('Failed to call AI API, falling back to rule-based engine', error);
       return this.generateRuleBasedInsights(data);
     }
   }
@@ -513,7 +494,7 @@ RULES:
         parseFloat(p.currentStock) > 0 && parseFloat(p.currentStock) <= parseFloat(p.minStock || 10);
       insights.push({
         type: 'best_seller',
-        summary: `${p.productName}${variantSuffix} — ${p.totalUnitsSold} unit terjual`,
+        summary: `${p.productName}${variantSuffix} — ${p.totalUnitsSold} units sold`,
         metadata: {
           product_name: p.productName,
           sku: p.sku || '-',
@@ -531,7 +512,7 @@ RULES:
       const isCritical = parseInt(s.currentStock) === 0;
       insights.push({
         type: 'low_stock_alert',
-        summary: `${s.productName}${variantSuffix} — Stok ${isCritical ? 'Habis' : 'Kritis'}: ${s.currentStock} tersisa`,
+        summary: `${s.productName}${variantSuffix} — Stock ${isCritical ? 'Out' : 'Critical'}: ${s.currentStock} remaining`,
         metadata: {
           product_name: s.productName,
           sku: s.sku || '-',
@@ -542,7 +523,7 @@ RULES:
       });
       insights.push({
         type: 'stock_suggestion',
-        summary: `Restock ${s.productName}${variantSuffix} — Prioritas ${isCritical ? 'Tinggi' : 'Sedang'}`,
+        summary: `Restock ${s.productName}${variantSuffix} — Priority ${isCritical ? 'High' : 'Medium'}`,
         metadata: {
           product_name: s.productName,
           sku: s.sku || '-',
@@ -562,7 +543,7 @@ RULES:
           : null;
       insights.push({
         type: 'slow_moving',
-        summary: `${p.productName}${variantSuffix} — Hanya ${p.totalUnitsSold} unit terjual, stok ${p.currentStock}`,
+        summary: `${p.productName}${variantSuffix} — Only ${p.totalUnitsSold} units sold, stock ${p.currentStock}`,
         metadata: {
           product_name: p.productName,
           sku: p.sku || '-',
@@ -573,7 +554,7 @@ RULES:
       });
       insights.push({
         type: 'promo_suggestion',
-        summary: `Promosikan ${p.productName}${variantSuffix} — Stok menumpuk`,
+        summary: `Promote ${p.productName}${variantSuffix} — Excess stock`,
         metadata: {
           product_name: p.productName,
           sku: p.sku || '-',
@@ -591,7 +572,7 @@ RULES:
       const variantSuffix = p.variantName !== p.productName ? ` (${p.variantName})` : '';
       insights.push({
         type: 'slow_moving',
-        summary: `${p.productName}${variantSuffix} — Tidak ada penjualan dalam periode ini (stok: ${p.currentStock})`,
+        summary: `${p.productName}${variantSuffix} — No sales in this period (stock: ${p.currentStock})`,
         metadata: {
           product_name: p.productName,
           sku: p.sku || '-',
@@ -611,7 +592,7 @@ RULES:
       const severity = daysLeft <= 7 ? 'critical' : daysLeft <= 14 ? 'warning' : 'info';
       insights.push({
         type: 'expiry_alert',
-        summary: `${b.productName}${variantSuffix} — Batch ${b.batchNumber || '-'} kadaluarsa dalam ${daysLeft} hari`,
+        summary: `${b.productName}${variantSuffix} — Batch ${b.batchNumber || '-'} expires in ${daysLeft} days`,
         metadata: {
           product_name: b.productName,
           batch_number: b.batchNumber || '-',
@@ -624,7 +605,7 @@ RULES:
       if (parseInt(b.currentQuantity || 0) > 0) {
         insights.push({
           type: 'promo_suggestion',
-          summary: `Flash Sale ${b.productName}${variantSuffix} — Batch kadaluarsa ${daysLeft} hari lagi`,
+          summary: `Flash Sale ${b.productName}${variantSuffix} — Batch expires in ${daysLeft} days`,
           metadata: {
             product_name: b.productName,
             sku: b.sku || '-',
@@ -643,7 +624,7 @@ RULES:
       const variantSuffix = m.variantName !== m.productName ? ` (${m.variantName})` : '';
       insights.push({
         type: 'anomaly_alert',
-        summary: `${m.productName}${variantSuffix} — ${m.referenceType}: ${Math.abs(m.qty)} unit berkurang (${m.date})`,
+        summary: `${m.productName}${variantSuffix} — ${m.referenceType}: ${Math.abs(m.qty)} units reduced (${m.date})`,
         metadata: {
           product_name: m.productName,
           sku: m.sku || '-',
@@ -653,8 +634,8 @@ RULES:
           reason: m.reason || null,
           severity: Math.abs(parseInt(m.qty || 0)) > 20 ? 'critical' : 'warning',
           message: m.reason
-            ? `Pengurangan stok (${m.referenceType}): ${m.reason}`
-            : `Pengurangan stok ${m.referenceType} tanpa keterangan — perlu investigasi`,
+            ? `Stock reduction (${m.referenceType}): ${m.reason}`
+            : `Stock reduction ${m.referenceType} without description — needs investigation`,
         },
       });
     }
@@ -664,7 +645,7 @@ RULES:
       const variantSuffix = p.variantName !== p.productName ? ` (${p.variantName})` : '';
       insights.push({
         type: 'promo_suggestion',
-        summary: `${p.productName}${variantSuffix} — Overstock: ${p.currentStock} unit, penjualan rendah`,
+        summary: `${p.productName}${variantSuffix} — Overstock: ${p.currentStock} units, low sales`,
         metadata: {
           product_name: p.productName,
           sku: p.sku || '-',

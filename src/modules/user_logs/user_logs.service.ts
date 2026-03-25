@@ -1,9 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { UserLogResponse } from 'src/types/response/user-log.type';
 import { Repository } from 'typeorm';
-import { Logger } from 'winston';
 import { ActionType, EntityType, UserLog } from './entities/user_log.entity';
 
 export interface LogActivityOptions {
@@ -22,7 +20,6 @@ export class UserLogsService {
   constructor(
     @InjectRepository(UserLog)
     private readonly userLogRepository: Repository<UserLog>,
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
   ) {}
 
   /**
@@ -57,7 +54,6 @@ export class UserLogsService {
         await this.userLogRepository.save(log);
       } catch (err) {
         // Never throw — logging failure must not affect business logic
-        this.logger.warn('UserLog write failed (non-critical)', err?.message);
       }
     });
   }

@@ -19,7 +19,7 @@ import { WebResponse } from 'src/types/response/index.type';
 export class TaxController {
   constructor(private readonly taxService: TaxService) {}
 
-  @Post('create')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createTaxDto: CreateTaxDto):Promise<WebResponse> {
     const result = await this.taxService.create(createTaxDto);
@@ -29,7 +29,7 @@ export class TaxController {
     };
   }
 
-  @Get('find-all')
+  @Get()
   @HttpCode(HttpStatus.OK)
   async findAll():Promise<WebResponse> {
     const result = await this.taxService.findAll();
@@ -49,7 +49,7 @@ export class TaxController {
     };
   }
 
-  @Put('update/:id')
+  @Put(':id')
   @HttpCode(HttpStatus.OK)
   async update(@Param('id') id: string, @Body() updateTaxDto: UpdateTaxDto):Promise<WebResponse> {
     const result = await this.taxService.update(id, updateTaxDto);
@@ -59,7 +59,7 @@ export class TaxController {
     };
   }
 
-  @Delete('delete/:id')
+  @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string):Promise<WebResponse> {
     const result = await this.taxService.remove(id);
