@@ -67,7 +67,7 @@ import { doubleCsrfProtection } from './common/config/csrf.config';
           synchronize: (configService.get<string>('NODE_ENV') || process.env.NODE_ENV) === 'development',
           ssl: false,
         };
-        
+
         console.log(`[DB DEBUG] Connecting to ${dbConfig.host} as user ${dbConfig.username}`);
         return dbConfig;
       },
