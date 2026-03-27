@@ -2,7 +2,8 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../orders/entities/order.entity';
-import { Payment } from '../payments/entities/payment.entity';
+import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
+import { Refund } from '../payments/entities/refund.entity';
 
 @Injectable()
 export class SalesReportsService {
@@ -11,6 +12,8 @@ export class SalesReportsService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(Refund)
+    private readonly refundRepository: Repository<Refund>,
   ) {}
 
   // Method untuk mendapatkan sales report berdasarkan filter
@@ -20,10 +23,12 @@ export class SalesReportsService {
     branchId?: string;
     paymentMethod?: string;
   }) {
-    // Build query untuk mendapatkan payment yang success dengan join manual ke order
+    // Build query for payments with status success or refunded
     let query = this.paymentRepository
       .createQueryBuilder('payment')
-      .where('payment.status = :status', { status: 'success' })
+      .where('payment.status IN (:...statuses)', {
+        statuses: [PaymentStatus.SUCCESS, PaymentStatus.REFUNDED],
+      })
       .andWhere('payment.paid_at IS NOT NULL')
       .orderBy('payment.paid_at', 'DESC');
 
@@ -50,8 +55,9 @@ export class SalesReportsService {
       return [];
     }
 
-    // Get all order IDs from payments
+    // Get all order IDs and payment IDs
     const orderIds = payments.map((p) => p.orderId);
+    const paymentIds = payments.map((p) => p.id);
 
     // Get orders with their relations
     const orders = await this.orderRepository
@@ -65,10 +71,20 @@ export class SalesReportsService {
       .leftJoinAndSelect('variant.product', 'product')
       .getMany();
 
-    // Create a map of orders by ID for easy lookup
+    // Get refund details
+    const refunds = await this.refundRepository.find({
+      where: paymentIds.map((pid) => ({ paymentId: pid })),
+    });
+
+    // Create lookup maps
     const ordersMap = new Map();
     orders.forEach((order) => {
       ordersMap.set(order.id, order);
+    });
+
+    const refundsMap = new Map();
+    refunds.forEach((refund) => {
+      refundsMap.set(refund.paymentId, refund);
     });
 
     // Apply branch filter after we have the orders
@@ -83,6 +99,8 @@ export class SalesReportsService {
     // Format data untuk response
     return filteredPayments.map((payment) => {
       const order = ordersMap.get(payment.orderId);
+      const refund = refundsMap.get(payment.id);
+      
       return {
         paymentId: payment.id,
         orderId: payment.orderId,
@@ -129,6 +147,8 @@ export class SalesReportsService {
           ? Number(order.discount_amount)
           : 0,
         totalAmount: Number(payment.amount),
+        refundReason: refund?.reason || null,
+        refundedAt: refund?.createdAt || null,
       };
     });
   }
@@ -142,7 +162,7 @@ export class SalesReportsService {
     const salesData = await this.getSalesReport(filters);
 
     const totalSales = salesData.reduce(
-      (sum, sale) => sum + (sale.amount || 0),
+      (sum: number, sale: any) => sum + (sale.status === PaymentStatus.SUCCESS ? (sale.amount || 0) : 0),
       0,
     );
     const totalTransactions = salesData.length;
@@ -196,7 +216,7 @@ export class SalesReportsService {
     }, {});
 
     const totalSales = salesData.reduce(
-      (sum, sale) => sum + (sale.amount || 0),
+      (sum: number, sale: any) => sum + (sale.status === PaymentStatus.SUCCESS ? (sale.amount || 0) : 0),
       0,
     );
     const totalTransactions = salesData.length;
@@ -236,7 +256,7 @@ export class SalesReportsService {
     }, {});
 
     const totalSales = salesData.reduce(
-      (sum, sale) => sum + (sale.amount || 0),
+      (sum: number, sale: any) => sum + (sale.status === PaymentStatus.SUCCESS ? (sale.amount || 0) : 0),
       0,
     );
     const totalTransactions = salesData.length;
@@ -275,7 +295,7 @@ export class SalesReportsService {
     }, {});
 
     const totalSales = salesData.reduce(
-      (sum, sale) => sum + (sale.amount || 0),
+      (sum: number, sale: any) => sum + (sale.status === PaymentStatus.SUCCESS ? (sale.amount || 0) : 0),
       0,
     );
     const totalTransactions = salesData.length;

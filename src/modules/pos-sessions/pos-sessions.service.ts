@@ -117,20 +117,34 @@ export class PosSessionsService {
       );
     }
 
-    // --- Calculate total sales from COMPLETED orders in this session ---
-    const completedOrdersForClose =
-      session.orders?.filter((o) => o.status === OrderStatus.COMPLETED) || [];
-    const totalSales = completedOrdersForClose.reduce(
-      (acc, o) =>
-        acc +
-        Number(o.subtotal || 0) +
-        Number(o.tax_amount || 0) -
-        Number(o.discount_amount || 0),
-      0,
-    );
+    // --- Calculate breakdown from verified payments in this session ---
+    const sessionOrderIds = (session.orders || []).map((o) => o.id);
+    let totalCashSales = 0;
+    let totalOtherSales = 0;
 
+    if (sessionOrderIds.length > 0) {
+      const payments = await this.paymentRepository.find({
+        where: sessionOrderIds.map((oid) => ({
+          orderId: oid,
+          status: PaymentStatus.SUCCESS,
+        })),
+      });
+      for (const p of payments) {
+        if (p.method === 'cash') {
+          totalCashSales += Number(p.amount);
+        } else {
+          totalOtherSales += Number(p.amount);
+        }
+      }
+    }
+
+    const totalSales = totalCashSales + totalOtherSales;
     const openingBal = Number(session.openingBalance || 0);
-    const expectedCash = openingBal + totalSales;
+
+    // Expected physical cash in drawer: opening balance + cash sales
+    const expectedCash = openingBal + totalCashSales;
+    // Total expected from all methods (for overall audit)
+    const totalExpectedAll = expectedCash + totalOtherSales;
 
     // --- Compute closing balance from cashier's payment declarations ---
     const declarations = closePosSessionDto.paymentDeclarations || [];
@@ -138,11 +152,11 @@ export class PosSessionsService {
       (sum, d) => sum + Number(d.declaredAmount || 0),
       0,
     );
-    const closingBal = openingBal + salesCollected;
-    const diff = closingBal - expectedCash;
+    const actualClosingBalAll = openingBal + salesCollected;
+    const diff = actualClosingBalAll - totalExpectedAll;
 
     session.endTime = new Date();
-    session.closingBalance = closingBal;
+    session.closingBalance = actualClosingBalAll;
     session.expected_cash = expectedCash;
     session.difference = diff;
     session.notes = closePosSessionDto.notes;
@@ -161,7 +175,7 @@ export class PosSessionsService {
         openingBalance: openingBal,
         totalSales: Number(totalSales.toFixed(2)),
         expected_cash: Number(expectedCash.toFixed(2)),
-        closingBalance: closingBal,
+        closingBalance: actualClosingBalAll,
         difference: Number(diff.toFixed(2)),
         paymentDeclarations: declarations,
         notes: saved.notes,

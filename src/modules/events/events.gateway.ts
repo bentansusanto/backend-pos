@@ -34,6 +34,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   broadcastStockUpdate(data: any) {
     this.server.emit('stock_updated', data);
   }
+  broadcastLoyaltyUpdate(data: any) {
+    this.server.emit('loyalty_updated', data);
+  }
 
   @SubscribeMessage('ping')
   handlePing(client: Socket, data: any) {

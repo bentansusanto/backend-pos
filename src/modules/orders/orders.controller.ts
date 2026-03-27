@@ -73,6 +73,20 @@ export class OrdersController {
     };
   }
 
+  @Post(':id/refund')
+  @HttpCode(HttpStatus.OK)
+  async refundOrder(
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ): Promise<WebResponse> {
+    const defaultReason = reason || 'Customer requested refund';
+    const result = await this.ordersService.refundOrder(id, defaultReason);
+    return {
+      message: result.message ?? 'Order refunded successfully',
+      data: result.data,
+    };
+  }
+
   @Put(':id/items/:orderItemId/quantity')
   @HttpCode(HttpStatus.OK)
   async updateQuantity(

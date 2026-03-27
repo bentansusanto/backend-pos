@@ -181,7 +181,7 @@ export class PaymentsService {
         // Load order and ensure it is still pending
         const order = await orderRepo.findOne({
           where: { id: payment.orderId },
-          relations: ['items', 'items.variant', 'branch', 'posSession', 'user'],
+          relations: ['items', 'items.variant', 'branch', 'posSession', 'user', 'customer', 'promotion', 'promotion.rules'],
         });
         if (!order) {
           throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
@@ -191,6 +191,33 @@ export class PaymentsService {
             'Order status is not pending',
             HttpStatus.BAD_REQUEST,
           );
+        }
+
+        // --- Manage loyalty points if customer exists ---
+        if (order.customer) {
+          // 1. Deduct points if a MIN_LOYALTY_POINTS promotion was used
+          if (order.promotion && order.promotion.rules) {
+            const loyaltyRule = order.promotion.rules.find((r: any) => r.conditionType === 'MIN_LOYALTY_POINTS');
+            if (loyaltyRule && loyaltyRule.conditionValue?.minLoyaltyPoints) {
+              const pointsToDeduct = Number(loyaltyRule.conditionValue.minLoyaltyPoints);
+              order.customer.loyalPoints = Math.max(0, (Number(order.customer.loyalPoints) || 0) - pointsToDeduct);
+            }
+          }
+
+          // 2. Award new points based on the payment amount
+          const pointsToEarn = Math.floor(Number(payment.amount || 0) / 10);
+          if (pointsToEarn > 0) {
+            order.customer.loyalPoints = (Number(order.customer.loyalPoints) || 0) + pointsToEarn;
+          }
+
+          // Save customer and broadcast update
+          await manager.save(order.customer);
+          
+          // Broadcast real-time loyalty update
+          this.eventsGateway.broadcastLoyaltyUpdate({
+            customerId: order.customer.id,
+            newPoints: order.customer.loyalPoints,
+          });
         }
 
         // Decrease stock per order item and record movements

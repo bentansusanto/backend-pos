@@ -10,6 +10,7 @@ import { EventsModule } from '../events/events.module';
 import { SalesReportsModule } from '../sales-reports/sales-reports.module';
 import { StockMovement } from '../stock-movements/entities/stock-movement.entity';
 import { Payment } from './entities/payment.entity';
+import { Refund } from './entities/refund.entity';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 
@@ -17,7 +18,7 @@ import { PaymentsService } from './payments.service';
   controllers: [PaymentsController],
   providers: [PaymentsService],
   imports: [
-    TypeOrmModule.forFeature([Payment, StockMovement, ProductStock, Order]),
+    TypeOrmModule.forFeature([Payment, Refund, StockMovement, ProductStock, Order]),
     OrdersModule,
     PosSessionsModule,
     SalesReportsModule,

@@ -1,5 +1,6 @@
 import Hashids from 'hashids';
 import { Order } from 'src/modules/orders/entities/order.entity';
+import { User } from 'src/modules/rbac/users/entities/user.entity';
 import {
   BeforeInsert,
   Column,
@@ -10,22 +11,10 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Payment } from './payment.entity';
 
-export enum PaymentStatus {
-  PENDING = 'pending',
-  SUCCESS = 'success',
-  FAILED = 'failed',
-  REFUNDED = 'refunded',
-}
-
-export enum PaymentMethod {
-  CASH = 'cash',
-  CREDIT_CARD = 'credit_card',
-  STRIPE = 'stripe',
-}
-
-@Entity('payments')
-export class Payment {
+@Entity('refunds')
+export class Refund {
   @PrimaryColumn()
   id: string;
 
@@ -43,29 +32,12 @@ export class Payment {
   @JoinColumn({ name: 'orderId' })
   order: Order;
 
-  @Column({
-    type: 'enum',
-    enum: PaymentStatus,
-    default: PaymentStatus.PENDING,
-  })
-  status: PaymentStatus;
+  @Column()
+  paymentId: string;
 
-  @Column({
-    type: 'enum',
-    enum: PaymentMethod,
-    default: PaymentMethod.CASH,
-  })
-  method: PaymentMethod;
-
-  @Column({
-    nullable: true,
-  })
-  externalId: string;
-
-  @Column({
-    nullable: true,
-  })
-  reference_number: string;
+  @ManyToOne(() => Payment)
+  @JoinColumn({ name: 'paymentId' })
+  payment: Payment;
 
   @Column({
     type: 'decimal',
@@ -79,10 +51,15 @@ export class Payment {
   })
   amount: number;
 
-  @Column({
-    nullable: true,
-  })
-  paid_at: Date;
+  @Column({ type: 'text', nullable: true })
+  reason: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'refunded_by' })
+  refundedBy: User;
+
+  @Column({ nullable: true })
+  stripeRefundId: string;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -232,6 +232,11 @@ export class SeederService implements OnModuleInit {
         action: 'orders:delete',
         description: 'Delete orders',
       },
+      {
+        module: 'orders',
+        action: 'orders:refundOrder',
+        description: 'Refund order',
+      },
 
       // Payments
       {

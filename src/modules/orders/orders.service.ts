@@ -18,6 +18,11 @@ import { OrderItem } from './entities/order-item.entity';
 import { Order, OrderStatus } from './entities/order.entity';
 import { StockTake, StockTakeStatus } from '../stock-takes/entities/stock-take.entity';
 import { Promotion } from '../promotions/entities/promotion.entity';
+import { EventsGateway } from '../events/events.gateway';
+import { Payment, PaymentStatus, PaymentMethod } from '../payments/entities/payment.entity';
+import { Refund } from '../payments/entities/refund.entity';
+import { StockMovement, ReferenceType } from '../stock-movements/entities/stock-movement.entity';
+import Stripe from 'stripe';
 
 @Injectable()
 export class OrdersService {
@@ -40,6 +45,7 @@ export class OrdersService {
     private readonly promotionRepository: Repository<Promotion>,
     private readonly userLogsService: UserLogsService,
     private readonly posSessionsService: PosSessionsService,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   private async getActiveTaxRate(): Promise<number> {
@@ -68,7 +74,7 @@ export class OrdersService {
     };
   }
 
-  private calculatePromotionDiscount(items: OrderItem[], subtotal: number, promotion: Promotion): number {
+  private calculatePromotionDiscount(items: OrderItem[], subtotal: number, promotion: Promotion, customer?: Customer): number {
     if (!promotion || !promotion.rules || promotion.rules.length === 0) return 0;
 
     // For now, evaluate the first rule
@@ -98,6 +104,9 @@ export class OrdersService {
       if (totalQty < Number(rule.conditionValue?.minQty || 0)) conditionMet = false;
     } else if (rule.conditionType === 'MIN_SPEND') {
       if (conditionSubtotal < Number(rule.conditionValue?.minSpend || 0)) conditionMet = false;
+    } else if (rule.conditionType === 'MIN_LOYALTY_POINTS') {
+      const customerLoyalty = Number(customer?.loyalPoints || 0);
+      if (customerLoyalty < Number(rule.conditionValue?.minLoyaltyPoints || 0)) conditionMet = false;
     } else if (rule.conditionType === 'ALWAYS_TRUE') {
       // If targets are specified, we should have at least one eligible item
       if ((hasConditionVariantTarget || hasConditionCategoryTarget) && eligibleConditionItems.length === 0) {
@@ -507,9 +516,19 @@ export class OrdersService {
           }
         }
 
+        // Ensure customer is updated in the object for calculation if provided in the DTO
+        if (createOrderDto.customer_id) {
+          const customer = await manager.getRepository(Customer).findOne({
+            where: { id: createOrderDto.customer_id },
+          });
+          if (customer) {
+            existingOrder.customer = customer;
+          }
+        }
+
         let updatedDiscountAmount = existingOrder.discount_amount ?? 0;
         if (existingOrder.promotion && existingOrder.promotion.rules) {
-          updatedDiscountAmount = this.calculatePromotionDiscount(mergedItems, subtotal, existingOrder.promotion);
+          updatedDiscountAmount = this.calculatePromotionDiscount(mergedItems, subtotal, existingOrder.promotion, existingOrder.customer);
         }
 
         // Step 5b: Ensure session is linked if missing but active session exists
@@ -747,6 +766,8 @@ export class OrdersService {
       });
       if (customer) {
         updateData.customer = { id: customer.id };
+        // Update the order object in memory so discount calculation uses the new customer
+        order.customer = customer;
       }
     }
 
@@ -766,7 +787,7 @@ export class OrdersService {
           ],
         });
         if (promotion) {
-          const discountAmount = this.calculatePromotionDiscount(order.items || [], order.subtotal, promotion);
+          const discountAmount = this.calculatePromotionDiscount(order.items || [], order.subtotal, promotion, order.customer);
           updateData.promotion = { id: promotion.id };
           updateData.discount_amount = discountAmount;
         }
@@ -905,7 +926,7 @@ export class OrdersService {
     order.tax_amount = order.subtotal * taxRate;
 
     if (order.promotion && order.promotion.rules) {
-      order.discount_amount = this.calculatePromotionDiscount(order.items, order.subtotal, order.promotion);
+      order.discount_amount = this.calculatePromotionDiscount(order.items, order.subtotal, order.promotion, order.customer);
     }
 
     const savedOrder = await this.orderRepository.save(order);
@@ -1007,7 +1028,7 @@ export class OrdersService {
 
     let newDiscountAmount = order.discount_amount ?? 0;
     if (order.promotion && order.promotion.rules) {
-      newDiscountAmount = this.calculatePromotionDiscount(remainingItems, newSubtotal, order.promotion);
+      newDiscountAmount = this.calculatePromotionDiscount(remainingItems, newSubtotal, order.promotion, order.customer);
     }
 
     // Use QueryBuilder to update the order totals WITHOUT touching items relation (prevents cascade re-insert)
@@ -1074,4 +1095,154 @@ export class OrdersService {
       description: `Order ${id} deleted`,
     });
   }
+
+  async refundOrder(id: string, reason: string): Promise<OrderResponse> {
+    const order = await this.orderRepository.findOne({
+      where: { id },
+      relations: [
+        'items',
+        'items.variant',
+        'items.variant.product',
+        'customer',
+        'branch',
+        'user',
+        'promotion',
+        'promotion.rules'
+      ],
+    });
+
+    if (!order) {
+      throw new HttpException(
+        errOrderMessage.ERR_GET_ORDER,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (order.status !== OrderStatus.COMPLETED) {
+      throw new HttpException(
+        'Only completed orders can be refunded',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const result = await this.orderRepository.manager.transaction(async (manager) => {
+      // 1. Mark order as refunded
+      order.status = OrderStatus.REFUNDED;
+      order.notes = order.notes ? `${order.notes}\nRefund Reason: ${reason}` : `Refund Reason: ${reason}`;
+      await manager.save(order);
+
+      // 2. Process Payment Refund
+      const paymentRepo = manager.getRepository(Payment);
+      const payment = await paymentRepo.findOne({
+        where: { orderId: order.id, status: PaymentStatus.SUCCESS }
+      });
+      
+      if (payment) {
+        payment.status = PaymentStatus.REFUNDED;
+        await manager.save(payment);
+
+        // Create structured Refund record
+        const refundRepo = manager.getRepository(Refund);
+        const refund = refundRepo.create({
+          order: { id: order.id },
+          payment: { id: payment.id },
+          amount: Number(payment.amount || 0),
+          reason: reason,
+          refundedBy: order.user ? { id: order.user.id } : undefined,
+        });
+        
+        if (payment.method === PaymentMethod.STRIPE && payment.externalId) {
+          try {
+            const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2024-06-20' as any });
+            const stripeRefund = await stripe.refunds.create({ payment_intent: payment.externalId });
+            refund.stripeRefundId = stripeRefund.id;
+          } catch (e) {
+            console.error('Stripe SDK Error during refund:', e);
+          }
+        }
+
+        await manager.save(refund);
+      }
+
+      // 3. Return Stock & Create Movements
+      const stockRepo = manager.getRepository(ProductStock);
+      const movementRepo = manager.getRepository(StockMovement);
+      const branchId = order.branch?.id;
+
+      for (const item of order.items || []) {
+        if (!item.variant?.id) continue;
+        const qty = Number(item.quantity || 0);
+        if (qty <= 0) continue;
+
+        const productStocks = await stockRepo.find({
+          where: { productVariant: { id: item.variant.id }, ...(branchId ? { branch: { id: branchId } } : {}) },
+          relations: ['productVariant', 'branch']
+        });
+        
+        let targetStock = productStocks.length > 0 ? productStocks[0] : null;
+        if (targetStock) {
+          targetStock.stock += qty;
+          targetStock.updatedAt = new Date();
+          await manager.save(targetStock);
+        }
+
+        const movement = movementRepo.create({
+          productVariant: { id: item.variant.id },
+          branch: branchId ? { id: branchId } : undefined,
+          referenceType: ReferenceType.RETURN_SALE,
+          qty: qty,
+          referenceId: order.id,
+          reason: `Refund: ${reason}`,
+        });
+        await manager.save(movement);
+        
+        this.eventsGateway.broadcastStockUpdate({
+          variantId: item.variant.id,
+          branchId: targetStock?.branch?.id ?? branchId ?? '',
+          newStock: targetStock ? targetStock.stock : 0,
+        });
+      }
+
+      // 4. Adjust Loyalty Points
+      if (order.customer && payment) {
+        let pointsToDeduct = Math.floor(Number(payment.amount || 0) / 10);
+        let pointsToReturn = 0;
+        
+        if (order.promotion && order.promotion.rules) {
+          const loyaltyRule = order.promotion.rules.find((r: any) => r.conditionType === 'MIN_LOYALTY_POINTS');
+          if (loyaltyRule && loyaltyRule.conditionValue?.minLoyaltyPoints) {
+            pointsToReturn = Number(loyaltyRule.conditionValue.minLoyaltyPoints);
+          }
+        }
+
+        order.customer.loyalPoints = Math.max(0, (Number(order.customer.loyalPoints) || 0) - pointsToDeduct + pointsToReturn);
+        await manager.save(order.customer);
+        
+        this.eventsGateway.broadcastLoyaltyUpdate({
+          customerId: order.customer.id,
+          newPoints: order.customer.loyalPoints,
+        });
+      }
+
+      return order;
+    });
+
+    this.userLogsService.log({
+      userId: order.user?.id || '',
+      action: ActionType.UPDATE,
+      entityType: EntityType.SALE,
+      entityId: order.id,
+      description: `Order ${order.invoice_number} refunded: ${reason}`,
+    });
+
+    return {
+      message: 'Order refunded successfully',
+      data: {
+        id: result.id,
+        invoice_number: result.invoice_number,
+        status: result.status,
+      } as any
+    };
+  }
 }
+

@@ -8,6 +8,7 @@ import { ProductVariant } from '../products/entities/product-variant.entity';
 import { Product } from '../products/entities/product.entity';
 import { Tax } from '../tax/entities/tax.entity';
 import { Promotion } from '../promotions/entities/promotion.entity';
+import { Refund } from '../payments/entities/refund.entity';
 import { UserLogsModule } from '../user_logs/user_logs.module';
 import { OrderItem } from './entities/order-item.entity';
 import { Order } from './entities/order.entity';
@@ -28,6 +29,7 @@ import { OrdersService } from './orders.service';
       Tax,
       StockTake,
       Promotion,
+      Refund,
     ]),
     UserLogsModule,
     PosSessionsModule,
