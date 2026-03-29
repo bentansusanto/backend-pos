@@ -16,14 +16,14 @@ export class AiInsightController {
 
   @Post('generate')
   async generate(
-    @Body() body: { branchId?: string; timeRange?: string },
+    @Body() body: { branchId?: string; timeRange?: string; force?: boolean },
     @CurrentBranchId() headerBranchId?: string,
   ) {
     const branchId = body.branchId || headerBranchId;
     if (!branchId) {
       throw new BadRequestException('branchId is required');
     }
-    return this.aiInsightService.generateInsights(branchId, body.timeRange);
+    return this.aiInsightService.generateInsights(branchId, body.timeRange, body.force);
   }
 
   @Get()

@@ -104,6 +104,7 @@ export class SalesReportsService {
       return {
         paymentId: payment.id,
         orderId: payment.orderId,
+        invoiceNumber: order?.invoice_number || payment.orderId,
         amount: payment.amount ? Number(payment.amount) : 0,
         paymentMethod: payment.method,
         status: payment.status,
@@ -149,6 +150,7 @@ export class SalesReportsService {
         totalAmount: Number(payment.amount),
         refundReason: refund?.reason || null,
         refundedAt: refund?.createdAt || null,
+        stripeRefundId: refund?.stripeRefundId || null,
       };
     });
   }
@@ -159,7 +161,15 @@ export class SalesReportsService {
     endDate?: Date;
     branchId?: string;
   }) {
-    const salesData = await this.getSalesReport(filters);
+    // Default to last 30 days if no startDate is provided
+    const effectiveFilters = { ...filters };
+    if (!effectiveFilters.startDate) {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      effectiveFilters.startDate = thirtyDaysAgo;
+    }
+
+    const salesData = await this.getSalesReport(effectiveFilters);
 
     const totalSales = salesData.reduce(
       (sum: number, sale: any) => sum + (sale.status === PaymentStatus.SUCCESS ? (sale.amount || 0) : 0),
@@ -177,10 +187,12 @@ export class SalesReportsService {
     );
     const totalCustomers = uniqueCustomerIds.size;
 
-    // Group by payment method
+    // Group by payment method (only SUCCESS)
     const paymentMethodSummary = salesData.reduce((acc, sale) => {
-      const method = sale.paymentMethod || 'unknown';
-      acc[method] = (acc[method] || 0) + (sale.amount || 0);
+      if (sale.status === PaymentStatus.SUCCESS) {
+        const method = sale.paymentMethod || 'unknown';
+        acc[method] = (acc[method] || 0) + (sale.amount || 0);
+      }
       return acc;
     }, {});
 
@@ -205,13 +217,15 @@ export class SalesReportsService {
       branchId,
     });
 
-    // Group by day
+    // Group by day (only SUCCESS)
     const dailySales = salesData.reduce((acc, sale) => {
-      const day =
-        sale.paidAt instanceof Date && !isNaN(sale.paidAt.getTime())
-          ? sale.paidAt.toISOString().split('T')[0]
-          : 'unknown';
-      acc[day] = (acc[day] || 0) + (sale.amount || 0);
+      if (sale.status === PaymentStatus.SUCCESS) {
+        const day =
+          sale.paidAt instanceof Date && !isNaN(sale.paidAt.getTime())
+            ? sale.paidAt.toISOString().split('T')[0]
+            : 'unknown';
+        acc[day] = (acc[day] || 0) + (sale.amount || 0);
+      }
       return acc;
     }, {});
 
@@ -245,13 +259,15 @@ export class SalesReportsService {
       branchId,
     });
 
-    // Group by day
+    // Group by day (only SUCCESS)
     const dailySales = salesData.reduce((acc, sale) => {
-      const day =
-        sale.paidAt instanceof Date && !isNaN(sale.paidAt.getTime())
-          ? sale.paidAt.toISOString().split('T')[0]
-          : 'unknown';
-      acc[day] = (acc[day] || 0) + (sale.amount || 0);
+      if (sale.status === PaymentStatus.SUCCESS) {
+        const day =
+          sale.paidAt instanceof Date && !isNaN(sale.paidAt.getTime())
+            ? sale.paidAt.toISOString().split('T')[0]
+            : 'unknown';
+        acc[day] = (acc[day] || 0) + (sale.amount || 0);
+      }
       return acc;
     }, {});
 
@@ -285,12 +301,14 @@ export class SalesReportsService {
       branchId,
     });
 
-    // Group by month
+    // Group by month (only SUCCESS)
     const monthlySales = salesData.reduce((acc, sale) => {
-      const month = sale.paidAt
-        ? sale.paidAt.toISOString().substring(0, 7)
-        : 'unknown'; // YYYY-MM
-      acc[month] = (acc[month] || 0) + (sale.amount || 0);
+      if (sale.status === PaymentStatus.SUCCESS) {
+        const month = sale.paidAt
+          ? sale.paidAt.toISOString().substring(0, 7)
+          : 'unknown'; // YYYY-MM
+        acc[month] = (acc[month] || 0) + (sale.amount || 0);
+      }
       return acc;
     }, {});
 

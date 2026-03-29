@@ -7,6 +7,7 @@ import { Branch } from '../branches/entities/branch.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
 import { Supplier } from '../supplier/entities/supplier.entity';
 import { PurchaseReceiving } from '../purchase_receivings/entities/purchase_receiving.entity';
+import { StockMovement } from '../stock-movements/entities/stock-movement.entity';
 
 @Module({
   imports: [
@@ -15,8 +16,10 @@ import { PurchaseReceiving } from '../purchase_receivings/entities/purchase_rece
       Branch,
       ProductVariant,
       Supplier,
-      PurchaseReceiving
-    ])
+      PurchaseReceiving,
+      // StockMovement is required for recording FEFO deductions, disposals, and movement history
+      StockMovement,
+    ]),
   ],
   controllers: [ProductBatchesController],
   providers: [ProductBatchesService],

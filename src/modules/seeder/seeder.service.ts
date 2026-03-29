@@ -189,6 +189,11 @@ export class SeederService implements OnModuleInit {
         action: 'product_batches:delete',
         description: 'Delete product batches',
       },
+      {
+        module: 'product_batches',
+        action: 'product_batches:dispose',
+        description: 'Dispose product batches',
+      },
       // Stock Movements
       {
         module: 'stock_movements',
@@ -236,6 +241,16 @@ export class SeederService implements OnModuleInit {
         module: 'orders',
         action: 'orders:refundOrder',
         description: 'Refund order',
+      },
+      {
+        module: 'orders',
+        action: 'orders:updateQuantity',
+        description: 'Update order item quantity',
+      },
+      {
+        module: 'orders',
+        action: 'orders:deleteOrderItems',
+        description: 'Delete order items',
       },
 
       // Payments
@@ -571,6 +586,75 @@ export class SeederService implements OnModuleInit {
         action: 'expense_categories:delete',
         description: 'Delete expense categories',
       },
+      // Taxes
+      {
+        module: 'tax',
+        action: 'tax:create',
+        description: 'Create taxes',
+      },
+      {
+        module: 'tax',
+        action: 'tax:read',
+        description: 'View taxes',
+      },
+      {
+        module: 'tax',
+        action: 'tax:update',
+        description: 'Update taxes',
+      },
+      {
+        module: 'tax',
+        action: 'tax:delete',
+        description: 'Delete taxes',
+      },
+      // User Logs
+      {
+        module: 'user_logs',
+        action: 'user_logs:read',
+        description: 'View activity logs',
+      },
+      // Stock Takes (General)
+      {
+        module: 'stock_takes',
+        action: 'stock_takes:read',
+        description: 'View stock take history',
+      },
+      // UI View Permissions (Specially for Sidebar filtering)
+      {
+        module: 'ui',
+        action: 'inventory:view',
+        description: 'Access inventory management menu',
+      },
+      {
+        module: 'ui',
+        action: 'marketing:view',
+        description: 'Access marketing and promotion menu',
+      },
+      {
+        module: 'ui',
+        action: 'finance:view',
+        description: 'Access finance and expenses menu',
+      },
+      {
+        module: 'ui',
+        action: 'purchasing:view',
+        description: 'Access purchasing and receiving menu',
+      },
+      {
+        module: 'ui',
+        action: 'reports:view',
+        description: 'Access reports and analytics menu',
+      },
+      {
+        module: 'ui',
+        action: 'pos_log:view',
+        description: 'Access POS activity logs menu',
+      },
+      {
+        module: 'ui',
+        action: 'system:view',
+        description: 'Access system settings and user management menu',
+      },
     ];
 
     for (const perm of permissions) {
@@ -714,29 +798,33 @@ export class SeederService implements OnModuleInit {
       console.log(`  ✓ Assigned permissions to branch_manager`);
     }
 
-    // Cashier - Sales and basic operations
+    // Cashier - Sales and basic operations (Restricted Sidebar)
     if (cashier) {
       const cashierPermissions = allPermissions.filter(
         (p) =>
-          p.action === 'dashboard:view' ||
+          // p.action === 'dashboard:view' ||  <-- Removed as requested
           (p.action.startsWith('products:') && p.action.includes('read')) ||
           (p.action.startsWith('variants:') && p.action.includes('read')) ||
           (p.action.startsWith('orders:') &&
-            ['create', 'read', 'update'].some((a) => p.action.endsWith(a))) ||
+            ['create', 'read', 'update', 'delete', 'refundOrder', 'updateQuantity', 'deleteOrderItems'].some((a) => p.action.endsWith(a))) ||
           (p.action.startsWith('product_stocks:') &&
             p.action.endsWith('read')) ||
           (p.action.startsWith('customers:') &&
             ['create', 'read', 'update', 'delete'].some((a) =>
               p.action.endsWith(a),
             )) ||
-          (p.action.startsWith('payments:') && ['create', 'read']) ||
+          (p.action.startsWith('payments:') && ['create', 'read'].some((a) => p.action.endsWith(a))) ||
+          (p.action.startsWith('pos_sessions:') && ['read', 'openSession', 'closeSession'].some((a) => p.action.endsWith(a))) ||
+          p.action === 'branches:read' ||
+          p.action === 'categories:read' ||
+          p.action === 'taxes:read' ||
+          p.action === 'users:read' ||
           p.action === 'stock_takes:check_frozen' ||
           p.action === 'promotions:read',
       );
-      for (const permission of cashierPermissions) {
-        await this.assignPermissionToRole(cashier.id, permission.id);
-      }
-      console.log(`  ✓ Assigned permissions to cashier`);
+      const cashierPermissionIds = cashierPermissions.map((p) => p.id);
+      await this.syncRolePermissions(cashier.id, cashierPermissionIds);
+      console.log(`  ✓ Synced permissions for cashier`);
     }
 
     // Inventory Staff - Inventory management
@@ -748,7 +836,8 @@ export class SeederService implements OnModuleInit {
             ['create', 'read', 'update'].some((a) => p.action.endsWith(a))) ||
           p.action.startsWith('product_stocks:') ||
           p.action.startsWith('stock_movements:') ||
-          p.action === 'reports:inventory',
+          p.action === 'reports:inventory' ||
+          p.action === 'inventory:view',
       );
       for (const permission of inventoryPermissions) {
         await this.assignPermissionToRole(inventoryStaff.id, permission.id);
@@ -762,7 +851,9 @@ export class SeederService implements OnModuleInit {
         (p) =>
           p.action.startsWith('dashboard:') ||
           (p.action.startsWith('orders:') && p.action.endsWith('read')) ||
-          p.action.startsWith('reports:'),
+          p.action.startsWith('reports:') ||
+          p.action === 'reports:view' ||
+          p.action === 'finance:view',
       );
       for (const permission of accountantPermissions) {
         await this.assignPermissionToRole(accountant.id, permission.id);
@@ -771,6 +862,44 @@ export class SeederService implements OnModuleInit {
     }
 
     console.log('✅ Role-permission mappings seeded');
+  }
+
+  private async syncRolePermissions(roleId: string, permissionIds: string[]) {
+    // Delete all existing permissions for this role that are not in the new list
+    // Actually, for simplicity and ensuring strictness, we'll clear and re-add 
+    // but a more performant way is to delete only what's not in the list.
+    
+    // Get current assignments
+    const currentAssignments = await this.rolePermissionRepository.find({
+      where: { role: { id: roleId } },
+      relations: ['permission'],
+    });
+
+    const currentPtrs = currentAssignments.map((a) => a.permission.id);
+    const toDelete = currentAssignments.filter((a) => !permissionIds.includes(a.permission.id));
+    const toAdd = permissionIds.filter((id) => !currentPtrs.includes(id));
+
+    if (toDelete.length > 0) {
+      await this.rolePermissionRepository.remove(toDelete);
+      console.log(`  - Removed ${toDelete.length} permissions from role ${roleId}`);
+    }
+
+    for (const permissionId of toAdd) {
+      const role = await this.roleRepository.findOne({ where: { id: roleId } });
+      const permission = await this.permissionRepository.findOne({
+        where: { id: permissionId },
+      });
+
+      const rolePermission = this.rolePermissionRepository.create({
+        role,
+        permission,
+      });
+      await this.rolePermissionRepository.save(rolePermission);
+    }
+    
+    if (toAdd.length > 0) {
+      console.log(`  + Added ${toAdd.length} permissions to role ${roleId}`);
+    }
   }
 
   private async assignPermissionToRole(roleId: string, permissionId: string) {

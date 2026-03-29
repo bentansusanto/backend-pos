@@ -9,6 +9,9 @@ import { ProductBatch } from '../product-batches/entities/product-batch.entity';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { StockMovement, ReferenceType } from '../stock-movements/entities/stock-movement.entity';
 import { AiInsight, InsightType } from './entities/ai-insight.entity';
+import { PosSession } from '../pos-sessions/entities/pos-session.entity';
+import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
+import { Refund } from '../payments/entities/refund.entity';
 
 @Injectable()
 export class AiInsightService {
@@ -25,6 +28,12 @@ export class AiInsightService {
     private readonly stockMovementRepository: Repository<StockMovement>,
     @InjectRepository(ProductBatch)
     private readonly productBatchRepository: Repository<ProductBatch>,
+    @InjectRepository(PosSession)
+    private readonly posSessionRepository: Repository<PosSession>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Refund)
+    private readonly refundRepository: Repository<Refund>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -43,10 +52,27 @@ export class AiInsightService {
     return insight;
   }
 
-  async generateInsights(branchId: string, timeRange: string = 'monthly') {
+  async generateInsights(branchId: string, timeRange: string = 'monthly', force: boolean = false) {
+    const isDevelopment = (this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV) === 'development';
 
     const job = new AiJob();
     job.branch = { id: branchId } as any;
+
+    // Check for recent generation (cooldown of 12 hours for production)
+    const lastSummary = await this.aiInsightRepository.findOne({
+      where: { branch: { id: branchId }, type: InsightType.REPORT_SUMMARY },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!force && !isDevelopment && lastSummary && (Date.now() - new Date(lastSummary.createdAt).getTime() < 12 * 60 * 60 * 1000)) { // 12 hours
+      console.log(`[AI] Skipping generation for branch ${branchId} due to 12h cooldown.`);
+      return {
+        success: true,
+        message: 'Insights were recently generated. Using existing data.',
+        data: lastSummary.metadata,
+      };
+    }
+
     job.status = AiJobStatus.PENDING;
     job.payload = [`Generate Insights (${timeRange})`];
     job.generateId();
@@ -59,8 +85,9 @@ export class AiInsightService {
       // 1. Gather rich, contextual data
       const salesData = await this.getSalesData(branchId, timeRange);
       const stockData = await this.getStockData(branchId, timeRange);
-      const anomalyData = await this.getAnomalyData(branchId, timeRange);
+      const stockAnomalyData = await this.getAnomalyData(branchId, timeRange);
       const expiryData = await this.getExpiryData(branchId);
+      const operationalAnomalyData = await this.getOperationalAnomalies(branchId, timeRange);
 
       const promptData = {
         time_range: timeRange,
@@ -75,7 +102,8 @@ export class AiInsightService {
         // Expiry intelligence
         batches_expiring_soon: expiryData.expiringSoon,
         // Anomaly intelligence
-        stock_anomalies: anomalyData.suspiciousMovements,
+        stock_anomalies: stockAnomalyData.suspiciousMovements,
+        operational_anomalies: operationalAnomalyData,
       };
 
       // 2. Call AI (or rule-based fallback)
@@ -142,23 +170,24 @@ export class AiInsightService {
         break;
     }
 
-    // Daily revenue trend
-    const dailySales = await this.orderRepository
-      .createQueryBuilder('order')
-      .select("TO_CHAR(order.createdAt, 'YYYY-MM-DD')", 'date')
-      .addSelect('SUM(order.subtotal)', 'totalRevenue')
-      .addSelect('COUNT(order.id)', 'totalOrders')
-      .where('order.branch_id = :branchId', { branchId })
-      .andWhere('order.createdAt >= :startDate', { startDate })
-      .andWhere("order.status = 'completed'")
-      .groupBy("TO_CHAR(order.createdAt, 'YYYY-MM-DD')")
+    // Daily revenue trend (using Payment table for accuracy with dashboard)
+    const dailySales = await this.paymentRepository
+      .createQueryBuilder('pay')
+      .select("TO_CHAR(pay.paid_at, 'YYYY-MM-DD')", 'date')
+      .addSelect('SUM(pay.amount)', 'totalRevenue')
+      .addSelect('COUNT(pay.id)', 'totalOrders')
+      .innerJoin('pay.order', 'ord')
+      .where('ord.branch_id = :branchId', { branchId })
+      .andWhere('pay.paid_at >= :startDate', { startDate })
+      .andWhere('pay.status = :status', { status: PaymentStatus.SUCCESS })
+      .groupBy("TO_CHAR(pay.paid_at, 'YYYY-MM-DD')")
       .orderBy('date', 'ASC')
       .getRawMany();
 
     // Top-selling products with current stock context
     const topProducts = await this.orderRepository
-      .createQueryBuilder('order')
-      .innerJoin('order.items', 'item')
+      .createQueryBuilder('ord')
+      .innerJoin('ord.items', 'item')
       .innerJoin('item.variant', 'variant')
       .innerJoin('variant.product', 'product')
       .leftJoin(
@@ -174,9 +203,9 @@ export class AiInsightService {
       .addSelect('SUM(item.subtotal)', 'totalRevenue')
       .addSelect('MAX(stock.stock)', 'currentStock')
       .addSelect('MAX(stock.minStock)', 'minStock')
-      .where('order.branch_id = :branchId', { branchId })
-      .andWhere('order.createdAt >= :startDate', { startDate })
-      .andWhere("order.status = 'completed'")
+      .where('ord.branch_id = :branchId', { branchId })
+      .andWhere('ord.createdAt >= :startDate', { startDate })
+      .andWhere("ord.status = 'completed'")
       .groupBy('product.name_product')
       .addGroupBy('variant.name_variant')
       .addGroupBy('variant.sku')
@@ -186,8 +215,8 @@ export class AiInsightService {
 
     // Slow-moving: products with very low sales but significant stock
     const slowMovingProducts = await this.orderRepository
-      .createQueryBuilder('order')
-      .innerJoin('order.items', 'item')
+      .createQueryBuilder('ord')
+      .innerJoin('ord.items', 'item')
       .innerJoin('item.variant', 'variant')
       .innerJoin('variant.product', 'product')
       .leftJoin(
@@ -201,9 +230,9 @@ export class AiInsightService {
       .addSelect('SUM(item.quantity)', 'totalUnitsSold')
       .addSelect('SUM(item.subtotal)', 'totalRevenue')
       .addSelect('MAX(stock.stock)', 'currentStock')
-      .where('order.branch_id = :branchId', { branchId })
-      .andWhere('order.createdAt >= :startDate', { startDate })
-      .andWhere("order.status = 'completed'")
+      .where('ord.branch_id = :branchId', { branchId })
+      .andWhere('ord.createdAt >= :startDate', { startDate })
+      .andWhere("ord.status = 'completed'")
       .groupBy('product.name_product')
       .addGroupBy('variant.name_variant')
       .having('SUM(item.quantity) < 5')
@@ -377,6 +406,92 @@ export class AiInsightService {
     return { suspiciousMovements };
   }
 
+  /**
+   * Operational anomalies: Cash discrepancies, refund/void patterns, discount spikes, and timing.
+   */
+  private async getOperationalAnomalies(branchId: string, timeRange: string = 'monthly') {
+    const startDate = new Date();
+    switch (timeRange) {
+      case 'weekly': startDate.setDate(startDate.getDate() - 7); break;
+      case 'yearly': startDate.setFullYear(startDate.getFullYear() - 1); break;
+      default: startDate.setDate(startDate.getDate() - 30); break;
+    }
+
+    // 1. Cash Discrepancies (Sesi POS dengan selisih)
+    const sessionDiscrepancies = await this.posSessionRepository
+      .createQueryBuilder('session')
+      .leftJoin('session.user', 'user')
+      .select('session.id', 'sessionId')
+      .addSelect('user.name', 'cashierName')
+      .addSelect('session.expected_cash', 'expectedAmount')
+      .addSelect('session.closingBalance', 'actualAmount')
+      .addSelect('session.difference', 'difference')
+      .addSelect('session.endTime', 'closedAt')
+      .where('session.branch_id = :branchId', { branchId })
+      .andWhere('session.status = \'closed\'')
+      .andWhere('session.endTime >= :startDate', { startDate })
+      .andWhere('ABS(session.difference) > 0') // Hanya yang ada selisih
+      .orderBy('session.endTime', 'DESC')
+      .getRawMany();
+
+    // 2. Refund Patterns per Cashier
+    const refundPatterns = await this.refundRepository
+      .createQueryBuilder('refund')
+      .innerJoin('refund.order', 'ord')
+      .innerJoin('ord.user', 'user')
+      .select('user.name', 'cashierName')
+      .addSelect('COUNT(refund.id)', 'totalRefunds')
+      .addSelect('SUM(refund.amount)', 'totalRefundAmount')
+      .where('ord.branch_id = :branchId', { branchId })
+      .andWhere('refund.createdAt >= :startDate', { startDate })
+      .groupBy('user.name')
+      .having('COUNT(refund.id) > 2') // Minimal 3 refund untuk dianggap pola
+      .getRawMany();
+
+    // 3. Discount Spikes per Cashier (Rasio diskon terhadap subtotal)
+    const discountSpikes = await this.orderRepository
+      .createQueryBuilder('ord')
+      .innerJoin('ord.user', 'user')
+      .select('user.name', 'cashierName')
+      .addSelect('SUM(ord.subtotal)', 'totalSales')
+      .addSelect('SUM(ord.discount_amount)', 'totalDiscounts')
+      .addSelect('COUNT(ord.id)', 'orderCount')
+      .where('ord.branch_id = :branchId', { branchId })
+      .andWhere('ord.createdAt >= :startDate', { startDate })
+      .andWhere('ord.status = \'completed\'')
+      .groupBy('user.name')
+      .having('SUM(ord.discount_amount) > 0')
+      .getRawMany()
+      .then(rows => rows.map(r => ({
+        ...r,
+        discountPercentage: (parseFloat(r.totalDiscounts) / parseFloat(r.totalSales)) * 100
+      })));
+
+    // 4. Activity Timing (lonjakan transaksi mendadak sebelum tutup)
+    // Mencari pesanan yang terjadi dalam 30 menit terakhir sebelum sesi ditutup
+    const preClosingActivity = await this.posSessionRepository
+      .createQueryBuilder('session')
+      .innerJoin('session.orders', 'ord')
+      .innerJoin('session.user', 'user')
+      .select('session.id', 'sessionId')
+      .addSelect('user.name', 'cashierName')
+      .addSelect('COUNT(ord.id)', 'lastMinuteOrders')
+      .where('session.branch_id = :branchId', { branchId })
+      .andWhere('session.status = \'closed\'')
+      .andWhere('session.endTime >= :startDate', { startDate })
+      .andWhere('ord.createdAt >= session.endTime - INTERVAL \'30 minutes\'')
+      .groupBy('session.id, user.name')
+      .having('COUNT(ord.id) >= 5') // Ambang batas aktivitas mencurigakan
+      .getRawMany();
+
+    return {
+      session_discrepancies: sessionDiscrepancies,
+      refund_patterns: refundPatterns,
+      discount_analysis: discountSpikes,
+      pre_closing_activity: preClosingActivity
+    };
+  }
+
   private async callOpenAI(data: any) {
     const apiKey = this.configService.get('AI_API_KEY');
     if (!apiKey || apiKey === 'your_ai_api_key_here') {
@@ -399,10 +514,30 @@ ${JSON.stringify(data, null, 2)}
 
 Each insight object must have:
 - "type": one of ['report_summary', 'sales_trend', 'best_seller', 'slow_moving', 'low_stock_alert', 'expiry_alert', 'anomaly_alert', 'stock_suggestion', 'promo_suggestion']
-- "summary": short specific human-readable title using actual product names from the data
+- "summary": short specific human-readable title
 - "metadata": structured object specific to the type
 
-RULES:
+SPECIAL RULES FOR "report_summary":
+The "report_summary" insight MUST contain:
+- metadata.executive_summary: A 2-3 sentence narrative overview of the store's performance.
+- metadata.highlights: An array of 3-5 strings representing key wins or concerns.
+- metadata.total_revenue: The total revenue number.
+
+RANKING RULES:
+- Always refer to products in "top_selling_products" by their index + 1 ranking.
+- Example: The product at index 0 is "the Best Selling Product (#1)", index 1 is "Second Best Selling (#2)", and index 2 is "Third Best Selling (#3)".
+- Triple-check the data before assigning a rank in the text.
+
+ANOMALY DETECTION RULES:
+- For "operational_anomalies", identify high-risk behaviors:
+  1. Cash Discrepancies: Flag any non-zero difference in "session_discrepancies".
+  2. Refund Patterns: Flag cashiers with "totalRefundsCount" significantly higher than average.
+  3. Discount Spikes: Flag cashiers whose "discountPercentage" exceeds 15% or store average.
+  4. Activity Timing: Flag "pre_closing_activity" sessions with high transaction volume within 30m of close.
+- For each anomaly, assign a metadata.risk_level: 'low', 'medium', or 'high'.
+- Provide a metadata.audit_hint: A specific instruction for the manager (e.g., "Check CCTV between 10 PM and 10:30 PM", "Audit transaction #XYZ").
+
+GENERAL RULES:
 - Only use product names and SKUs from the actual data provided
 - Do NOT fabricate products not in the data
 - If data for a category is empty, skip that insight type
@@ -459,7 +594,12 @@ RULES:
       .map((p: any) => p.productName || 'Unknown');
     const criticalCount = (data.critical_low_stock || []).length;
     const expiryCount = (data.batches_expiring_soon || []).length;
-    const anomalyCount = (data.stock_anomalies || []).length;
+    const stockAnomalyCount = (data.stock_anomalies || []).length;
+    const opAnomaly = data.operational_anomalies || {};
+
+    const sessionDiscrepancyCount = (opAnomaly.session_discrepancies || []).length;
+    const refundPatternCount = (opAnomaly.refund_patterns || []).length;
+    const timingAnomalyCount = (opAnomaly.pre_closing_activity || []).length;
 
     // 1. Executive Summary
     insights.push({
@@ -467,22 +607,26 @@ RULES:
       summary: 'Business Summary for This Period',
       metadata: {
         executive_summary:
-          `Total revenue for this period ${totalRevenue > 0 ? `is $ ${totalRevenue.toLocaleString('en-US')}` : 'is not yet available'}. ` +
+          `Total sales for this period ${totalRevenue > 0 ? `is $ ${totalRevenue.toLocaleString('en-US')}` : 'is not yet available'}. ` +
           `${criticalCount > 0 ? `There are ${criticalCount} products with critical stock that need immediate restocking. ` : 'There are no products with critical stock at this time. '}` +
           `${expiryCount > 0 ? `${expiryCount} product batches will expire within the next 30 days. ` : ''}` +
-          `${anomalyCount > 0 ? `Found ${anomalyCount} suspicious stock movements that require attention.` : ''}`,
+          `${stockAnomalyCount > 0 ? `Found ${stockAnomalyCount} suspicious stock movements. ` : ''}` +
+          `${sessionDiscrepancyCount > 0 ? `CRITICAL: ${sessionDiscrepancyCount} cash discrepancies detected in recent closures! ` : ''}` +
+          `${refundPatternCount > 0 ? `WARNING: Found ${refundPatternCount} suspicious cashier refund patterns.` : ''}`,
         highlights: [
           ...(topSellers.length > 0 ? [`Top selling products: ${topSellers.join(', ')}`] : []),
           ...(criticalCount > 0 ? [`${criticalCount} products with critical stock`] : []),
           ...(expiryCount > 0 ? [`${expiryCount} batches nearing expiration`] : []),
-          ...(anomalyCount > 0 ? [`${anomalyCount} stock movement anomalies`] : []),
+          ...(stockAnomalyCount > 0 ? [`${stockAnomalyCount} stock movement anomalies`] : []),
+          ...(sessionDiscrepancyCount > 0 ? [`${sessionDiscrepancyCount} cash discrepancies detected`] : []),
+          ...(refundPatternCount > 0 ? [`${refundPatternCount} suspicious refund patterns`] : []),
         ],
         total_revenue: totalRevenue > 0 ? totalRevenue : null,
         top_concern:
-          criticalCount > 0
-            ? `Critical stock for ${criticalCount} products`
-            : expiryCount > 0
-              ? `${expiryCount} batches nearing expiration`
+          sessionDiscrepancyCount > 0
+            ? `Immediate Audit Required: ${sessionDiscrepancyCount} cash discrepancies`
+            : criticalCount > 0
+              ? `Critical stock for ${criticalCount} products`
               : 'No critical issues at this time',
       },
     });
@@ -624,7 +768,7 @@ RULES:
       const variantSuffix = m.variantName !== m.productName ? ` (${m.variantName})` : '';
       insights.push({
         type: 'anomaly_alert',
-        summary: `${m.productName}${variantSuffix} — ${m.referenceType}: ${Math.abs(m.qty)} units reduced (${m.date})`,
+        summary: `Stock Anomaly: ${m.productName}${variantSuffix} — ${m.referenceType}`,
         metadata: {
           product_name: m.productName,
           sku: m.sku || '-',
@@ -633,6 +777,8 @@ RULES:
           date: m.date,
           reason: m.reason || null,
           severity: Math.abs(parseInt(m.qty || 0)) > 20 ? 'critical' : 'warning',
+          risk_level: Math.abs(parseInt(m.qty || 0)) > 20 ? 'high' : 'medium',
+          audit_hint: 'Verify stock adjustment logs and reason.',
           message: m.reason
             ? `Stock reduction (${m.referenceType}): ${m.reason}`
             : `Stock reduction ${m.referenceType} without description — needs investigation`,
@@ -640,7 +786,78 @@ RULES:
       });
     }
 
-    // 8. Overstock Candidates
+    // 8. Operational Anomaly: Cash Discrepancies
+    for (const s of opAnomaly.session_discrepancies || []) {
+      insights.push({
+        type: 'anomaly_alert',
+        summary: `Cash Discrepancy — Session #${s.sessionId} (${s.cashierName})`,
+        metadata: {
+          sessionId: s.sessionId,
+          cashierName: s.cashierName,
+          diff: parseFloat(s.difference),
+          expected: parseFloat(s.expectedAmount),
+          actual: parseFloat(s.actualAmount),
+          closedAt: s.closedAt,
+          severity: Math.abs(parseFloat(s.difference)) > 100 ? 'critical' : 'warning',
+          risk_level: Math.abs(parseFloat(s.difference)) > 100 ? 'high' : 'medium',
+          audit_hint: `Audit session closure report and verify cash handovers for ${s.cashierName}.`,
+        },
+      });
+    }
+
+    // 9. Operational Anomaly: Refund Spikes
+    for (const r of opAnomaly.refund_patterns || []) {
+      const isHighRisk = parseInt(r.totalRefunds) > 10;
+      insights.push({
+        type: 'anomaly_alert',
+        summary: `Refund Pattern Detected — ${r.cashierName}`,
+        metadata: {
+          cashierName: r.cashierName,
+          totalRefunds: parseInt(r.totalRefunds),
+          totalAmount: parseFloat(r.totalRefundAmount),
+          severity: isHighRisk ? 'critical' : 'warning',
+          risk_level: isHighRisk ? 'high' : 'medium',
+          audit_hint: `Check CCTV for cashier ${r.cashierName} and verify refund receipts for high-value items.`,
+        },
+      });
+    }
+
+    // 10. Operational Anomaly: Discount Deviations
+    for (const d of opAnomaly.discount_analysis || []) {
+      if (d.discountPercentage > 15) { // 15% threshold for rule-based
+        insights.push({
+          type: 'anomaly_alert',
+          summary: `High Discount Usage — ${d.cashierName} (${d.discountPercentage.toFixed(1)}%)`,
+          metadata: {
+            cashierName: d.cashierName,
+            discountPct: d.discountPercentage,
+            totalSales: parseFloat(d.totalSales),
+            totalDiscounts: parseFloat(d.totalDiscounts),
+            severity: d.discountPercentage > 25 ? 'critical' : 'warning',
+            risk_level: d.discountPercentage > 25 ? 'high' : 'medium',
+            audit_hint: `Review cashier's manual discount permissions and specific transaction promos.`,
+          },
+        });
+      }
+    }
+
+    // 11. Operational Anomaly: Timing (Pre-close spikes)
+    for (const t of opAnomaly.pre_closing_activity || []) {
+      insights.push({
+        type: 'anomaly_alert',
+        summary: `Suspicious Closing Activity — Session #${t.sessionId}`,
+        metadata: {
+          sessionId: t.sessionId,
+          cashierName: t.cashierName,
+          orderCount: parseInt(t.lastMinuteOrders),
+          severity: 'warning',
+          risk_level: 'medium',
+          audit_hint: `Check CCTV for last-minute orders before closing at session #${t.sessionId}.`,
+        },
+      });
+    }
+
+    // 12. Overstock Candidates
     for (const p of (data.overstock_candidates || []).slice(0, 3)) {
       const variantSuffix = p.variantName !== p.productName ? ` (${p.variantName})` : '';
       insights.push({

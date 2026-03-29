@@ -14,6 +14,8 @@ import { OrderItem } from './entities/order-item.entity';
 import { Order } from './entities/order.entity';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
+// Import ProductBatchesModule to enable FEFO batch deduction in OrdersService
+import { ProductBatchesModule } from '../product-batches/product-batches.module';
 
 @Module({
   controllers: [OrdersController],
@@ -33,6 +35,7 @@ import { OrdersService } from './orders.service';
     ]),
     UserLogsModule,
     PosSessionsModule,
+    ProductBatchesModule,
   ],
   exports: [OrdersService],
 })

@@ -22,6 +22,7 @@ import { EventsGateway } from '../events/events.gateway';
 import { Payment, PaymentStatus, PaymentMethod } from '../payments/entities/payment.entity';
 import { Refund } from '../payments/entities/refund.entity';
 import { StockMovement, ReferenceType } from '../stock-movements/entities/stock-movement.entity';
+import { ProductBatchesService } from '../product-batches/product-batches.service';
 import Stripe from 'stripe';
 
 @Injectable()
@@ -46,6 +47,8 @@ export class OrdersService {
     private readonly userLogsService: UserLogsService,
     private readonly posSessionsService: PosSessionsService,
     private readonly eventsGateway: EventsGateway,
+    // Used for FEFO batch deduction after a sale is completed
+    private readonly productBatchesService: ProductBatchesService,
   ) {}
 
   private async getActiveTaxRate(): Promise<number> {
@@ -560,7 +563,7 @@ export class OrdersService {
 
         const savedOrder = await orderRepo.findOne({
           where: { id: existingOrder.id },
-          relations: ['customer', 'branch', 'user', 'discount', 'promotion'],
+          relations: ['customer', 'branch', 'user', 'promotion'],
         });
 
         return { order: savedOrder, items: mergedItems };
@@ -587,6 +590,24 @@ export class OrdersService {
         item_count: result.items.length,
       },
     });
+
+    // Step 9: FEFO Batch Deduction
+    // Fire-and-forget: deduct stock from earliest-expiry batches for each item sold.
+    // We run this asynchronously so it doesn't block the order response.
+    // If FEFO fails for any item, it logs a warning but does not fail the order.
+    const branchId = result.order.branch?.id;
+    if (branchId) {
+      for (const item of result.items) {
+        const variantId = item.variant?.id;
+        if (variantId) {
+          this.productBatchesService
+            .deductStockFefo(branchId, variantId, item.quantity, result.order.id)
+            .catch(err =>
+              console.warn(`[FEFO] Deduction failed for variant ${variantId}: ${err.message}`),
+            );
+        }
+      }
+    }
 
     return {
       message: successOrderMessage.SUCCESS_CREATE_ORDER,
@@ -1046,7 +1067,7 @@ export class OrdersService {
     // Re-fetch the fresh order after update
     const refreshedOrder = await this.orderRepository.findOne({
       where: { id: orderId },
-      relations: ['items', 'items.variant', 'customer', 'branch', 'user', 'discount'],
+      relations: ['items', 'items.variant', 'customer', 'branch', 'user', 'promotion'],
     });
 
     const totalAmount =
@@ -1096,7 +1117,7 @@ export class OrdersService {
     });
   }
 
-  async refundOrder(id: string, reason: string): Promise<OrderResponse> {
+  async refundOrder(id: string, reason: string, currentUserId: string): Promise<OrderResponse> {
     const order = await this.orderRepository.findOne({
       where: { id },
       relations: [
@@ -1125,11 +1146,11 @@ export class OrdersService {
       );
     }
 
-    const result = await this.orderRepository.manager.transaction(async (manager) => {
+    const { refundedOrder, paymentMethod, stripeRefundId } = await this.orderRepository.manager.transaction(async (manager) => {
       // 1. Mark order as refunded
       order.status = OrderStatus.REFUNDED;
       order.notes = order.notes ? `${order.notes}\nRefund Reason: ${reason}` : `Refund Reason: ${reason}`;
-      await manager.save(order);
+      const savedOrder = await manager.save(order);
 
       // 2. Process Payment Refund
       const paymentRepo = manager.getRepository(Payment);
@@ -1137,7 +1158,11 @@ export class OrdersService {
         where: { orderId: order.id, status: PaymentStatus.SUCCESS }
       });
       
+      let paymentMethod = 'unknown';
+      let stripeRefundId = undefined;
+
       if (payment) {
+        paymentMethod = payment.method;
         payment.status = PaymentStatus.REFUNDED;
         await manager.save(payment);
 
@@ -1148,7 +1173,7 @@ export class OrdersService {
           payment: { id: payment.id },
           amount: Number(payment.amount || 0),
           reason: reason,
-          refundedBy: order.user ? { id: order.user.id } : undefined,
+          refundedBy: { id: currentUserId },
         });
         
         if (payment.method === PaymentMethod.STRIPE && payment.externalId) {
@@ -1156,6 +1181,7 @@ export class OrdersService {
             const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2024-06-20' as any });
             const stripeRefund = await stripe.refunds.create({ payment_intent: payment.externalId });
             refund.stripeRefundId = stripeRefund.id;
+            stripeRefundId = stripeRefund.id;
           } catch (e) {
             console.error('Stripe SDK Error during refund:', e);
           }
@@ -1174,6 +1200,7 @@ export class OrdersService {
         const qty = Number(item.quantity || 0);
         if (qty <= 0) continue;
 
+        // General stock update
         const productStocks = await stockRepo.find({
           where: { productVariant: { id: item.variant.id }, ...(branchId ? { branch: { id: branchId } } : {}) },
           relations: ['productVariant', 'branch']
@@ -1186,15 +1213,32 @@ export class OrdersService {
           await manager.save(targetStock);
         }
 
-        const movement = movementRepo.create({
-          productVariant: { id: item.variant.id },
-          branch: branchId ? { id: branchId } : undefined,
-          referenceType: ReferenceType.RETURN_SALE,
-          qty: qty,
-          referenceId: order.id,
-          reason: `Refund: ${reason}`,
-        });
-        await manager.save(movement);
+        // Log specific batch reversals (Atomic)
+        let restoredToBatches = 0;
+        if (branchId) {
+          restoredToBatches = await this.productBatchesService.restoreStockFefo(
+            branchId,
+            item.variant.id,
+            qty,
+            order.id,
+            `Refund: ${reason}`,
+            manager,
+          );
+        }
+
+        // Fallback Movement: record general movement for any quantity not matched to a batch
+        const remainingToMove = qty - restoredToBatches;
+        if (remainingToMove > 0) {
+          const movement = movementRepo.create({
+            productVariant: { id: item.variant.id },
+            branch: branchId ? { id: branchId } : undefined,
+            referenceType: ReferenceType.RETURN_SALE,
+            qty: remainingToMove,
+            referenceId: order.id,
+            reason: `Refund (General): ${reason}`,
+          });
+          await manager.save(movement);
+        }
         
         this.eventsGateway.broadcastStockUpdate({
           variantId: item.variant.id,
@@ -1224,23 +1268,32 @@ export class OrdersService {
         });
       }
 
-      return order;
+      return { refundedOrder: savedOrder, paymentMethod, stripeRefundId };
     });
 
     this.userLogsService.log({
-      userId: order.user?.id || '',
+      userId: currentUserId,
       action: ActionType.UPDATE,
       entityType: EntityType.SALE,
       entityId: order.id,
-      description: `Order ${order.invoice_number} refunded: ${reason}`,
+      description: `Order ${order.invoice_number} refunded by Admin ${currentUserId}: ${reason}`,
     });
 
     return {
       message: 'Order refunded successfully',
       data: {
-        id: result.id,
-        invoice_number: result.invoice_number,
-        status: result.status,
+        id: refundedOrder.id,
+        invoice_number: refundedOrder.invoice_number,
+        status: refundedOrder.status,
+        refund: {
+          id: refundedOrder.id,
+          amount: refundedOrder.subtotal + refundedOrder.tax_amount - refundedOrder.discount_amount,
+          reason: reason,
+          refundedAt: new Date(),
+          paymentMethod,
+          stripeRefundId,
+          cashierName: (refundedOrder.user as any)?.name || 'System'
+        }
       } as any
     };
   }

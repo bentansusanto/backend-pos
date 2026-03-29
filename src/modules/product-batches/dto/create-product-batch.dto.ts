@@ -64,3 +64,9 @@ export class CreateProductBatchDto {
 }
 
 export class UpdateProductBatchDto extends PartialType(CreateProductBatchDto) {}
+
+export class DisposeProductBatchDto {
+  @IsString()
+  @IsOptional()
+  reason?: string;
+}

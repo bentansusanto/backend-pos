@@ -8,7 +8,12 @@ import { StockMovement } from '../stock-movements/entities/stock-movement.entity
 import { ProductBatch } from '../product-batches/entities/product-batch.entity';
 import { AiInsightController } from './ai-insight.controller';
 import { AiInsightService } from './ai-insight.service';
+import { AiInsightSchedulerService } from './ai-insight-scheduler.service';
 import { AiInsight } from './entities/ai-insight.entity';
+import { Branch } from '../branches/entities/branch.entity';
+import { PosSession } from '../pos-sessions/entities/pos-session.entity';
+import { Payment } from '../payments/entities/payment.entity';
+import { Refund } from '../payments/entities/refund.entity';
 
 @Module({
   imports: [
@@ -20,10 +25,14 @@ import { AiInsight } from './entities/ai-insight.entity';
       ProductStock,
       StockMovement,
       ProductBatch,
+      Branch,
+      PosSession,
+      Payment,
+      Refund,
     ]),
   ],
   controllers: [AiInsightController],
-  providers: [AiInsightService],
-  exports: [AiInsightService],
+  providers: [AiInsightService, AiInsightSchedulerService],
+  exports: [AiInsightService, AiInsightSchedulerService],
 })
 export class AiInsightModule {}

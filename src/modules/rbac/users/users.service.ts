@@ -163,7 +163,14 @@ export class UsersService {
     const user = await this.userRepository.findOne({
       where: { id },
       // NOTE: 'role' must be explicit — TypeORM ignores eager:true when relations[] is specified
-      relations: ['role', 'userBranches', 'userBranches.branch', 'profile'],
+      relations: [
+        'role',
+        'role.rolePermissions',
+        'role.rolePermissions.permission',
+        'userBranches',
+        'userBranches.branch',
+        'profile',
+      ],
     });
     if (!user) {
       throw new HttpException(
@@ -180,9 +187,13 @@ export class UsersService {
         email: user.email,
         username: user.username || null,
         pin: user.pin || null,
-        role: user.role?.name,
-        role_code: user.role?.code,
+        role: user.role?.code,
+        role_name: user.role?.name,
         is_verified: user.is_verified,
+        permissions:
+          user.role?.rolePermissions
+            ?.map((rp) => rp.permission?.action)
+            .filter(Boolean) || [],
         branches: user.userBranches?.map((ub) => ({
           id: ub.branch.id,
           name: ub.branch.name,

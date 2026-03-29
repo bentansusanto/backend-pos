@@ -9,9 +9,10 @@ export class AuthData {
   is_verified: boolean;
   isActive?: boolean;
   role: string;
-  role_code?: string;
+  role_name?: string;
   token?: string;
   session_token?: string;
+  permissions?: string[];
   branches?: any[];
   profile?: {
     id?: string;

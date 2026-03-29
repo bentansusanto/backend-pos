@@ -1,7 +1,7 @@
 import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
-
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
+import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
 import {
   BeforeInsert,
   Column,
@@ -10,6 +10,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryColumn,
+  RelationId,
   UpdateDateColumn,
 } from 'typeorm';
 
@@ -51,6 +52,14 @@ export class StockMovement {
 
   @Column({ type: 'enum', enum: ReferenceType })
   referenceType: ReferenceType;
+
+  // Optional link to a specific product batch — used for FEFO deductions and batch movement history
+  @ManyToOne(() => ProductBatch, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'batch_id' })
+  batch: ProductBatch;
+
+  @RelationId((movement: StockMovement) => movement.batch)
+  batchId: string;
 
   @Column({ default: 0 })
   qty: number;

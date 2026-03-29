@@ -1,0 +1,578 @@
+// Use dbdiagram.io to visualize this schema
+
+Enum InsightType {
+  sales_trend
+  stock_suggestion
+  best_seller
+  slow_moving
+  low_stock_alert
+  expiry_alert
+  anomaly_alert
+  promo_suggestion
+  report_summary
+}
+
+Enum AiJobStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+Enum OrderStatus {
+  pending
+  completed
+  cancelled
+  refunded
+}
+
+Enum PaymentStatus {
+  pending
+  success
+  failed
+  refunded
+}
+
+Enum PaymentMethod {
+  cash
+  credit_card
+  stripe
+}
+
+Enum PosSessionStatus {
+  open
+  closed
+}
+
+Enum ProductBatchStatus {
+  active
+  expired
+  hold
+  sold_out
+}
+
+Enum PromotionStatus {
+  ACTIVE
+  INACTIVE
+  SCHEDULED
+  EXPIRED
+}
+
+Enum PromotionConditionType {
+  MIN_QTY
+  MIN_SPEND
+  PRODUCT_COMBO
+  CATEGORY_COMBO
+  CUSTOMER_GROUP
+  MIN_LOYALTY_POINTS
+  ALWAYS_TRUE
+}
+
+Enum PromotionActionType {
+  PERCENT_DISCOUNT
+  FIXED_DISCOUNT
+  FIXED_PRICE
+  FREE_GIFT
+  SET_TOTAL_PRICE
+}
+
+Enum ReferenceType {
+  sale
+  purchase
+  adjust
+  return_sale
+  return_purchase
+  expired
+  damage
+  opening_stock
+  stock_take
+}
+
+Enum StockTakeStatus {
+  draft
+  pending_approval
+  completed
+  rejected
+}
+
+Enum EntityType {
+  product
+  product_variant
+  sale
+  purchase
+  purchase_receiving
+  stock_movement
+  stock_adjustment
+  customer
+  supplier
+  expense
+  user
+  tax
+  discount
+  stock_take
+  promotion
+}
+
+Enum ActionType {
+  create
+  update
+  delete
+  login
+  logout
+  approve
+  reject
+  cancel
+}
+
+Table accounts {
+  code string [unique, not null]
+  name string [not null]
+  type AccountType [not null]
+  category string [not null]
+  cashflowType CashflowType
+  isActive boolean [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table journal_entries {
+  date Date [not null]
+  referenceType ReferenceType [not null]
+  referenceCode string
+  description string
+  branchId string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table journal_lines {
+  journalEntryId string [not null]
+  accountId string [not null]
+  branchId string [not null]
+  debit number [not null]
+  credit number [not null]
+  description string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table ai_insights {
+  type InsightType [not null]
+  summary string [not null]
+  metadata any [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table ai_jobs {
+  status AiJobStatus [not null]
+  payload string[] [not null]
+  result string[]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table branches {
+  name string [not null]
+  code string [unique, not null]
+  address string
+  phone string
+  email string
+  city string
+  province string
+  isActive json [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table user_branches {
+  userId string [not null]
+  branchId string [not null]
+  isActive boolean [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table cost_layers {
+  ref_type ReferenceType [not null]
+  amount number [not null]
+  date Date [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table customers {
+  name string
+  phone string
+  email string
+  address string [not null]
+  city string [not null]
+  country string [not null]
+  loyalPoints number [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table expense_categories {
+  name string [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table expenses {
+  expense_code string [unique, not null]
+  amount number [not null]
+  description string [not null]
+  notes string [not null]
+  expense_date Date [not null]
+  payment_method string [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table order_items {
+  quantity number [not null]
+  price number [not null]
+  discount number
+  subtotal number [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table orders {
+  invoice_number string [not null]
+  subtotal number [not null]
+  tax_amount number
+  discount_amount number
+  status OrderStatus [not null]
+  notes string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table payments {
+  orderId string [not null]
+  status PaymentStatus [not null]
+  method PaymentMethod [not null]
+  externalId string
+  reference_number string
+  amount number [not null]
+  paid_at Date
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table refunds {
+  orderId string [not null]
+  paymentId string [not null]
+  amount number [not null]
+  reason string
+  stripeRefundId string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table pos_sessions {
+  startTime Date [not null]
+  endTime Date
+  openingBalance number [not null]
+  closingBalance number
+  expected_cash number
+  difference number
+  status PosSessionStatus [not null]
+  notes string
+  paymentDeclarations json
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table product_batches {
+  batchNumber string
+  initialQuantity number [not null]
+  currentQuantity number [not null]
+  costPrice number [not null]
+  manufacturingDate Date
+  expiryDate Date
+  receivedDate Date
+  status ProductBatchStatus [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table product_stocks {
+  stock number [not null]
+  minStock number [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table categories {
+  name string [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table product_variants {
+  name_variant string [not null]
+  sku string [not null]
+  barcode string
+  weight number
+  color string
+  price number
+  cost_price number
+  thumbnail string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table products {
+  name_product string [not null]
+  slug string [unique, not null]
+  sku string [unique, not null]
+  images string[]
+  thumbnail string [not null]
+  description string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table promotion_branches {
+  id string [primary key]
+}
+
+Table promotion_rules {
+  conditionType PromotionConditionType [not null]
+  conditionValue any [not null]
+  actionType PromotionActionType [not null]
+  actionValue any [not null]
+  id string [primary key]
+}
+
+Table promotions {
+  name string [not null]
+  description string
+  status PromotionStatus [not null]
+  priority number [not null]
+  isStackable boolean [not null]
+  startDate Date [not null]
+  endDate Date [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table purchase_receivings {
+  note string [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table purchase_receiving_items {
+  qty number [not null]
+  cost number [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table purchase_items {
+  product_id string [not null]
+  quantity number [not null]
+  price number [not null]
+  total number [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table purchases {
+  status string [not null]
+  supplier_id string [not null]
+  total number [not null]
+  paid_amount number [not null]
+  change_amount number [not null]
+  payment_method string [not null]
+  note string [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table permissions {
+  module string
+  action string [unique, not null]
+  description string [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table profiles {
+  address string [not null]
+  phone string [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table role_permissions {
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table roles {
+  name string [not null]
+  code string [not null]
+  description string [not null]
+  self_registered boolean [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table sessions {
+  ip string [not null]
+  device string
+  token string [not null]
+  lastActivityAt Date [not null]
+  expiresAt Date [not null]
+  currentBranchId string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table users {
+  email string [unique, not null]
+  password string
+  name string [not null]
+  pin string
+  username string
+  avatar string
+  isActive boolean [not null]
+  verify_code string
+  exp_verify_at Date
+  is_verified boolean [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table stock_movements {
+  referenceType ReferenceType [not null]
+  qty number [not null]
+  referenceId string [not null]
+  reason string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table stock_take_items {
+  stockTakeId string
+  systemQty number [not null]
+  countedQty number [not null]
+  difference number [not null]
+  reason string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table stock_takes {
+  status StockTakeStatus [not null]
+  notes string
+  approvedAt Date
+  isFrozen boolean [not null]
+  completedAt Date
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Table suppliers {
+  name string [not null]
+  email string [not null]
+  phone string [not null]
+  address string [not null]
+  city string [not null]
+  province string [not null]
+  country string [not null]
+  postalCode string [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table taxes {
+  name string [not null]
+  rate number [not null]
+  is_inclusive boolean [not null]
+  is_active boolean [not null]
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+  deletedAt Date [not null]
+}
+
+Table user_logs {
+  entity_type EntityType [not null]
+  action ActionType [not null]
+  entity_id string
+  description string [not null]
+  metadata any
+  ip_address string
+  id string [primary key]
+  createdAt Date [not null]
+  updatedAt Date [not null]
+}
+
+Ref: journal_entries.branchId > branches.id
+Ref: journal_lines.branchId > branches.id
+Ref: payments.orderId > orders.id
+Ref: refunds.orderId > orders.id
+Ref: refunds.paymentId > payments.id
+Ref: refunds.refunded_by > users.id
+Ref: pos_sessions.branch_id > branches.id
+Ref: pos_sessions.user_id > users.id
+Ref: product_batches.supplier_id > suppliers.id
+Ref: product_batches.purchase_receiving_id > purchase_receivings.id
+Ref: promotion_branches.branch_id > branches.id
+Ref: purchase_receivings.purchase_id > purchases.id
+Ref: sessions.current_branch_id > branches.id
+Ref: stock_take_items.variant_id > product_variants.id
+Ref: stock_takes.branch_id > branches.id
+Ref: stock_takes.user_id > users.id
+Ref: stock_takes.approved_by > users.id

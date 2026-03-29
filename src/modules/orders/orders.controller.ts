@@ -76,11 +76,16 @@ export class OrdersController {
   @Post(':id/refund')
   @HttpCode(HttpStatus.OK)
   async refundOrder(
+    @CurrentUser() user: User,
     @Param('id') id: string,
     @Body('reason') reason?: string,
   ): Promise<WebResponse> {
     const defaultReason = reason || 'Customer requested refund';
-    const result = await this.ordersService.refundOrder(id, defaultReason);
+    const result = await this.ordersService.refundOrder(
+      id,
+      defaultReason,
+      user?.id,
+    );
     return {
       message: result.message ?? 'Order refunded successfully',
       data: result.data,
