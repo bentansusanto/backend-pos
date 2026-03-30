@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Branch } from '../branches/entities/branch.entity';
@@ -10,6 +11,7 @@ import {
 import { PosSession, PosSessionStatus } from './entities/pos-session.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
+import { ReasonCategoriesService } from '../reason-categories/reason-categories.service';
 
 @Injectable()
 export class PosSessionsService {
@@ -24,6 +26,8 @@ export class PosSessionsService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    private readonly reasonCategoriesService: ReasonCategoriesService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private mapSessionResponse(session: PosSession) {
@@ -81,6 +85,13 @@ export class PosSessionsService {
       `UPDATE orders SET pos_session_id = $1 WHERE user_id = $2 AND branch_id = $3 AND status = $4 AND pos_session_id IS NULL`,
       [savedSession.id, user.id, branch_id, OrderStatus.PENDING],
     );
+
+    // Emit event for notification
+    this.eventEmitter.emit('pos.session.opened', {
+      sessionId: savedSession.id,
+      cashierName: user.name,
+      branchName: branch.name,
+    });
 
 
     return {
@@ -155,15 +166,52 @@ export class PosSessionsService {
     const actualClosingBalAll = openingBal + salesCollected;
     const diff = actualClosingBalAll - totalExpectedAll;
 
+    // --- Validation: Reason Category ---
+    if (closePosSessionDto.reasonCategoryId) {
+      const category = await this.reasonCategoriesService.findOne(closePosSessionDto.reasonCategoryId);
+      
+      // 1. Consistency Check: Matched vs Difference
+      if (category.value === 'MATCHED' && Math.abs(diff) > 0) {
+        throw new HttpException(
+          `Cannot select 'Matched' reason when there is a cash difference of ${diff}. Please select a more accurate reason.`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // 2. Length Validation
+      const notes = closePosSessionDto.notes || '';
+      if (notes.length < category.min_description_length) {
+        throw new HttpException(
+          `Reason details are too short. The '${category.label}' category requires at least ${category.min_description_length} characters of explanation.`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    } else if (Math.abs(diff) > 0) {
+      throw new HttpException(
+        'A reason category is required when there is a cash discrepancy.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     session.endTime = new Date();
     session.closingBalance = actualClosingBalAll;
     session.expected_cash = expectedCash;
     session.difference = diff;
     session.notes = closePosSessionDto.notes;
+    session.reasonCategoryId = closePosSessionDto.reasonCategoryId;
     session.paymentDeclarations = declarations;
     session.status = PosSessionStatus.CLOSED;
 
     const saved = await this.posSessionRepository.save(session);
+
+    // Emit event for notification
+    this.eventEmitter.emit('pos.session.closed', {
+      sessionId: saved.id,
+      cashierName: session.user.name,
+      branchName: session.branch.name,
+      difference: diff,
+      hasAnomaly: Math.abs(diff) > 0,
+    });
 
     return {
       message: 'POS session closed successfully',

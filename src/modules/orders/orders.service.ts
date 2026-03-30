@@ -12,6 +12,7 @@ import { ProductVariant } from '../products/entities/product-variant.entity';
 import { Tax } from '../tax/entities/tax.entity';
 import { ActionType, EntityType } from '../user_logs/entities/user_log.entity';
 import { UserLogsService } from '../user_logs/user_logs.service';
+import { ReasonCategoriesService } from '../reason-categories/reason-categories.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrderItem } from './entities/order-item.entity';
@@ -46,6 +47,7 @@ export class OrdersService {
     @InjectRepository(Promotion)
     private readonly promotionRepository: Repository<Promotion>,
     private readonly userLogsService: UserLogsService,
+    private readonly reasonCategoriesService: ReasonCategoriesService,
     private readonly posSessionsService: PosSessionsService,
     private readonly eventsGateway: EventsGateway,
     // Used for FEFO batch deduction after a sale is completed
@@ -586,7 +588,7 @@ export class OrdersService {
       action: ActionType.CREATE,
       entityType: EntityType.SALE,
       entityId: result.order.id,
-      description: `Order created: ${result.order.invoice_number} (${result.items.length} items, total Rp${totalAmount})`,
+      description: `Order created: ${result.order.invoice_number} (${result.items.length} items, total $${totalAmount})`,
       metadata: {
         invoice_number: result.order.invoice_number,
         total_amount: totalAmount,
@@ -1120,7 +1122,18 @@ export class OrdersService {
     });
   }
 
-  async refundOrder(id: string, reason: string, currentUserId: string): Promise<OrderResponse> {
+  async refundOrder(id: string, reason: string, currentUserId: string, reasonCategoryId?: string): Promise<OrderResponse> {
+    // --- Validation: Reason Category ---
+    if (reasonCategoryId) {
+      const category = await this.reasonCategoriesService.findOne(reasonCategoryId);
+      if (reason.length < category.min_description_length) {
+        throw new HttpException(
+          `Reason details are too short. The '${category.label}' category requires at least ${category.min_description_length} characters of explanation.`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
     const order = await this.orderRepository.findOne({
       where: { id },
       relations: [
@@ -1176,6 +1189,7 @@ export class OrdersService {
           payment: { id: payment.id },
           amount: Number(payment.amount || 0),
           reason: reason,
+          reasonCategoryId: reasonCategoryId,
           refundedBy: { id: currentUserId },
         });
         
@@ -1271,7 +1285,7 @@ export class OrdersService {
 
     this.userLogsService.log({
       userId: currentUserId,
-      action: ActionType.UPDATE,
+      action: ActionType.REFUND,
       entityType: EntityType.SALE,
       entityId: order.id,
       description: `Order ${order.invoice_number} refunded by Admin ${currentUserId}: ${reason}`,

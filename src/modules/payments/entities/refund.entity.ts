@@ -12,6 +12,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Payment } from './payment.entity';
+import { ReasonCategory } from 'src/modules/reason-categories/entities/reason-category.entity';
 
 @Entity('refunds')
 export class Refund {
@@ -53,6 +54,13 @@ export class Refund {
 
   @Column({ type: 'text', nullable: true })
   reason: string;
+
+  @Column({ nullable: true })
+  reasonCategoryId: string;
+
+  @ManyToOne(() => ReasonCategory, { nullable: true })
+  @JoinColumn({ name: 'reasonCategoryId' })
+  reasonCategory: ReasonCategory;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'refunded_by' })

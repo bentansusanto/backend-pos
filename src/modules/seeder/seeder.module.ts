@@ -9,6 +9,7 @@ import { PromotionBranch } from '../promotions/entities/promotion-branch.entity'
 import { Branch } from '../branches/entities/branch.entity';
 import { ProductVariant } from '../products/entities/product-variant.entity';
 import { Category } from '../products/entities/category.entities';
+import { ReasonCategory } from '../reason-categories/entities/reason-category.entity';
 import { SeederService } from './seeder.service';
 
 @Module({
@@ -23,6 +24,7 @@ import { SeederService } from './seeder.service';
       Branch,
       ProductVariant,
       Category,
+      ReasonCategory,
     ]),
   ],
   providers: [SeederService],

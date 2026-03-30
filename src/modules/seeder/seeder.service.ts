@@ -15,6 +15,7 @@ import {
 import { Permission } from '../rbac/permissions/entities/permission.entity';
 import { RolePermission } from '../rbac/role-permissions/entities/role_permission.entity';
 import { Role } from '../rbac/roles/entities/role.entity';
+import { ReasonCategory, ReasonCategoryType } from '../reason-categories/entities/reason-category.entity';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
@@ -37,6 +38,8 @@ export class SeederService implements OnModuleInit {
     private productVariantRepository: Repository<ProductVariant>,
     @InjectRepository(Category)
     private categoryRepository: Repository<Category>,
+    @InjectRepository(ReasonCategory)
+    private reasonCategoryRepository: Repository<ReasonCategory>,
   ) {}
 
   async onModuleInit() {
@@ -50,6 +53,7 @@ export class SeederService implements OnModuleInit {
     await this.seedRoles();
     await this.seedRolePermissions();
     await this.seedPromotions();
+    await this.seedReasonCategories();
 
     console.log('✅ Database seeding completed!');
   }
@@ -393,6 +397,28 @@ export class SeederService implements OnModuleInit {
         action: 'sales_reports:read',
         description: 'View sales reports',
       },
+
+      // Reason Categories
+      {
+        module: 'reason_categories',
+        action: 'reason_categories:create',
+        description: 'Create reason categories',
+      },
+      {
+        module: 'reason_categories',
+        action: 'reason_categories:read',
+        description: 'View reason categories',
+      },
+      {
+        module: 'reason_categories',
+        action: 'reason_categories:update',
+        description: 'Update reason categories',
+      },
+      {
+        module: 'reason_categories',
+        action: 'reason_categories:delete',
+        description: 'Delete reason categories',
+      },
       {
         module: 'sales_reports',
         action: 'sales_reports:export',
@@ -607,6 +633,27 @@ export class SeederService implements OnModuleInit {
         action: 'tax:delete',
         description: 'Delete taxes',
       },
+      // Reason categories
+      {
+        module: 'reason_categories',
+        action: 'reason_categories:create',
+        description: 'Create reason categories',
+      },
+      {
+        module: 'reason_categories',
+        action: 'reason_categories:read',
+        description: 'View reason categories',
+      },
+      {
+        module: 'reason_categories',
+        action: 'reason_categories:update',
+        description: 'Update reason categories',
+      },
+      {
+        module: 'reason_categories',
+        action: 'reason_categories:delete',
+        description: 'Delete reason categories',
+      },
       // User Logs
       {
         module: 'user_logs',
@@ -781,7 +828,8 @@ export class SeederService implements OnModuleInit {
           p.action === 'users:read' ||
           p.action === 'stock_takes:check_frozen' ||
           p.action === 'promotions:read' ||
-          p.action === 'sales_reports:read'
+          p.action === 'sales_reports:read' ||
+          p.action === 'reason_categories:read'
       );
       const cashierPermissionIds = cashierPermissions.map((p) => p.id);
       await this.syncRolePermissions(cashier.id, cashierPermissionIds);
@@ -970,5 +1018,99 @@ export class SeederService implements OnModuleInit {
     }
 
     console.log('✅ Promotions seeded');
+  }
+
+  private async seedReasonCategories() {
+    console.log('📝 Seeding reason categories...');
+
+    const categories = [
+      // Refund Categories
+      {
+        type: ReasonCategoryType.REFUND,
+        label: 'Damaged Product',
+        value: 'DAMAGED_PRODUCT',
+        min_description_length: 10,
+        is_anomaly_trigger: false,
+      },
+      {
+        type: ReasonCategoryType.REFUND,
+        label: 'Customer Change Mind',
+        value: 'CUSTOMER_CHANGE_MIND',
+        min_description_length: 0,
+        is_anomaly_trigger: false,
+      },
+      {
+        type: ReasonCategoryType.REFUND,
+        label: 'Wrong Item Sent',
+        value: 'WRONG_ITEM',
+        min_description_length: 5,
+        is_anomaly_trigger: false,
+      },
+      {
+        type: ReasonCategoryType.REFUND,
+        label: 'Expired Product',
+        value: 'EXPIRED',
+        min_description_length: 10,
+        is_anomaly_trigger: true,
+      },
+      {
+        type: ReasonCategoryType.REFUND,
+        label: 'Price Error',
+        value: 'PRICE_ERR',
+        min_description_length: 10,
+        is_anomaly_trigger: false,
+      },
+
+      // Pos Session Categories
+      {
+        type: ReasonCategoryType.POS_SESSION,
+        label: 'Matched',
+        value: 'MATCHED',
+        min_description_length: 0,
+        is_anomaly_trigger: false,
+      },
+      {
+        type: ReasonCategoryType.POS_SESSION,
+        label: 'Wrong Change Given',
+        value: 'WRONG_CHANGE',
+        min_description_length: 10,
+        is_anomaly_trigger: false,
+      },
+      {
+        type: ReasonCategoryType.POS_SESSION,
+        label: 'Cash Loss / Theft Suspicion',
+        value: 'CASH_LOSS',
+        min_description_length: 20,
+        is_anomaly_trigger: true,
+      },
+      {
+        type: ReasonCategoryType.POS_SESSION,
+        label: 'Unrecorded Expense',
+        value: 'UNRECORDED_EXPENSE',
+        min_description_length: 15,
+        is_anomaly_trigger: false,
+      },
+      {
+        type: ReasonCategoryType.POS_SESSION,
+        label: 'System / Technical Error',
+        value: 'SYSTEM_ERROR',
+        min_description_length: 15,
+        is_anomaly_trigger: false,
+      },
+    ];
+
+    for (const cat of categories) {
+      const exists = await this.reasonCategoryRepository.findOne({
+        where: { value: cat.value, type: cat.type },
+      });
+
+      if (!exists) {
+        const category = this.reasonCategoryRepository.create(cat);
+        await this.reasonCategoryRepository.save(category);
+        console.log(`  ✓ Created reason category: ${cat.label} (${cat.type})`);
+      }
+    }
+
+    console.log('✅ Reason categories seeded');
   }
 }

@@ -79,12 +79,14 @@ export class OrdersController {
     @CurrentUser() user: User,
     @Param('id') id: string,
     @Body('reason') reason?: string,
+    @Body('reason_category_id') reasonCategoryId?: string,
   ): Promise<WebResponse> {
     const defaultReason = reason || 'Customer requested refund';
     const result = await this.ordersService.refundOrder(
       id,
       defaultReason,
       user?.id,
+      reasonCategoryId,
     );
     return {
       message: result.message ?? 'Order refunded successfully',

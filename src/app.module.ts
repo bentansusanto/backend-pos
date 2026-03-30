@@ -4,6 +4,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { WinstonModule, utilities as nestWinstonModuleUtilities } from 'nest-winston';
 import * as winston from 'winston';
 import { AppController } from './app.controller';
@@ -40,6 +41,8 @@ import { TaxModule } from './modules/tax/tax.module';
 import { EventsModule } from './modules/events/events.module';
 import { ProductBatchesModule } from './modules/product-batches/product-batches.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
+import { ReasonCategoriesModule } from './modules/reason-categories/reason-categories.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { doubleCsrfProtection } from './common/config/csrf.config';
 
 @Module({
@@ -53,6 +56,7 @@ import { doubleCsrfProtection } from './common/config/csrf.config';
       limit: 100,
     }]),
     ScheduleModule.forRoot(),
+    EventEmitterModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -66,7 +70,7 @@ import { doubleCsrfProtection } from './common/config/csrf.config';
           database: configService.get<string>('DB_NAME') || process.env.DB_NAME,
           entities: [__dirname + '/**/*.entity{.ts,.js}', __dirname + '/**/*.entities{.ts,.js}'],
           autoLoadEntities: true,
-          synchronize: (configService.get<string>('NODE_ENV') || process.env.NODE_ENV) === 'development',
+          synchronize: (configService.get<string>('NODE_ENV') || process.env.NODE_ENV) !== 'production',
           ssl: false,
         };
 
@@ -120,6 +124,8 @@ import { doubleCsrfProtection } from './common/config/csrf.config';
     EventsModule,
     ProductBatchesModule,
     PromotionsModule,
+    ReasonCategoriesModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

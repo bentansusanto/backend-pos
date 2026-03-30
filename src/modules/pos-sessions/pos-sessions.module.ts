@@ -7,10 +7,12 @@ import { Payment } from '../payments/entities/payment.entity';
 import { PosSession } from './entities/pos-session.entity';
 import { PosSessionsController } from './pos-sessions.controller';
 import { PosSessionsService } from './pos-sessions.service';
+import { ReasonCategoriesModule } from '../reason-categories/reason-categories.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PosSession, Branch, User, Order, Payment]),
+    ReasonCategoriesModule,
   ],
   controllers: [PosSessionsController],
   providers: [PosSessionsService],

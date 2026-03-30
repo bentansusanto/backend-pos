@@ -2,6 +2,7 @@ import Hashids from 'hashids';
 import { Branch } from 'src/modules/branches/entities/branch.entity';
 import { Order } from 'src/modules/orders/entities/order.entity';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
+import { ReasonCategory } from 'src/modules/reason-categories/entities/reason-category.entity';
 import {
   BeforeInsert,
   Column,
@@ -102,6 +103,13 @@ export class PosSession {
 
   @Column({ type: 'text', nullable: true })
   notes: string;
+
+  @Column({ nullable: true })
+  reasonCategoryId: string;
+
+  @ManyToOne(() => ReasonCategory, { nullable: true })
+  @JoinColumn({ name: 'reasonCategoryId' })
+  reasonCategory: ReasonCategory;
 
   @Column({ type: 'jsonb', nullable: true })
   paymentDeclarations: { method: string; declaredAmount: number }[];

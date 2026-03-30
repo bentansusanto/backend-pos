@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import Hashids from 'hashids';
@@ -35,6 +36,7 @@ export class AiInsightService {
     @InjectRepository(Refund)
     private readonly refundRepository: Repository<Refund>,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findAll(branchId: string) {
@@ -58,13 +60,13 @@ export class AiInsightService {
     const job = new AiJob();
     job.branch = { id: branchId } as any;
 
-    // Check for recent generation (cooldown of 12 hours for production)
+    // Check for recent generation (cooldown of 1 minute)
     const lastSummary = await this.aiInsightRepository.findOne({
       where: { branch: { id: branchId }, type: InsightType.REPORT_SUMMARY },
       order: { createdAt: 'DESC' },
     });
 
-    if (!force && !isDevelopment && lastSummary && (Date.now() - new Date(lastSummary.createdAt).getTime() < 12 * 60 * 60 * 1000)) { // 12 hours
+    if (!force && lastSummary && (Date.now() - new Date(lastSummary.createdAt).getTime() < 1 * 60 * 1000)) { // 1 minute
       console.log(`[AI] Skipping generation for branch ${branchId} due to 12h cooldown.`);
       return {
         success: true,
@@ -109,8 +111,19 @@ export class AiInsightService {
       // 2. Call AI (or rule-based fallback)
       const aiResponse = await this.callOpenAI(promptData);
 
+      // Add source metadata to each insight
+      const modelUsed = this.configService.get('AI_MODEL') || 'gpt-4o';
+      const enrichedResponse = aiResponse.map(insight => ({
+        ...insight,
+        metadata: {
+          ...insight.metadata,
+          _generation_source: insight.metadata._generation_source || 'openai',
+          _generation_model: insight.metadata._generation_model || modelUsed,
+        }
+      }));
+
       // 3. Save insights
-      await this.saveInsights(aiResponse, branchId);
+      await this.saveInsights(enrichedResponse, branchId);
 
       job.status = AiJobStatus.COMPLETED;
       job.result = aiResponse;
@@ -421,12 +434,15 @@ export class AiInsightService {
     const sessionDiscrepancies = await this.posSessionRepository
       .createQueryBuilder('session')
       .leftJoin('session.user', 'user')
+      .leftJoin('session.reasonCategory', 'cat')
       .select('session.id', 'sessionId')
       .addSelect('user.name', 'cashierName')
       .addSelect('session.expected_cash', 'expectedAmount')
       .addSelect('session.closingBalance', 'actualAmount')
       .addSelect('session.difference', 'difference')
       .addSelect('session.endTime', 'closedAt')
+      .addSelect('cat.label', 'reasonCategory')
+      .addSelect('session.notes', 'notes')
       .where('session.branch_id = :branchId', { branchId })
       .andWhere('session.status = \'closed\'')
       .andWhere('session.endTime >= :startDate', { startDate })
@@ -439,9 +455,11 @@ export class AiInsightService {
       .createQueryBuilder('refund')
       .innerJoin('refund.order', 'ord')
       .innerJoin('ord.user', 'user')
+      .leftJoin('refund.reasonCategory', 'cat')
       .select('user.name', 'cashierName')
       .addSelect('COUNT(refund.id)', 'totalRefunds')
       .addSelect('SUM(refund.amount)', 'totalRefundAmount')
+      .addSelect('JSON_AGG(DISTINCT cat.label)', 'reasonCategories')
       .where('ord.branch_id = :branchId', { branchId })
       .andWhere('refund.createdAt >= :startDate', { startDate })
       .groupBy('user.name')
@@ -530,8 +548,11 @@ RANKING RULES:
 
 ANOMALY DETECTION RULES:
 - For "operational_anomalies", identify high-risk behaviors:
-  1. Cash Discrepancies: Flag any non-zero difference in "session_discrepancies".
+  1. Cash Discrepancies: Flag any non-zero difference in "session_discrepancies". 
+     - Check if "reasonCategory" matches the sign of "difference" (e.g., if difference is negative, reason should be a shortage reason like 'Wrong Change' or 'Cash Loss').
+     - If "reasonCategory" is 'Matched' but "difference" is NOT zero, this is a HIGH RISK anomaly.
   2. Refund Patterns: Flag cashiers with "totalRefundsCount" significantly higher than average.
+     - Analyze "reasonCategories" used by the cashier.
   3. Discount Spikes: Flag cashiers whose "discountPercentage" exceeds 15% or store average.
   4. Activity Timing: Flag "pre_closing_activity" sessions with high transaction volume within 30m of close.
 - For each anomaly, assign a metadata.risk_level: 'low', 'medium', or 'high'.
@@ -574,7 +595,16 @@ GENERAL RULES:
       const firstArrayVal = Object.values(parsed).find((v) => Array.isArray(v));
       return firstArrayVal || this.generateRuleBasedInsights(data);
     } catch (error) {
-      return this.generateRuleBasedInsights(data);
+      console.error('[AI] OpenAI API Call Failed:', error.message);
+      // Enrich fallback data with source info
+      return this.generateRuleBasedInsights(data).map(insight => ({
+        ...insight,
+        metadata: {
+          ...insight.metadata,
+          _generation_source: 'fallback_rules',
+          _generation_model: 'none (local logic)'
+        }
+      }));
     }
   }
 
@@ -893,5 +923,9 @@ GENERAL RULES:
     });
 
     await this.aiInsightRepository.save(entities);
+
+    // Removed: Explicit anomaly alert push
+    // We want the AI anomalies to be visible in the AI Dashboard,
+    // not spammed to the real-time notification drop-down.
   }
 }

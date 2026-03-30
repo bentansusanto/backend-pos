@@ -34,11 +34,9 @@ export enum ActionType {
   CREATE = 'create',
   UPDATE = 'update',
   DELETE = 'delete',
-  LOGIN = 'login',
-  LOGOUT = 'logout',
   APPROVE = 'approve',
   REJECT = 'reject',
-  CANCEL = 'cancel',
+  REFUND = 'refund',
 }
 
 @Entity('user_logs')

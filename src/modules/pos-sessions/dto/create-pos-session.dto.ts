@@ -35,4 +35,8 @@ export class ClosePosSessionDto {
   @IsOptional()
   @IsString({ message: 'Notes must be a string' })
   notes?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Reason Category ID must be a string' })
+  reasonCategoryId?: string;
 }

@@ -17,6 +17,7 @@ import { OrdersService } from './orders.service';
 // Import ProductBatchesModule to enable FEFO batch deduction in OrdersService
 import { ProductBatchesModule } from '../product-batches/product-batches.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { ReasonCategoriesModule } from '../reason-categories/reason-categories.module';
 
 @Module({
   controllers: [OrdersController],
@@ -38,6 +39,7 @@ import { PaymentsModule } from '../payments/payments.module';
     UserLogsModule,
     PosSessionsModule,
     ProductBatchesModule,
+    ReasonCategoriesModule,
   ],
   exports: [OrdersService],
 })
