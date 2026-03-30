@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { errorPaymentMessage } from 'src/libs/errors/error_payment';
@@ -33,6 +33,7 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    @Inject(forwardRef(() => OrdersService))
     private readonly orderService: OrdersService,
     private readonly posSessionsService: PosSessionsService,
     private readonly salesReportsService: SalesReportsService,
@@ -486,10 +487,80 @@ export class PaymentsService {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         await this.handlePaymentSuccess(paymentIntent);
         break;
-      // ... handle other event types
+      case 'charge.refunded':
+        const charge = event.data.object as Stripe.Charge;
+        await this.handleRefundSuccess(charge);
+        break;
       default:
         break;
     }
+  }
+
+  async processStripeRefund(payment: Payment, reason: string): Promise<string> {
+    if (payment.method !== PaymentMethod.STRIPE || !payment.externalId) {
+      throw new HttpException(
+        'Only Stripe payments can be refunded via this method',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    try {
+      const refund = await this.stripe.refunds.create({
+        payment_intent: payment.externalId,
+        reason: 'requested_by_customer', // Default Stripe reason
+        metadata: {
+          reason,
+          orderId: payment.orderId,
+        },
+      });
+      return refund.id;
+    } catch (error) {
+      console.error('Stripe Refund Error:', error);
+      throw new HttpException(
+        `Stripe Refund Failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private async handleRefundSuccess(charge: Stripe.Charge) {
+    const payment = await this.paymentRepository.findOne({
+      where: { externalId: charge.payment_intent as string },
+    });
+
+    if (!payment) {
+      console.warn(`[Webhook] Payment not found for Stripe PI: ${charge.payment_intent}`);
+      return;
+    }
+
+    if (payment.status === PaymentStatus.REFUNDED) {
+      return;
+    }
+
+    // Run atomically 
+    await this.paymentRepository.manager.transaction(async (manager) => {
+      const paymentRepo = manager.getRepository(Payment);
+      const orderRepo = manager.getRepository(Order);
+
+      // Update payment
+      await paymentRepo.update(payment.id, { 
+        status: PaymentStatus.REFUNDED,
+        updatedAt: new Date()
+      });
+
+      // Update order
+      await orderRepo.update(payment.orderId, { 
+        status: OrderStatus.REFUNDED,
+        updatedAt: new Date()
+      });
+    });
+
+    this.eventsGateway.broadcastOrderUpdate({
+      orderId: payment.orderId,
+      status: OrderStatus.REFUNDED,
+    });
+
+    console.log(`  ✓ Webhook: Payment ${payment.id} and Order ${payment.orderId} marked as REFUNDED`);
   }
 
   private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {

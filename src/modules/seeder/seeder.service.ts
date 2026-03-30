@@ -691,22 +691,10 @@ export class SeederService implements OnModuleInit {
         description: 'Owner with full system access',
       },
       {
-        name: 'developer',
-        code: 'developer',
-        self_registered: false,
-        description: 'Developer with full system access',
-      },
-      {
         name: 'admin',
         code: 'admin',
         self_registered: false,
         description: 'Admin with full system access',
-      },
-      {
-        name: 'branch_manager',
-        code: 'branch_manager',
-        self_registered: false,
-        description: 'Branch Manager with branch management access',
       },
       {
         name: 'cashier',
@@ -740,23 +728,11 @@ export class SeederService implements OnModuleInit {
     const owner = await this.roleRepository.findOne({
       where: { name: 'owner' },
     });
-    const superAdmin = await this.roleRepository.findOne({
-      where: { name: 'super_admin' },
-    });
     const admin = await this.roleRepository.findOne({
       where: { name: 'admin' },
     });
-    const branchManager = await this.roleRepository.findOne({
-      where: { name: 'branch_manager' },
-    });
     const cashier = await this.roleRepository.findOne({
       where: { name: 'cashier' },
-    });
-    const inventoryStaff = await this.roleRepository.findOne({
-      where: { name: 'inventory_staff' },
-    });
-    const accountant = await this.roleRepository.findOne({
-      where: { name: 'accountant' },
     });
 
     const allPermissions = await this.permissionRepository.find();
@@ -769,34 +745,18 @@ export class SeederService implements OnModuleInit {
       console.log(`  ✓ Assigned all permissions to owner`);
     }
 
-    // Super Admin - All permissions
-    if (superAdmin) {
-      for (const permission of allPermissions) {
-        await this.assignPermissionToRole(superAdmin.id, permission.id);
-      }
-      console.log(`  ✓ Assigned all permissions to super_admin`);
-    }
-
-    // Admin - All permissions
+    // Admin - Restricted orders access (Read-only for orders)
     if (admin) {
-      for (const permission of allPermissions) {
+      const adminPermissions = allPermissions.filter(
+        (p) => !p.action.startsWith('orders:') || p.action === 'orders:read',
+      );
+      for (const permission of adminPermissions) {
         await this.assignPermissionToRole(admin.id, permission.id);
       }
-      console.log(`  ✓ Assigned all permissions to admin`);
+      console.log(`  ✓ Assigned restricted permissions to admin`);
     }
 
-    // Branch Manager - All except system settings
-    if (branchManager) {
-      const managerPermissions = allPermissions.filter(
-        (p) =>
-          !(p.action.startsWith('settings:') && p.action.endsWith('update')) &&
-          !p.action.startsWith('branches:'), // Cannot manage branches
-      );
-      for (const permission of managerPermissions) {
-        await this.assignPermissionToRole(branchManager.id, permission.id);
-      }
-      console.log(`  ✓ Assigned permissions to branch_manager`);
-    }
+
 
     // Cashier - Sales and basic operations (Restricted Sidebar)
     if (cashier) {
@@ -813,62 +773,31 @@ export class SeederService implements OnModuleInit {
             ['create', 'read', 'update', 'delete'].some((a) =>
               p.action.endsWith(a),
             )) ||
-          (p.action.startsWith('payments:') && ['create', 'read'].some((a) => p.action.endsWith(a))) ||
+          (p.action.startsWith('payments:') && ['create', 'read', 'verifyPayment', 'refund'].some((a) => p.action.endsWith(a))) ||
           (p.action.startsWith('pos_sessions:') && ['read', 'openSession', 'closeSession'].some((a) => p.action.endsWith(a))) ||
           p.action === 'branches:read' ||
           p.action === 'categories:read' ||
           p.action === 'taxes:read' ||
           p.action === 'users:read' ||
           p.action === 'stock_takes:check_frozen' ||
-          p.action === 'promotions:read',
+          p.action === 'promotions:read' ||
+          p.action === 'sales_reports:read'
       );
       const cashierPermissionIds = cashierPermissions.map((p) => p.id);
       await this.syncRolePermissions(cashier.id, cashierPermissionIds);
       console.log(`  ✓ Synced permissions for cashier`);
     }
 
-    // Inventory Staff - Inventory management
-    if (inventoryStaff) {
-      const inventoryPermissions = allPermissions.filter(
-        (p) =>
-          p.action === 'dashboard:view' ||
-          (p.action.startsWith('products:') &&
-            ['create', 'read', 'update'].some((a) => p.action.endsWith(a))) ||
-          p.action.startsWith('product_stocks:') ||
-          p.action.startsWith('stock_movements:') ||
-          p.action === 'reports:inventory' ||
-          p.action === 'inventory:view',
-      );
-      for (const permission of inventoryPermissions) {
-        await this.assignPermissionToRole(inventoryStaff.id, permission.id);
-      }
-      console.log(`  ✓ Assigned permissions to inventory_staff`);
-    }
 
-    // Accountant - Reports and analytics
-    if (accountant) {
-      const accountantPermissions = allPermissions.filter(
-        (p) =>
-          p.action.startsWith('dashboard:') ||
-          (p.action.startsWith('orders:') && p.action.endsWith('read')) ||
-          p.action.startsWith('reports:') ||
-          p.action === 'reports:view' ||
-          p.action === 'finance:view',
-      );
-      for (const permission of accountantPermissions) {
-        await this.assignPermissionToRole(accountant.id, permission.id);
-      }
-      console.log(`  ✓ Assigned permissions to accountant`);
-    }
 
     console.log('✅ Role-permission mappings seeded');
   }
 
   private async syncRolePermissions(roleId: string, permissionIds: string[]) {
     // Delete all existing permissions for this role that are not in the new list
-    // Actually, for simplicity and ensuring strictness, we'll clear and re-add 
+    // Actually, for simplicity and ensuring strictness, we'll clear and re-add
     // but a more performant way is to delete only what's not in the list.
-    
+
     // Get current assignments
     const currentAssignments = await this.rolePermissionRepository.find({
       where: { role: { id: roleId } },
@@ -896,7 +825,7 @@ export class SeederService implements OnModuleInit {
       });
       await this.rolePermissionRepository.save(rolePermission);
     }
-    
+
     if (toAdd.length > 0) {
       console.log(`  + Added ${toAdd.length} permissions to role ${roleId}`);
     }

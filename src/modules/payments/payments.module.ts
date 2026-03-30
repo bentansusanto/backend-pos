@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountingModule } from '../accounting/accounting.module';
@@ -19,7 +19,7 @@ import { PaymentsService } from './payments.service';
   providers: [PaymentsService],
   imports: [
     TypeOrmModule.forFeature([Payment, Refund, StockMovement, ProductStock, Order]),
-    OrdersModule,
+    forwardRef(() => OrdersModule),
     PosSessionsModule,
     SalesReportsModule,
     ConfigModule,

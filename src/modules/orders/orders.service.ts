@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Hashids from 'hashids';
 import { errOrderMessage } from 'src/libs/errors/error_order';
@@ -24,6 +24,7 @@ import { Refund } from '../payments/entities/refund.entity';
 import { StockMovement, ReferenceType } from '../stock-movements/entities/stock-movement.entity';
 import { ProductBatchesService } from '../product-batches/product-batches.service';
 import Stripe from 'stripe';
+import { PaymentsService } from '../payments/payments.service';
 
 @Injectable()
 export class OrdersService {
@@ -49,6 +50,8 @@ export class OrdersService {
     private readonly eventsGateway: EventsGateway,
     // Used for FEFO batch deduction after a sale is completed
     private readonly productBatchesService: ProductBatchesService,
+    @Inject(forwardRef(() => PaymentsService))
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   private async getActiveTaxRate(): Promise<number> {
@@ -1177,14 +1180,9 @@ export class OrdersService {
         });
         
         if (payment.method === PaymentMethod.STRIPE && payment.externalId) {
-          try {
-            const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: '2024-06-20' as any });
-            const stripeRefund = await stripe.refunds.create({ payment_intent: payment.externalId });
-            refund.stripeRefundId = stripeRefund.id;
-            stripeRefundId = stripeRefund.id;
-          } catch (e) {
-            console.error('Stripe SDK Error during refund:', e);
-          }
+          // Trigger Stripe refund. This will throw if it fails, rolling back the transaction.
+          stripeRefundId = await this.paymentsService.processStripeRefund(payment, reason);
+          refund.stripeRefundId = stripeRefundId;
         }
 
         await manager.save(refund);

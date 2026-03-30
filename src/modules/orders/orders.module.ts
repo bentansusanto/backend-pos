@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Customer } from '../customers/entities/customer.entity';
 import { PosSessionsModule } from '../pos-sessions/pos-sessions.module';
@@ -16,6 +16,7 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 // Import ProductBatchesModule to enable FEFO batch deduction in OrdersService
 import { ProductBatchesModule } from '../product-batches/product-batches.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   controllers: [OrdersController],
@@ -33,6 +34,7 @@ import { ProductBatchesModule } from '../product-batches/product-batches.module'
       Promotion,
       Refund,
     ]),
+    forwardRef(() => PaymentsModule),
     UserLogsModule,
     PosSessionsModule,
     ProductBatchesModule,
