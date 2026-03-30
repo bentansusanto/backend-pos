@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -234,6 +240,10 @@ export class PosSessionsService {
   }
 
   async getActiveSession(user: User) {
+    if (!user || !user.id) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
     const session = await this.posSessionRepository.findOne({
       where: {
         user: { id: user.id },

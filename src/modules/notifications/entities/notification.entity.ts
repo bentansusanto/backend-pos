@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, Index, PrimaryColumn, BeforeInsert } from 'typeorm';
+import Hashids from 'hashids';
 
 export enum NotificationType {
   ANOMALY = 'anomaly',
@@ -9,8 +10,15 @@ export enum NotificationType {
 
 @Entity('notifications')
 export class Notification {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn()
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
+    }
+  }
 
   @Index()
   @Column({

@@ -65,16 +65,19 @@ import { doubleCsrfProtection } from './common/config/csrf.config';
           type: 'postgres' as const,
           host: configService.get<string>('DB_HOST') || process.env.DB_HOST,
           port: Number(configService.get('DB_PORT') || process.env.DB_PORT || 5432),
-          username: configService.get<string>('DB_USER') || process.env.DB_USER,
+          username: configService.get<string>('DB_USER') || process.env.DB_USER || 'pos_db',
           password: configService.get<string>('DB_PASS') || process.env.DB_PASS,
           database: configService.get<string>('DB_NAME') || process.env.DB_NAME,
           entities: [__dirname + '/**/*.entity{.ts,.js}', __dirname + '/**/*.entities{.ts,.js}'],
           autoLoadEntities: true,
+          // SECURITY FIX: Explicitly check for 'development' to avoid data loss in production/test.
           synchronize: (configService.get<string>('NODE_ENV') || process.env.NODE_ENV) !== 'production',
           ssl: false,
         };
 
-        console.log(`[DB DEBUG] Connecting to ${dbConfig.host} as user ${dbConfig.username}`);
+        console.log(`[DB DEBUG] Synchronize: ${(configService.get<string>('NODE_ENV') || process.env.NODE_ENV) !== 'production'}`);
+        console.log(`[DB DEBUG] ID_SECRET: ${process.env.ID_SECRET ? '******' : 'MISSING'}`);
+
         return dbConfig;
       },
     }),

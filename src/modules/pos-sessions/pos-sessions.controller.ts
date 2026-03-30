@@ -7,7 +7,9 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
 import { WebResponse } from 'src/types/response/index.type';
 import { User } from '../rbac/users/entities/user.entity';
@@ -18,6 +20,7 @@ import {
 import { PosSessionsService } from './pos-sessions.service';
 
 @Controller('pos-sessions')
+@UseGuards(JwtAuthGuard)
 export class PosSessionsController {
   constructor(private readonly posSessionsService: PosSessionsService) {}
 

@@ -16,8 +16,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET'),
+      secretOrKey: configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET || 'temporary_development_secret_do_not_use_in_prod',
     });
+    
+    if (!(configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET)) {
+      console.error('[CRITICAL] JWT_SECRET is not defined! Using dangerous fallback secret.');
+    }
   }
 
   async validate(payload: any) {

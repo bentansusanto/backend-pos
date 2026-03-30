@@ -41,10 +41,20 @@ export class PaymentsService {
     private readonly accountingService: AccountingService,
     private readonly eventsGateway: EventsGateway,
   ) {
-    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
-    this.stripe = new Stripe(secretKey, {
-      apiVersion: '2023-10-16' as any, // Fixed invalid version
-    });
+    // const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY') || process.env.STRIPE_SECRET_KEY;
+
+    // if (secretKey) {
+    //   this.stripe = new Stripe(secretKey, {
+    //     apiVersion: '2023-10-16' as any,
+    //   });
+    // } else {
+    //   console.error('[CRITICAL] STRIPE_SECRET_KEY is missing! Stripe features will fail.');
+    //   // Initialize with a dummy key to prevent crashes if methods are called,
+    //   // but the guard/logic should handle it.
+    //   this.stripe = new Stripe('sk_test_dummy', {
+    //     apiVersion: '2023-10-16' as any,
+    //   });
+    // }
   }
 
   // create payment
@@ -75,6 +85,9 @@ export class PaymentsService {
     let externalId: string | undefined;
 
     if (method === PaymentMethod.STRIPE) {
+      if (!this.stripe) {
+        throw new HttpException('Stripe is not configured', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
       const currency =
         this.configService.get<string>('STRIPE_CURRENCY') || 'usd';
       const paymentIntent = await this.stripe.paymentIntents.create({
@@ -213,7 +226,7 @@ export class PaymentsService {
 
           // Save customer and broadcast update
           await manager.save(order.customer);
-          
+
           // Broadcast real-time loyalty update
           this.eventsGateway.broadcastLoyaltyUpdate({
             customerId: order.customer.id,
@@ -307,7 +320,7 @@ export class PaymentsService {
                   branch: { id: updatedOrder.branch.id },
                 },
               });
-              
+
               if (freshStock) {
                 this.eventsGateway.broadcastStockUpdate({
                   variantId: item.variant.id,
@@ -345,7 +358,7 @@ export class PaymentsService {
       const revenueAccount = await this.accountingService.getAccountByCode('4000'); // Sales Revenue
       const taxAccount = await this.accountingService.getAccountByCode('2010'); // Value Added Tax Payable
       const discountAccount = await this.accountingService.getAccountByCode('5010'); // Cost of Sales / Discounts or similar
-      
+
       // Only proceed if at least Cash and Revenue exist
       if (cashAccount && revenueAccount) {
         const lines = [];
@@ -537,19 +550,19 @@ export class PaymentsService {
       return;
     }
 
-    // Run atomically 
+    // Run atomically
     await this.paymentRepository.manager.transaction(async (manager) => {
       const paymentRepo = manager.getRepository(Payment);
       const orderRepo = manager.getRepository(Order);
 
       // Update payment
-      await paymentRepo.update(payment.id, { 
+      await paymentRepo.update(payment.id, {
         status: PaymentStatus.REFUNDED,
         updatedAt: new Date()
       });
 
       // Update order
-      await orderRepo.update(payment.orderId, { 
+      await orderRepo.update(payment.orderId, {
         status: OrderStatus.REFUNDED,
         updatedAt: new Date()
       });
