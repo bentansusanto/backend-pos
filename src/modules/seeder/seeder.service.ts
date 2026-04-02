@@ -784,23 +784,22 @@ export class SeederService implements OnModuleInit {
 
     const allPermissions = await this.permissionRepository.find();
 
-    // Owner - All permissions
+    // Owner - All permissions except POS
     if (owner) {
-      for (const permission of allPermissions) {
-        await this.assignPermissionToRole(owner.id, permission.id);
-      }
-      console.log(`  ✓ Assigned all permissions to owner`);
+      const ownerPermissions = allPermissions.filter(
+        (p) => (!p.action.startsWith('pos_sessions:') || p.action === 'pos_sessions:read') && p.action !== 'pos_log:view'
+      );
+      await this.syncRolePermissions(owner.id, ownerPermissions.map((p) => p.id));
+      console.log(`  ✓ Assigned permissions to owner (except POS)`);
     }
 
-    // Admin - Restricted orders access (Read-only for orders)
+    // Admin - All permissions except POS
     if (admin) {
       const adminPermissions = allPermissions.filter(
-        (p) => !p.action.startsWith('orders:') || p.action === 'orders:read',
+        (p) => (!p.action.startsWith('pos_sessions:') || p.action === 'pos_sessions:read') && p.action !== 'pos_log:view'
       );
-      for (const permission of adminPermissions) {
-        await this.assignPermissionToRole(admin.id, permission.id);
-      }
-      console.log(`  ✓ Assigned restricted permissions to admin`);
+      await this.syncRolePermissions(admin.id, adminPermissions.map((p) => p.id));
+      console.log(`  ✓ Assigned permissions to admin (except POS)`);
     }
 
 

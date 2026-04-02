@@ -3,7 +3,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 RUN npm install -g pnpm
-RUN pnpm config set store-dir /app/.pnpm-store
+# RUN pnpm config set store-dir /app/.pnpm-store
 
 COPY package.json pnpm-lock.yaml ./
 

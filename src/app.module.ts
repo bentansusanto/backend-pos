@@ -75,9 +75,6 @@ import { doubleCsrfProtection } from './common/config/csrf.config';
           ssl: false,
         };
 
-        console.log(`[DB DEBUG] Synchronize: ${(configService.get<string>('NODE_ENV') || process.env.NODE_ENV) !== 'production'}`);
-        console.log(`[DB DEBUG] ID_SECRET: ${process.env.ID_SECRET ? '******' : 'MISSING'}`);
-
         return dbConfig;
       },
     }),
