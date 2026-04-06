@@ -43,6 +43,7 @@ import { ProductBatchesModule } from './modules/product-batches/product-batches.
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { ReasonCategoriesModule } from './modules/reason-categories/reason-categories.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { LoyaltySettingsModule } from './modules/loyalty-settings/loyalty-settings.module';
 import { doubleCsrfProtection } from './common/config/csrf.config';
 
 @Module({
@@ -126,6 +127,7 @@ import { doubleCsrfProtection } from './common/config/csrf.config';
     PromotionsModule,
     ReasonCategoriesModule,
     NotificationsModule,
+    LoyaltySettingsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -24,6 +24,7 @@ import { Payment, PaymentStatus, PaymentMethod } from '../payments/entities/paym
 import { Refund } from '../payments/entities/refund.entity';
 import { StockMovement, ReferenceType } from '../stock-movements/entities/stock-movement.entity';
 import { ProductBatchesService } from '../product-batches/product-batches.service';
+import { LoyaltySettingsService } from '../loyalty-settings/loyalty-settings.service';
 import Stripe from 'stripe';
 import { PaymentsService } from '../payments/payments.service';
 
@@ -52,6 +53,7 @@ export class OrdersService {
     private readonly eventsGateway: EventsGateway,
     // Used for FEFO batch deduction after a sale is completed
     private readonly productBatchesService: ProductBatchesService,
+    private readonly loyaltySettingsService: LoyaltySettingsService,
     @Inject(forwardRef(() => PaymentsService))
     private readonly paymentsService: PaymentsService,
   ) {}
@@ -669,6 +671,7 @@ export class OrdersService {
         'customer',
         'branch',
         'user',
+        'promotion',
       ],
     });
     if (!orders || orders.length === 0) {
@@ -724,6 +727,7 @@ export class OrdersService {
         'customer',
         'branch',
         'user',
+        'promotion',
         'posSession',
       ],
     });
@@ -754,6 +758,13 @@ export class OrdersService {
         subtotal: order.subtotal ?? 0,
         tax_amount: order.tax_amount ?? 0,
         discount_amount: order.discount_amount ?? 0,
+        promotion_id: order.promotion?.id,
+        promotion: order.promotion
+          ? {
+              id: order.promotion.id,
+              name: order.promotion.name,
+            }
+          : undefined,
         total_amount: totalAmount,
         status: order.status,
         created_at: order.createdAt,
@@ -1261,7 +1272,16 @@ export class OrdersService {
 
       // 4. Adjust Loyalty Points
       if (order.customer && payment) {
-        let pointsToDeduct = Math.floor(Number(payment.amount || 0) / 10);
+        // award points deduction (reverse points earned)
+        const loyaltySettings = await this.loyaltySettingsService.getSettings(order.branch?.id);
+        let pointsToDeduct = 0;
+
+        if (loyaltySettings && loyaltySettings.isActive) {
+          const subtotal = Number(order.subtotal || 0);
+          if (subtotal >= Number(loyaltySettings.minimumSpend)) {
+            pointsToDeduct = Math.floor(subtotal / Number(loyaltySettings.amountPerPoint)) * Number(loyaltySettings.pointsEarned);
+          }
+        }
         let pointsToReturn = 0;
         
         if (order.promotion && order.promotion.rules) {

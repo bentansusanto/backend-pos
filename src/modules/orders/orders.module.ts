@@ -18,6 +18,7 @@ import { OrdersService } from './orders.service';
 import { ProductBatchesModule } from '../product-batches/product-batches.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { ReasonCategoriesModule } from '../reason-categories/reason-categories.module';
+import { LoyaltySettingsModule } from '../loyalty-settings/loyalty-settings.module';
 
 @Module({
   controllers: [OrdersController],
@@ -40,6 +41,7 @@ import { ReasonCategoriesModule } from '../reason-categories/reason-categories.m
     PosSessionsModule,
     ProductBatchesModule,
     ReasonCategoriesModule,
+    LoyaltySettingsModule,
   ],
   exports: [OrdersService],
 })

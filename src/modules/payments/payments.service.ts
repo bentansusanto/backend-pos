@@ -11,6 +11,7 @@ import { OrdersService } from '../orders/orders.service';
 import { PosSessionsService } from '../pos-sessions/pos-sessions.service';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { SalesReportsService } from '../sales-reports/sales-reports.service';
+import { LoyaltySettingsService } from '../loyalty-settings/loyalty-settings.service';
 import { EventsGateway } from '../events/events.gateway';
 import { AccountingService } from '../accounting/accounting.service';
 import { ReferenceType as AccReferenceType } from '../accounting/entities/accounting.enums';
@@ -39,6 +40,7 @@ export class PaymentsService {
     private readonly salesReportsService: SalesReportsService,
     private readonly configService: ConfigService,
     private readonly accountingService: AccountingService,
+    private readonly loyaltySettingsService: LoyaltySettingsService,
     private readonly eventsGateway: EventsGateway,
   ) {
     // const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY') || process.env.STRIPE_SECRET_KEY;
@@ -218,8 +220,17 @@ export class PaymentsService {
             }
           }
 
-          // 2. Award new points based on the payment amount
-          const pointsToEarn = Math.floor(Number(payment.amount || 0) / 10);
+          // 2. Award new points based on the subtotal and dynamic loyalty settings
+          const loyaltySettings = await this.loyaltySettingsService.getSettings(order.branch?.id);
+          let pointsToEarn = 0;
+
+          if (loyaltySettings && loyaltySettings.isActive) {
+            const subtotal = Number(order.subtotal || 0);
+            if (subtotal >= Number(loyaltySettings.minimumSpend)) {
+              pointsToEarn = Math.floor(subtotal / Number(loyaltySettings.amountPerPoint)) * Number(loyaltySettings.pointsEarned);
+            }
+          }
+
           if (pointsToEarn > 0) {
             order.customer.loyalPoints = (Number(order.customer.loyalPoints) || 0) + pointsToEarn;
           }

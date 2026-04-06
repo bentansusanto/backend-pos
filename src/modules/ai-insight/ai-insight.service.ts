@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import Hashids from 'hashids';
 import { Repository } from 'typeorm';
 import { AiJob, AiJobStatus } from '../ai-jobs/entities/ai-job.entity';
-import { Order } from '../orders/entities/order.entity';
+import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { ProductBatch } from '../product-batches/entities/product-batch.entity';
 import { ProductStock } from '../product-stocks/entities/product-stock.entity';
 import { StockMovement, ReferenceType } from '../stock-movements/entities/stock-movement.entity';
@@ -66,11 +66,12 @@ export class AiInsightService {
       order: { createdAt: 'DESC' },
     });
 
-    if (!force && lastSummary && (Date.now() - new Date(lastSummary.createdAt).getTime() < 1 * 60 * 1000)) { // 1 minute
-      console.log(`[AI] Skipping generation for branch ${branchId} due to 12h cooldown.`);
+    const cooldownMs = isDevelopment ? 0 : 1 * 60 * 1000; // Disable cooldown in development
+    if (!force && lastSummary && (Date.now() - new Date(lastSummary.createdAt).getTime() < cooldownMs)) {
+      console.log(`[AI] Using cached insights for branch ${branchId}.`);
       return {
         success: true,
-        message: 'Insights were recently generated. Using existing data.',
+        message: `Using cached insights (${isDevelopment ? 'dev mode' : '1 minute cooldown'}).`,
         data: lastSummary.metadata,
       };
     }
@@ -106,6 +107,8 @@ export class AiInsightService {
         // Anomaly intelligence
         stock_anomalies: stockAnomalyData.suspiciousMovements,
         operational_anomalies: operationalAnomalyData,
+        // Promotion intelligence
+        promotion_performance: salesData.promoPerformance,
       };
 
       // 2. Call AI (or rule-based fallback)
@@ -281,7 +284,21 @@ export class AiInsightService {
       .limit(10)
       .getRawMany();
 
-    return { dailySales, topProducts, slowMovingProducts, deadStockProducts };
+    const promoPerformance = await this.orderRepository
+      .createQueryBuilder('ord')
+      .innerJoin('ord.promotion', 'promo')
+      .select('promo.name', 'promoName')
+      .addSelect('COUNT(ord.id)', 'usageCount')
+      .addSelect('SUM(ord.discount_amount)', 'totalDiscount')
+      .addSelect('SUM(ord.subtotal + ord.tax_amount - ord.discount_amount)', 'totalRevenue')
+      .where('ord.branch_id = :branchId', { branchId })
+      .andWhere('ord.status = :status', { status: OrderStatus.COMPLETED })
+      .andWhere('ord.createdAt >= :startDate', { startDate })
+      .groupBy('promo.name')
+      .orderBy('COUNT(ord.id)', 'DESC')
+      .getRawMany();
+
+    return { dailySales, topProducts, slowMovingProducts, deadStockProducts, promoPerformance };
   }
 
   /**
@@ -430,7 +447,7 @@ export class AiInsightService {
       default: startDate.setDate(startDate.getDate() - 30); break;
     }
 
-    // 1. Cash Discrepancies (Sesi POS dengan selisih)
+    // 1. Cash Discrepancies (POS Session with differences)
     const sessionDiscrepancies = await this.posSessionRepository
       .createQueryBuilder('session')
       .leftJoin('session.user', 'user')
@@ -446,7 +463,7 @@ export class AiInsightService {
       .where('session.branch_id = :branchId', { branchId })
       .andWhere('session.status = \'closed\'')
       .andWhere('session.endTime >= :startDate', { startDate })
-      .andWhere('ABS(session.difference) > 0') // Hanya yang ada selisih
+      .andWhere('ABS(session.difference) > 0') // Only those with differences
       .orderBy('session.endTime', 'DESC')
       .getRawMany();
 
@@ -457,16 +474,37 @@ export class AiInsightService {
       .innerJoin('ord.user', 'user')
       .leftJoin('refund.reasonCategory', 'cat')
       .select('user.name', 'cashierName')
+      .addSelect('cat.label', 'reasonLabel')
+      .addSelect("TO_CHAR(refund.createdAt, 'YYYY-MM-DD')", 'date')
       .addSelect('COUNT(refund.id)', 'totalRefunds')
       .addSelect('SUM(refund.amount)', 'totalRefundAmount')
-      .addSelect('JSON_AGG(DISTINCT cat.label)', 'reasonCategories')
       .where('ord.branch_id = :branchId', { branchId })
       .andWhere('refund.createdAt >= :startDate', { startDate })
-      .groupBy('user.name')
-      .having('COUNT(refund.id) > 2') // Minimal 3 refund untuk dianggap pola
+      .groupBy('user.name, cat.label, TO_CHAR(refund.createdAt, \'YYYY-MM-DD\')')
+      .having('COUNT(refund.id) > 4') // Minimum 5 refunds for the same reason on the same day
       .getRawMany();
+    
+    // Transform to group by cashier for cleaner AI analysis
+    const groupedRefundPatterns = [];
+    const cashierMap = new Map();
+    
+    for (const r of refundPatterns) {
+      if (!cashierMap.has(r.cashierName)) {
+        cashierMap.set(r.cashierName, {
+          cashierName: r.cashierName,
+          suspiciousDays: []
+        });
+        groupedRefundPatterns.push(cashierMap.get(r.cashierName));
+      }
+      cashierMap.get(r.cashierName).suspiciousDays.push({
+        date: r.date,
+        reason: r.reasonLabel,
+        count: parseInt(r.totalRefunds),
+        amount: parseFloat(r.totalRefundAmount)
+      });
+    }
 
-    // 3. Discount Spikes per Cashier (Rasio diskon terhadap subtotal)
+    // 3. Discount Spikes per Cashier (Discount ratio to subtotal)
     const discountSpikes = await this.orderRepository
       .createQueryBuilder('ord')
       .innerJoin('ord.user', 'user')
@@ -485,8 +523,24 @@ export class AiInsightService {
         discountPercentage: (parseFloat(r.totalDiscounts) / parseFloat(r.totalSales)) * 100
       })));
 
-    // 4. Activity Timing (lonjakan transaksi mendadak sebelum tutup)
-    // Mencari pesanan yang terjadi dalam 30 menit terakhir sebelum sesi ditutup
+    // 5. Perfect Match Overuse (Cashier always reporting perfect match > 4 times)
+    // Search for cashiers using the 'MATCHED' reason category more than 4 times in this period
+    const perfectMatchOveruse = await this.posSessionRepository
+      .createQueryBuilder('session')
+      .innerJoin('session.user', 'user')
+      .innerJoin('session.reasonCategory', 'cat')
+      .select('user.name', 'cashierName')
+      .addSelect('COUNT(session.id)', 'matchCount')
+      .addSelect('JSON_AGG(session.id)', 'sessionIds')
+      .where('session.branch_id = :branchId', { branchId })
+      .andWhere('session.status = \'closed\'')
+      .andWhere('session.endTime >= :startDate', { startDate })
+      .andWhere('cat.value = \'MATCHED\'')
+      .groupBy('user.name')
+      .having('COUNT(session.id) > 4')
+      .getRawMany();
+
+    // 4. Activity Timing (Sudden transaction spikes before closing)
     const preClosingActivity = await this.posSessionRepository
       .createQueryBuilder('session')
       .innerJoin('session.orders', 'ord')
@@ -499,14 +553,53 @@ export class AiInsightService {
       .andWhere('session.endTime >= :startDate', { startDate })
       .andWhere('ord.createdAt >= session.endTime - INTERVAL \'30 minutes\'')
       .groupBy('session.id, user.name')
-      .having('COUNT(ord.id) >= 5') // Ambang batas aktivitas mencurigakan
+      .having('COUNT(ord.id) >= 5')
       .getRawMany();
+
+    // Additional data for cashiers in the 'perfectMatchOveruse' category
+    const matchAnalysis = [];
+    for (const cashier of perfectMatchOveruse) {
+      const sessionIds = cashier.sessionIds;
+      
+      // Calculate total refunds in those sessions
+      const refundStat = await this.refundRepository
+        .createQueryBuilder('refund')
+        .innerJoin('refund.order', 'ord')
+        .select('COUNT(refund.id)', 'count')
+        .addSelect('SUM(refund.amount)', 'totalAmount')
+        .where('ord.pos_session_id IN (:...sessionIds)', { sessionIds })
+        .getRawMany();
+
+      // Calculate stock movement (damage/adjust) in those sessions
+      const stockStat = await this.stockMovementRepository
+        .createQueryBuilder('movement')
+        .select('COUNT(movement.id)', 'count')
+        .addSelect('JSON_AGG(DISTINCT movement.reason)', 'reasons')
+        .where('movement.branch_id = :branchId', { branchId })
+        .andWhere('movement.createdAt >= :startDate', { startDate })
+        .andWhere('movement.referenceType IN (\'damage\', \'adjust\', \'expired\', \'stock_take\')')
+        .getRawMany();
+
+      matchAnalysis.push({
+        cashierName: cashier.cashierName,
+        matchCount: parseInt(cashier.matchCount),
+        refundsCorrelation: {
+          count: parseInt(refundStat[0]?.count || 0),
+          amount: parseFloat(refundStat[0]?.totalAmount || 0)
+        },
+        stockMovementsCorrelation: {
+          count: parseInt(stockStat[0]?.count || 0),
+          reasons: stockStat[0]?.reasons || []
+        }
+      });
+    }
 
     return {
       session_discrepancies: sessionDiscrepancies,
-      refund_patterns: refundPatterns,
+      refund_patterns: groupedRefundPatterns,
       discount_analysis: discountSpikes,
-      pre_closing_activity: preClosingActivity
+      pre_closing_activity: preClosingActivity,
+      perfect_match_analysis: matchAnalysis
     };
   }
 
@@ -537,7 +630,7 @@ Each insight object must have:
 
 SPECIAL RULES FOR "report_summary":
 The "report_summary" insight MUST contain:
-- metadata.executive_summary: A 2-3 sentence narrative overview of the store's performance.
+- metadata.executive_summary: A bulleted list (using \n and •) giving a concise overview of the store's performance.
 - metadata.highlights: An array of 3-5 strings representing key wins or concerns.
 - metadata.total_revenue: The total revenue number.
 
@@ -551,13 +644,19 @@ ANOMALY DETECTION RULES:
   1. Cash Discrepancies: Flag any non-zero difference in "session_discrepancies". 
      - Check if "reasonCategory" matches the sign of "difference" (e.g., if difference is negative, reason should be a shortage reason like 'Wrong Change' or 'Cash Loss').
      - If "reasonCategory" is 'Matched' but "difference" is NOT zero, this is a HIGH RISK anomaly.
-  2. Refund Patterns: Flag cashiers with "totalRefundsCount" significantly higher than average.
-     - Analyze "reasonCategories" used by the cashier.
-  3. Discount Spikes: Flag cashiers whose "discountPercentage" exceeds 15% or store average.
-  4. Activity Timing: Flag "pre_closing_activity" sessions with high transaction volume within 30m of close.
+  2. Perfect Match Overuse: Flag cashiers in "perfect_match_analysis" who have more than 4 "matchCount".
+     - HIGH RISK alert if "refundsCorrelation.count" > 0 or "stockMovementsCorrelation.count" > 0.
+     - Correlation with "refundsCorrelation" suggests the cashier is taking cash and using fake refunds to balance the drawer.
+     - Correlation with "stockMovementsCorrelation" suggests the cashier is stealing stock or products and adjusting records.
+  3. Refund Patterns: Flag cashiers in "refund_patterns" who have "suspiciousDays" (5+ refunds for the same reason on one day).
+     - These are HIGH RISK anomalies suggesting potential pocketing of cash using identical refund reasons.
+  4. Discount Spikes: Flag cashiers whose "discountPercentage" exceeds 15% or store average.
+  5. Activity Timing: Flag "pre_closing_activity" sessions with high transaction volume within 30m of close.
 - For each anomaly, assign a metadata.risk_level: 'low', 'medium', or 'high'.
 - Provide a metadata.audit_hint: A specific instruction for the manager (e.g., "Check CCTV between 10 PM and 10:30 PM", "Audit transaction #XYZ").
+- ALWAYS include specific counts and reasons in the "summary" for anomalies (e.g., "Frequent Refunds (5 times)", "Matched Session Overuse (6 times)").
 
+- Analyze "promotion_performance" to identify which campaigns are driving revenue and which are underperforming.
 GENERAL RULES:
 - Only use product names and SKUs from the actual data provided
 - Do NOT fabricate products not in the data
@@ -637,19 +736,21 @@ GENERAL RULES:
       summary: 'Business Summary for This Period',
       metadata: {
         executive_summary:
-          `Total sales for this period ${totalRevenue > 0 ? `is $ ${totalRevenue.toLocaleString('en-US')}` : 'is not yet available'}. ` +
-          `${criticalCount > 0 ? `There are ${criticalCount} products with critical stock that need immediate restocking. ` : 'There are no products with critical stock at this time. '}` +
-          `${expiryCount > 0 ? `${expiryCount} product batches will expire within the next 30 days. ` : ''}` +
-          `${stockAnomalyCount > 0 ? `Found ${stockAnomalyCount} suspicious stock movements. ` : ''}` +
-          `${sessionDiscrepancyCount > 0 ? `CRITICAL: ${sessionDiscrepancyCount} cash discrepancies detected in recent closures! ` : ''}` +
-          `${refundPatternCount > 0 ? `WARNING: Found ${refundPatternCount} suspicious cashier refund patterns.` : ''}`,
+          `• Total sales for this period ${totalRevenue > 0 ? `is $ ${totalRevenue.toLocaleString('en-US')}` : 'is not yet available'}.\n` +
+          `• ${criticalCount > 0 ? `There are ${criticalCount} products with critical stock that need immediate restocking.` : 'There are no products with critical stock at this time.'}\n` +
+          `${expiryCount > 0 ? `• ${expiryCount} product batches will expire within the next 30 days.\n` : ''}` +
+          `${stockAnomalyCount > 0 ? `• Found ${stockAnomalyCount} suspicious stock movements.\n` : ''}` +
+          `${sessionDiscrepancyCount > 0 ? `• CRITICAL: ${sessionDiscrepancyCount} cash discrepancies detected in recent closures!\n` : ''}` +
+          `${refundPatternCount > 0 ? `• SECURITY ALERT: ${refundPatternCount} cashier(s) with high-frequency refunds today/recently (5+ same-reason refunds).\n` : ''}` +
+          `${opAnomaly.perfect_match_analysis?.length > 0 ? `• INVESTIGATION NEEDED: ${opAnomaly.perfect_match_analysis.length} cashier(s) with excessive 'Matched' drawer closures (5+ times).` : ''}`,
         highlights: [
           ...(topSellers.length > 0 ? [`Top selling products: ${topSellers.join(', ')}`] : []),
           ...(criticalCount > 0 ? [`${criticalCount} products with critical stock`] : []),
           ...(expiryCount > 0 ? [`${expiryCount} batches nearing expiration`] : []),
           ...(stockAnomalyCount > 0 ? [`${stockAnomalyCount} stock movement anomalies`] : []),
           ...(sessionDiscrepancyCount > 0 ? [`${sessionDiscrepancyCount} cash discrepancies detected`] : []),
-          ...(refundPatternCount > 0 ? [`${refundPatternCount} suspicious refund patterns`] : []),
+          ...(refundPatternCount > 0 ? [`${refundPatternCount} cashier(s) with suspicious refund patterns`] : []),
+          ...(opAnomaly.perfect_match_analysis?.length > 0 ? [`${opAnomaly.perfect_match_analysis.length} cashier(s) with excessive 'Matched' drawer closures (5+ times)`] : []),
         ],
         total_revenue: totalRevenue > 0 ? totalRevenue : null,
         top_concern:
@@ -837,19 +938,22 @@ GENERAL RULES:
 
     // 9. Operational Anomaly: Refund Spikes
     for (const r of opAnomaly.refund_patterns || []) {
-      const isHighRisk = parseInt(r.totalRefunds) > 10;
-      insights.push({
-        type: 'anomaly_alert',
-        summary: `Refund Pattern Detected — ${r.cashierName}`,
-        metadata: {
-          cashierName: r.cashierName,
-          totalRefunds: parseInt(r.totalRefunds),
-          totalAmount: parseFloat(r.totalRefundAmount),
-          severity: isHighRisk ? 'critical' : 'warning',
-          risk_level: isHighRisk ? 'high' : 'medium',
-          audit_hint: `Check CCTV for cashier ${r.cashierName} and verify refund receipts for high-value items.`,
-        },
-      });
+      for (const day of r.suspiciousDays) {
+        insights.push({
+          type: 'anomaly_alert',
+          summary: `High Refund Burst — ${day.count} refunds for '${day.reason}' on ${day.date} (${r.cashierName})`,
+          metadata: {
+            cashierName: r.cashierName,
+            date: day.date,
+            reason: day.reason,
+            count: day.count,
+            totalAmount: day.amount,
+            severity: day.count > 10 ? 'critical' : 'warning',
+            risk_level: day.count > 10 ? 'high' : 'medium',
+            audit_hint: `Check CCTV for ${r.cashierName} on ${day.date} and verify why they issued ${day.count} refunds for '${day.reason}'.`,
+          },
+        });
+      }
     }
 
     // 10. Operational Anomaly: Discount Deviations
@@ -887,7 +991,27 @@ GENERAL RULES:
       });
     }
 
-    // 12. Overstock Candidates
+    // 12. Operational Anomaly: Perfect Match Overuse
+    for (const p of opAnomaly.perfect_match_analysis || []) {
+      const hasCorrelations = p.refundsCorrelation.count > 0 || p.stockMovementsCorrelation.count > 0;
+      insights.push({
+        type: 'anomaly_alert',
+        summary: `Frequent 'Matched' Closures — ${p.matchCount} times for ${p.cashierName}`,
+        metadata: {
+          cashierName: p.cashierName,
+          matchCount: p.matchCount,
+          refunds: p.refundsCorrelation,
+          stockMovements: p.stockMovementsCorrelation,
+          severity: hasCorrelations ? 'critical' : 'warning',
+          risk_level: hasCorrelations ? 'high' : 'medium',
+          audit_hint: hasCorrelations 
+            ? `Immediate Audit Required: Cashier ${p.cashierName} has ${p.matchCount} perfect matches but performed ${p.refundsCorrelation.count} refunds and ${p.stockMovementsCorrelation.count} stock adjustments.`
+            : `Monitor cashier ${p.cashierName} for frequent perfect drawer matches (${p.matchCount} times).`,
+        },
+      });
+    }
+
+    // 13. Overstock Candidates
     for (const p of (data.overstock_candidates || []).slice(0, 3)) {
       const variantSuffix = p.variantName !== p.productName ? ` (${p.variantName})` : '';
       insights.push({

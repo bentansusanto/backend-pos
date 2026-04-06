@@ -507,6 +507,17 @@ export class SeederService implements OnModuleInit {
         action: 'promotions:delete',
         description: 'Delete promotions',
       },
+      // Loyalty
+      {
+        module: 'loyalty',
+        action: 'loyalti:read',
+        description: 'View loyalty settings',
+      },
+      {
+        module: 'loyalty',
+        action: 'loyalti:manage',
+        description: 'Manage loyalty settings',
+      },
       // Supplier
       {
         module: 'suppliers',

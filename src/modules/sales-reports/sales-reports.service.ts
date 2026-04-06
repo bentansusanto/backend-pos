@@ -69,6 +69,7 @@ export class SalesReportsService {
       .leftJoinAndSelect('order.items', 'items')
       .leftJoinAndSelect('items.variant', 'variant')
       .leftJoinAndSelect('variant.product', 'product')
+      .leftJoinAndSelect('order.promotion', 'promotion')
       .getMany();
 
     // Get refund details
@@ -151,6 +152,7 @@ export class SalesReportsService {
         refundReason: refund?.reason || null,
         refundedAt: refund?.createdAt || null,
         stripeRefundId: refund?.stripeRefundId || null,
+        promotionName: order?.promotion?.name || null,
       };
     });
   }

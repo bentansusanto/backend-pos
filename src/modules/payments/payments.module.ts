@@ -13,6 +13,7 @@ import { Payment } from './entities/payment.entity';
 import { Refund } from './entities/refund.entity';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
+import { LoyaltySettingsModule } from '../loyalty-settings/loyalty-settings.module';
 
 @Module({
   controllers: [PaymentsController],
@@ -25,6 +26,7 @@ import { PaymentsService } from './payments.service';
     ConfigModule,
     AccountingModule,
     EventsModule,
+    LoyaltySettingsModule,
   ],
   exports: [PaymentsService],
 })
