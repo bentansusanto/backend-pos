@@ -10,6 +10,7 @@ import { StockMovement } from 'src/modules/stock-movements/entities/stock-moveme
 import { Tax } from 'src/modules/tax/entities/tax.entity';
 import { UserLog } from 'src/modules/user_logs/entities/user_log.entity';
 import { ProductBatch } from 'src/modules/product-batches/entities/product-batch.entity';
+import { LoyaltySetting } from '../../loyalty-settings/entities/loyalty-setting.entity';
 import {
   BeforeInsert,
   Column,
@@ -104,6 +105,9 @@ export class Branch {
 
   @OneToMany('PromotionBranch', 'branch')
   promotionBranches: any[];
+
+  @OneToMany(() => LoyaltySetting, (ls) => ls.branch)
+  loyaltySettings: LoyaltySetting[];
 
   @CreateDateColumn()
   createdAt: Date;

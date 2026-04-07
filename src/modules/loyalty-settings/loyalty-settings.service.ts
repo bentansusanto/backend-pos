@@ -19,13 +19,14 @@ export class LoyaltySettingsService implements OnModuleInit {
     });
 
     if (!globalSetting) {
-      await this.loyaltySettingRepository.save({
+      const newSetting = this.loyaltySettingRepository.create({
         branchId: null,
         minimumSpend: 0,
         amountPerPoint: 10, // Default to $10 = 1 Point initially
         pointsEarned: 1,
         isActive: true,
       });
+      await this.loyaltySettingRepository.save(newSetting);
     }
   }
 
