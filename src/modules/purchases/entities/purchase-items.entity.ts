@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Purchase } from './purchase.entity';
+import { ProductVariant } from '../../products/entities/product-variant.entity';
 
 @Entity('purchase_items')
 export class PurchaseItems {
@@ -19,7 +20,7 @@ export class PurchaseItems {
   @BeforeInsert()
   generateId() {
     if (!this.id) {
-      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
+      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now(), Math.floor(Math.random() * 9999));
     }
   }
 
@@ -27,8 +28,12 @@ export class PurchaseItems {
   @JoinColumn({ name: 'purchase_id' })
   purchase: Purchase;
 
+  @ManyToOne(() => ProductVariant)
+  @JoinColumn({ name: 'product_variant_id' })
+  productVariant: ProductVariant;
+
   @Column()
-  product_id: string;
+  product_variant_id: string;
 
   @Column()
   quantity: number;

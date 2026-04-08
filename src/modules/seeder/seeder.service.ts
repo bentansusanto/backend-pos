@@ -713,6 +713,27 @@ export class SeederService implements OnModuleInit {
         action: 'system:view',
         description: 'Access system settings and user management menu',
       },
+      // POS Sessions
+      {
+        module: 'pos_sessions',
+        action: 'pos_sessions:read',
+        description: 'View all POS sessions',
+      },
+      {
+        module: 'pos_sessions',
+        action: 'pos_sessions:openSession',
+        description: 'Open a new POS session',
+      },
+      {
+        module: 'pos_sessions',
+        action: 'pos_sessions:closeSession',
+        description: 'Close an active POS session',
+      },
+      {
+        module: 'pos_sessions',
+        action: 'pos_sessions:summary',
+        description: 'View POS session summary',
+      },
     ];
 
     for (const perm of permissions) {
@@ -831,7 +852,7 @@ export class SeederService implements OnModuleInit {
               p.action.endsWith(a),
             )) ||
           (p.action.startsWith('payments:') && ['create', 'read', 'verifyPayment', 'refund'].some((a) => p.action.endsWith(a))) ||
-          (p.action.startsWith('pos_sessions:') && ['read', 'openSession', 'closeSession'].some((a) => p.action.endsWith(a))) ||
+          (p.action.startsWith('pos_sessions:') && ['openSession', 'closeSession', 'summary'].some((a) => p.action.endsWith(a))) ||
           p.action === 'branches:read' ||
           p.action === 'categories:read' ||
           p.action === 'taxes:read' ||

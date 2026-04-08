@@ -90,6 +90,7 @@ export class AuthService {
 
   // verify account user
   async verifyAccount(verify_code: string): Promise<AuthResponse> {
+    console.log('Attempting to verify account with code:', verify_code);
     // check verify code is valid
     const user = await this.usersService.findVerifyCode(verify_code);
     if (!user) {
@@ -112,7 +113,7 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role.code,
+        role: user.role?.code || 'user',
         is_verified: true,
       },
     };

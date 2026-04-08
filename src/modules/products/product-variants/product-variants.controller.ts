@@ -14,7 +14,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
@@ -94,10 +93,11 @@ export class ProductVariantsController {
   @Get()
   async findAll(
     @Query('branch_id') queryBranchId?: string,
-    @CurrentBranchId() headerBranchId?: string,
   ): Promise<WebResponse> {
-    const branchId = queryBranchId || headerBranchId;
-    const result = await this.productVariantsService.findAll(branchId);
+    // Only filter by branch if explicitly requested via query param.
+    // This ensures /variants without ?branch_id returns ALL variants
+    // (needed for Purchase Orders where stock may be 0).
+    const result = await this.productVariantsService.findAll(queryBranchId);
     return {
       message: result.message,
       data: result.datas,

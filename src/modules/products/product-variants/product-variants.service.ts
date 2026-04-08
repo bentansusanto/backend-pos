@@ -383,22 +383,25 @@ export class ProductVariantsService {
   // find all product variant
   async findAll(branchId?: string): Promise<ProductVariantResponse> {
     try {
-      // check product variant is exist
-      const whereCondition = branchId
-        ? { productStocks: { branch: { id: branchId } } }
-        : {};
+      // Use QueryBuilder with explicit LEFT JOINs so variants with no stock
+      // records still appear (critical for Purchase Orders where stock = 0).
+      const qb = this.productVariantRepository
+        .createQueryBuilder('pv')
+        .leftJoinAndSelect('pv.product', 'product')
+        .leftJoinAndSelect('pv.productStocks', 'ps')
+        .leftJoinAndSelect('ps.branch', 'branch')
+        .where('pv.deletedAt IS NULL');
 
-      const productVariants = await this.productVariantRepository.find({
-        where: whereCondition,
-        relations: ['product', 'productStocks', 'productStocks.branch'],
-      });
-      if (!productVariants) {
-        this.logger.error(errProductMessage.ERROR_VARIANT_NOT_FOUND);
-        throw new HttpException(
-          errProductMessage.ERROR_VARIANT_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
+      if (branchId) {
+        // Only show variants that have a stock record for this branch
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM product_stocks ps2 WHERE ps2.variant_id = pv.id AND ps2.branch_id = :branchId)',
+          { branchId },
         );
       }
+
+      const productVariants = await qb.getMany();
+
       return {
         message: successProductMessage.SUCCESS_FIND_VARIANT,
         datas: productVariants.map((productVariant) => {

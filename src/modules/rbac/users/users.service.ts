@@ -213,6 +213,7 @@ export class UsersService {
   async findVerifyCode(verifyCode: string): Promise<any> {
     return await this.userRepository.findOne({
       where: { verify_code: verifyCode },
+      relations: ['role'],
     });
   }
 
