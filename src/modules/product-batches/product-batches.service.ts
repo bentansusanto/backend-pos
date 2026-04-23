@@ -377,16 +377,10 @@ export class ProductBatchesService {
     }
 
     // --- Chronological date validation ---
-    const manufacturingDate = dto.manufacturingDate ? new Date(dto.manufacturingDate) : null;
     const expiryDate        = dto.expiryDate        ? new Date(dto.expiryDate)        : null;
     const receivedDate      = dto.receivedDate      ? new Date(dto.receivedDate)      : null;
 
-    if (manufacturingDate && expiryDate && expiryDate <= manufacturingDate) {
-      throw new BadRequestException('Expiry date must be after manufacturing date');
-    }
-    if (manufacturingDate && receivedDate && receivedDate < manufacturingDate) {
-      throw new BadRequestException('Received date cannot be before manufacturing date');
-    }
+
   }
 
   /**
@@ -428,7 +422,7 @@ export class ProductBatchesService {
       initialQuantity: Number(batch.initialQuantity),
       currentQuantity: Number(batch.currentQuantity),
       costPrice: Number(batch.costPrice),
-      manufacturingDate: batch.manufacturingDate,
+
       expiryDate: batch.expiryDate,
       receivedDate: batch.receivedDate,
       status: batch.status,

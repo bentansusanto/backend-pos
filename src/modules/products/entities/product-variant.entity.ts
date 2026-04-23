@@ -59,8 +59,6 @@ export class ProductVariant {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   cost_price: number;
 
-  @Column({ nullable: true })
-  thumbnail: string;
 
   @OneToMany(() => ProductStock, (productStock) => productStock.productVariant)
   productStocks: ProductStock[];

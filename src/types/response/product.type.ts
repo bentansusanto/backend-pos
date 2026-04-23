@@ -35,7 +35,6 @@ export class ProductVariantData {
   name_variant: string;
   price: number;
   cost_price: number;
-  thumbnail: string;
   stock?: number;
   product_name?: string;
   display_name?: string;

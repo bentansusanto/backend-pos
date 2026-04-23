@@ -20,7 +20,7 @@ export class PurchaseReceivingItem {
   @BeforeInsert()
   generateId() {
     if (!this.id) {
-      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now());
+      this.id = new Hashids(process.env.ID_SECRET, 10).encode(Date.now(), Math.floor(Math.random() * 9999));
     }
   }
 

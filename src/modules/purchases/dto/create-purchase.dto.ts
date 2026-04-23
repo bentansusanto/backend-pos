@@ -11,7 +11,7 @@ import {
 export class PurchaseItemDto {
   @IsNotEmpty()
   @IsString()
-  product_id: string;
+  product_variant_id: string;
 
   @IsNotEmpty()
   @IsNumber()

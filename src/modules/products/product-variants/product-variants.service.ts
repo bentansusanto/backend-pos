@@ -1,10 +1,7 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import {
-  CloudinaryService,
-  MulterFile,
-} from 'src/common/cloudinary/cloudinary.service';
+
 import { errProductMessage } from 'src/libs/errors/error_product';
 import { successProductMessage } from 'src/libs/success/success_product';
 import { ProductVariantResponse } from 'src/types/response/product.type';
@@ -26,7 +23,7 @@ export class ProductVariantsService {
     @InjectRepository(ProductVariant)
     private readonly productVariantRepository: Repository<ProductVariant>,
     private readonly productsService: ProductsService,
-    private readonly cloudinaryService: CloudinaryService,
+
     private readonly userLogsService: UserLogsService,
   ) {}
 
@@ -56,25 +53,10 @@ export class ProductVariantsService {
     return `${prod}-${varc}${col}-W${wcode}-${short}`;
   }
 
-  private async handleThumbnailUpload(
-    thumbnailFile?: MulterFile,
-    existingThumbnail?: string,
-  ): Promise<string> {
-    if (thumbnailFile) {
-      return this.cloudinaryService.uploadFile(thumbnailFile);
-    }
-
-    if (existingThumbnail && existingThumbnail.startsWith('data:image')) {
-      return this.cloudinaryService.uploadBase64(existingThumbnail);
-    }
-
-    return existingThumbnail || '';
-  }
 
   // create product variant
   async create(
     createProductVariantDto: CreateProductVariantDto,
-    thumbnailFile?: MulterFile,
     userId?: string,
   ): Promise<ProductVariantResponse> {
     try {
@@ -112,14 +94,9 @@ export class ProductVariantsService {
           }
         }
       }
-      const thumbnailUrl = await this.handleThumbnailUpload(
-        thumbnailFile,
-        createProductVariantDto.thumbnail,
-      );
       // create product variant
       const newProductVariant = this.productVariantRepository.create({
         ...createProductVariantDto,
-        thumbnail: thumbnailUrl,
         sku,
         product: {
           id: product.data.id,
@@ -154,7 +131,6 @@ export class ProductVariantsService {
           barcode: newProductVariant.barcode,
           weight: newProductVariant.weight,
           color: newProductVariant.color,
-          thumbnail: newProductVariant.thumbnail,
           createdAt: newProductVariant.createdAt,
           updatedAt: newProductVariant.updatedAt,
         },
@@ -182,7 +158,6 @@ export class ProductVariantsService {
   async update(
     id: string,
     updateProductVariantDto: CreateProductVariantDto,
-    thumbnailFile?: MulterFile,
     userId?: string,
   ): Promise<ProductVariantResponse> {
     try {
@@ -223,10 +198,6 @@ export class ProductVariantsService {
           }
         }
       }
-      const thumbnailUrl = await this.handleThumbnailUpload(
-        thumbnailFile,
-        updateProductVariantDto.thumbnail ?? productVariant.thumbnail,
-      );
 
       // update product variant
       await this.productVariantRepository.update(id, {
@@ -236,7 +207,6 @@ export class ProductVariantsService {
         cost_price: Number(updateProductVariantDto.cost_price || 0),
         weight: Number(updateProductVariantDto.weight || 0),
         color: updateProductVariantDto.color,
-        thumbnail: thumbnailUrl,
         sku,
         barcode: updateProductVariantDto.barcode,
       });
@@ -263,7 +233,6 @@ export class ProductVariantsService {
           barcode: productVariant.barcode,
           weight: productVariant.weight,
           color: productVariant.color,
-          thumbnail: productVariant.thumbnail,
           createdAt: productVariant.createdAt,
           updatedAt: productVariant.updatedAt,
         },
@@ -363,7 +332,6 @@ export class ProductVariantsService {
           barcode: productVariant.barcode,
           weight: productVariant.weight,
           color: productVariant.color,
-          thumbnail: productVariant.thumbnail,
           createdAt: productVariant.createdAt,
           updatedAt: productVariant.updatedAt,
         },
@@ -383,22 +351,25 @@ export class ProductVariantsService {
   // find all product variant
   async findAll(branchId?: string): Promise<ProductVariantResponse> {
     try {
-      // check product variant is exist
-      const whereCondition = branchId
-        ? { productStocks: { branch: { id: branchId } } }
-        : {};
+      // Use QueryBuilder with explicit LEFT JOINs so variants with no stock
+      // records still appear (critical for Purchase Orders where stock = 0).
+      const qb = this.productVariantRepository
+        .createQueryBuilder('pv')
+        .leftJoinAndSelect('pv.product', 'product')
+        .leftJoinAndSelect('pv.productStocks', 'ps')
+        .leftJoinAndSelect('ps.branch', 'branch')
+        .where('pv.deletedAt IS NULL');
 
-      const productVariants = await this.productVariantRepository.find({
-        where: whereCondition,
-        relations: ['product', 'productStocks', 'productStocks.branch'],
-      });
-      if (!productVariants) {
-        this.logger.error(errProductMessage.ERROR_VARIANT_NOT_FOUND);
-        throw new HttpException(
-          errProductMessage.ERROR_VARIANT_NOT_FOUND,
-          HttpStatus.NOT_FOUND,
+      if (branchId) {
+        // Only show variants that have a stock record for this branch
+        qb.andWhere(
+          'EXISTS (SELECT 1 FROM product_stocks ps2 WHERE ps2.variant_id = pv.id AND ps2.branch_id = :branchId)',
+          { branchId },
         );
       }
+
+      const productVariants = await qb.getMany();
+
       return {
         message: successProductMessage.SUCCESS_FIND_VARIANT,
         datas: productVariants.map((productVariant) => {
@@ -435,7 +406,6 @@ export class ProductVariantsService {
             barcode: productVariant.barcode,
             weight: productVariant.weight,
             color: productVariant.color,
-            thumbnail: productVariant.thumbnail,
             stock: totalStock,
             createdAt: productVariant.createdAt,
             updatedAt: productVariant.updatedAt,

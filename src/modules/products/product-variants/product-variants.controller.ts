@@ -9,12 +9,8 @@ import {
   Post,
   Put,
   Query,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { CurrentBranchId } from 'src/common/decorator/branch.decorator';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { User } from 'src/modules/rbac/users/entities/user.entity';
@@ -30,16 +26,13 @@ export class ProductVariantsController {
   ) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('thumbnail'))
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createProductVariantDto: CreateProductVariantDto,
     @CurrentUser() currentUser: User,
-    @UploadedFile() thumbnailFile: Express.Multer.File,
   ): Promise<WebResponse> {
     const result = await this.productVariantsService.create(
       createProductVariantDto,
-      thumbnailFile,
       currentUser?.id,
     );
     return {
@@ -49,17 +42,14 @@ export class ProductVariantsController {
   }
 
   @Put(':id')
-  @UseInterceptors(FileInterceptor('thumbnail'))
   async update(
     @Param('id') id: string,
     @Body() updateProductVariantDto: CreateProductVariantDto,
     @CurrentUser() currentUser: User,
-    @UploadedFile() thumbnailFile?: Express.Multer.File,
   ): Promise<WebResponse> {
     const result = await this.productVariantsService.update(
       id,
       updateProductVariantDto,
-      thumbnailFile,
       currentUser?.id,
     );
     return {
@@ -94,10 +84,11 @@ export class ProductVariantsController {
   @Get()
   async findAll(
     @Query('branch_id') queryBranchId?: string,
-    @CurrentBranchId() headerBranchId?: string,
   ): Promise<WebResponse> {
-    const branchId = queryBranchId || headerBranchId;
-    const result = await this.productVariantsService.findAll(branchId);
+    // Only filter by branch if explicitly requested via query param.
+    // This ensures /variants without ?branch_id returns ALL variants
+    // (needed for Purchase Orders where stock may be 0).
+    const result = await this.productVariantsService.findAll(queryBranchId);
     return {
       message: result.message,
       data: result.datas,

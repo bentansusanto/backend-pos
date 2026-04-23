@@ -625,23 +625,23 @@ export class SeederService implements OnModuleInit {
       },
       // Taxes
       {
-        module: 'tax',
-        action: 'tax:create',
+        module: 'taxes',
+        action: 'taxes:create',
         description: 'Create taxes',
       },
       {
-        module: 'tax',
-        action: 'tax:read',
+        module: 'taxes',
+        action: 'taxes:read',
         description: 'View taxes',
       },
       {
-        module: 'tax',
-        action: 'tax:update',
+        module: 'taxes',
+        action: 'taxes:update',
         description: 'Update taxes',
       },
       {
-        module: 'tax',
-        action: 'tax:delete',
+        module: 'taxes',
+        action: 'taxes:delete',
         description: 'Delete taxes',
       },
       // Reason categories
@@ -676,6 +676,31 @@ export class SeederService implements OnModuleInit {
         module: 'stock_takes',
         action: 'stock_takes:read',
         description: 'View stock take history',
+      },
+      {
+        module: 'stock_takes',
+        action: 'stock_takes:create',
+        description: 'Create stock take',
+      },
+      {
+        module: 'stock_takes',
+        action: 'stock_takes:submit',
+        description: 'Submit stock take',
+      },
+      {
+        module: 'stock_takes',
+        action: 'stock_takes:approve',
+        description: 'Approve stock take',
+      },
+      {
+        module: 'stock_takes',
+        action: 'stock_takes:update',
+        description: 'Update stock take',
+      },
+      {
+        module: 'stock_takes',
+        action: 'stock_takes:delete',
+        description: 'Delete stock take',
       },
       // UI View Permissions (Specially for Sidebar filtering)
       {
@@ -712,6 +737,27 @@ export class SeederService implements OnModuleInit {
         module: 'ui',
         action: 'system:view',
         description: 'Access system settings and user management menu',
+      },
+      // POS Sessions
+      {
+        module: 'pos_sessions',
+        action: 'pos_sessions:read',
+        description: 'View all POS sessions',
+      },
+      {
+        module: 'pos_sessions',
+        action: 'pos_sessions:openSession',
+        description: 'Open a new POS session',
+      },
+      {
+        module: 'pos_sessions',
+        action: 'pos_sessions:closeSession',
+        description: 'Close an active POS session',
+      },
+      {
+        module: 'pos_sessions',
+        action: 'pos_sessions:summary',
+        description: 'View POS session summary',
       },
     ];
 
@@ -831,7 +877,7 @@ export class SeederService implements OnModuleInit {
               p.action.endsWith(a),
             )) ||
           (p.action.startsWith('payments:') && ['create', 'read', 'verifyPayment', 'refund'].some((a) => p.action.endsWith(a))) ||
-          (p.action.startsWith('pos_sessions:') && ['read', 'openSession', 'closeSession'].some((a) => p.action.endsWith(a))) ||
+          (p.action.startsWith('pos_sessions:') && ['read','openSession', 'closeSession', 'summary'].some((a) => p.action.endsWith(a))) ||
           p.action === 'branches:read' ||
           p.action === 'categories:read' ||
           p.action === 'taxes:read' ||

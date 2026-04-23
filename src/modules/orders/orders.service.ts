@@ -69,7 +69,7 @@ export class OrdersService {
     const variantId = item.variant?.id ?? '';
     // Use variant thumbnail, fallback to variant's product thumbnail
     const image =
-      item.variant?.thumbnail ?? item.variant?.product?.thumbnail ?? '';
+      item.variant?.product?.thumbnail ?? item.variant?.product?.thumbnail ?? '';
 
     return {
       id: item.id,
@@ -1184,7 +1184,7 @@ export class OrdersService {
       const payment = await paymentRepo.findOne({
         where: { orderId: order.id, status: PaymentStatus.SUCCESS }
       });
-      
+
       let paymentMethod = 'unknown';
       let stripeRefundId = undefined;
 
@@ -1203,7 +1203,7 @@ export class OrdersService {
           reasonCategoryId: reasonCategoryId,
           refundedBy: { id: currentUserId },
         });
-        
+
         if (payment.method === PaymentMethod.STRIPE && payment.externalId) {
           // Trigger Stripe refund. This will throw if it fails, rolling back the transaction.
           stripeRefundId = await this.paymentsService.processStripeRefund(payment, reason);
@@ -1228,7 +1228,7 @@ export class OrdersService {
           where: { productVariant: { id: item.variant.id }, ...(branchId ? { branch: { id: branchId } } : {}) },
           relations: ['productVariant', 'branch']
         });
-        
+
         let targetStock = productStocks.length > 0 ? productStocks[0] : null;
         if (targetStock) {
           targetStock.stock += qty;
@@ -1262,7 +1262,7 @@ export class OrdersService {
           });
           await manager.save(movement);
         }
-        
+
         this.eventsGateway.broadcastStockUpdate({
           variantId: item.variant.id,
           branchId: targetStock?.branch?.id ?? branchId ?? '',
@@ -1283,7 +1283,7 @@ export class OrdersService {
           }
         }
         let pointsToReturn = 0;
-        
+
         if (order.promotion && order.promotion.rules) {
           const loyaltyRule = order.promotion.rules.find((r: any) => r.conditionType === 'MIN_LOYALTY_POINTS');
           if (loyaltyRule && loyaltyRule.conditionValue?.minLoyaltyPoints) {
@@ -1293,7 +1293,7 @@ export class OrdersService {
 
         order.customer.loyalPoints = Math.max(0, (Number(order.customer.loyalPoints) || 0) - pointsToDeduct + pointsToReturn);
         await manager.save(order.customer);
-        
+
         this.eventsGateway.broadcastLoyaltyUpdate({
           customerId: order.customer.id,
           newPoints: order.customer.loyalPoints,
@@ -1330,4 +1330,3 @@ export class OrdersService {
     };
   }
 }
-

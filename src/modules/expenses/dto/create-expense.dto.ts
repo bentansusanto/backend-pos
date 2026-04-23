@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsDate, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateExpenseDto {
   @IsString({ message: 'branch_id must be a string' })
@@ -18,9 +18,9 @@ export class CreateExpenseDto {
   @IsNotEmpty({ message: 'description is required' })
   description: string;
 
+  @IsOptional()
   @IsString({ message: 'notes must be a string' })
-  @IsNotEmpty({ message: 'notes is required' })
-  notes: string;
+  notes?: string;
 
   @Type(() => Date)
   @IsDate({ message: 'expense_date must be a valid date' })

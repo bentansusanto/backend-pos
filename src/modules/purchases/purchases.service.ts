@@ -41,7 +41,7 @@ export class PurchasesService {
       const items = createPurchaseDto.items.map((i) => {
         return this.purchaseItemsRepository.create({
           purchase: { id: savedPurchase.id },
-          product_id: i.product_id,
+          product_variant_id: i.product_variant_id,
           quantity: i.quantity,
           price: i.price,
           total: i.quantity * i.price,
@@ -56,7 +56,7 @@ export class PurchasesService {
 
   async findAll() {
     const results = await this.purchaseRepository.find({
-      relations: ['branch', 'purchaseItems'],
+      relations: ['branch', 'purchaseItems', 'purchaseItems.productVariant', 'purchaseItems.productVariant.product'],
       order: { createdAt: 'DESC' },
     });
 
@@ -66,7 +66,7 @@ export class PurchasesService {
   async findOne(id: string) {
     const purchase = await this.purchaseRepository.findOne({
       where: { id },
-      relations: ['branch', 'purchaseItems'],
+      relations: ['branch', 'purchaseItems', 'purchaseItems.productVariant', 'purchaseItems.productVariant.product'],
     });
 
     if (!purchase) {
@@ -93,7 +93,7 @@ export class PurchasesService {
       const newItems = updatePurchaseDto.items.map((i) => {
         return this.purchaseItemsRepository.create({
           purchase: { id },
-          product_id: i.product_id,
+          product_variant_id: i.product_variant_id,
           quantity: i.quantity,
           price: i.price,
           total: i.quantity * i.price,
