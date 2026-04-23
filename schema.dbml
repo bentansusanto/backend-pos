@@ -344,7 +344,6 @@ Table product_variants {
   color string
   price number
   cost_price number
-  thumbnail string
   id string [primary key]
   createdAt Date [not null]
   updatedAt Date [not null]

@@ -34,8 +34,6 @@ export class CreateProductVariantDto {
   @IsString({ message: 'Color must be a string' })
   color?: string;
 
-  @IsOptional()
-  thumbnail: string;
 }
 
 export class UpdateProductVariantDto extends PartialType(

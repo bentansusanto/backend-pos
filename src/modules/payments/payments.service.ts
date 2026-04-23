@@ -43,20 +43,19 @@ export class PaymentsService {
     private readonly loyaltySettingsService: LoyaltySettingsService,
     private readonly eventsGateway: EventsGateway,
   ) {
-    // const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY') || process.env.STRIPE_SECRET_KEY;
+    const secretKey =
+      this.configService.get<string>('STRIPE_SECRET_KEY') ||
+      process.env.STRIPE_SECRET_KEY;
 
-    // if (secretKey) {
-    //   this.stripe = new Stripe(secretKey, {
-    //     apiVersion: '2023-10-16' as any,
-    //   });
-    // } else {
-    //   console.error('[CRITICAL] STRIPE_SECRET_KEY is missing! Stripe features will fail.');
-    //   // Initialize with a dummy key to prevent crashes if methods are called,
-    //   // but the guard/logic should handle it.
-    //   this.stripe = new Stripe('sk_test_dummy', {
-    //     apiVersion: '2023-10-16' as any,
-    //   });
-    // }
+    if (secretKey) {
+      this.stripe = new Stripe(secretKey, {
+        apiVersion: '2023-10-16' as any,
+      });
+    } else {
+      console.error(
+        '[CRITICAL] STRIPE_SECRET_KEY is missing! Stripe features will fail.',
+      );
+    }
   }
 
   // create payment

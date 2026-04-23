@@ -76,9 +76,6 @@ export class ProductBatch {
   costPrice: number;
 
   @Column({ type: 'date', nullable: true })
-  manufacturingDate: Date;
-
-  @Column({ type: 'date', nullable: true })
   expiryDate: Date;
 
   @Column({ type: 'date', nullable: true })

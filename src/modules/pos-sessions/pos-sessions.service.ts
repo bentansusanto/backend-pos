@@ -2,22 +2,21 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Branch } from '../branches/entities/branch.entity';
+import { Order, OrderStatus } from '../orders/entities/order.entity';
+import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
 import { User } from '../rbac/users/entities/user.entity';
+import { ReasonCategoriesService } from '../reason-categories/reason-categories.service';
 import {
   ClosePosSessionDto,
   OpenPosSessionDto,
 } from './dto/create-pos-session.dto';
 import { PosSession, PosSessionStatus } from './entities/pos-session.entity';
-import { Order, OrderStatus } from '../orders/entities/order.entity';
-import { Payment, PaymentStatus } from '../payments/entities/payment.entity';
-import { ReasonCategoriesService } from '../reason-categories/reason-categories.service';
 
 @Injectable()
 export class PosSessionsService {
@@ -66,10 +65,10 @@ export class PosSessionsService {
     });
 
     if (activeSession) {
-      throw new HttpException(
-        'User already has an active session',
-        HttpStatus.BAD_REQUEST,
-      );
+      return {
+        message: 'Reconnected to existing active session',
+        data: this.mapSessionResponse(activeSession),
+      };
     }
 
     const newSession = this.posSessionRepository.create({
@@ -98,7 +97,6 @@ export class PosSessionsService {
       cashierName: user.name,
       branchName: branch.name,
     });
-
 
     return {
       message: 'POS session opened successfully',
@@ -134,8 +132,45 @@ export class PosSessionsService {
       );
     }
 
-    // --- Calculate breakdown from verified payments in this session ---
-    const sessionOrderIds = (session.orders || []).map((o) => o.id);
+    // --- Collect all orders for this session (linked + orphaned fallback) ---
+    const linkedOrderIds = (session.orders || []).map((o) => o.id);
+
+    // Fallback: also find orders by same user + branch in the session time window
+    // that might have a NULL pos_session_id due to the linking bug
+    const sessionStart = session.startTime;
+    const sessionEnd = new Date(); // session is still open at this point
+    const branchId = session.branch?.id;
+    const userId = session.user?.id;
+
+    let allOrderIds: string[] = [...linkedOrderIds];
+    if (branchId && userId) {
+      const linkedSet = new Set(linkedOrderIds);
+      const orphaned = await this.orderRepository
+        .createQueryBuilder('ord')
+        .where('ord.user_id = :userId', { userId })
+        .andWhere('ord.branch_id = :branchId', { branchId })
+        .andWhere('ord.pos_session_id IS NULL')
+        .andWhere('ord.createdAt >= :start', { start: sessionStart })
+        .andWhere('ord.createdAt <= :end', { end: sessionEnd })
+        .select(['ord.id'])
+        .getMany();
+
+      const orphanedIds = orphaned
+        .map((o) => o.id)
+        .filter((oid) => !linkedSet.has(oid));
+      allOrderIds = [...allOrderIds, ...orphanedIds];
+
+      // Auto-fix: link these orphaned orders to the session before closing
+      if (orphanedIds.length > 0) {
+        await this.orderRepository.query(
+          `UPDATE orders SET pos_session_id = $1 WHERE id = ANY($2::text[])`,
+          [id, orphanedIds],
+        );
+      }
+    }
+
+    // --- Calculate breakdown from verified payments ---
+    const sessionOrderIds = allOrderIds;
     let totalCashSales = 0;
     let totalOtherSales = 0;
 
@@ -174,8 +209,10 @@ export class PosSessionsService {
 
     // --- Validation: Reason Category ---
     if (closePosSessionDto.reasonCategoryId) {
-      const category = await this.reasonCategoriesService.findOne(closePosSessionDto.reasonCategoryId);
-      
+      const category = await this.reasonCategoriesService.findOne(
+        closePosSessionDto.reasonCategoryId,
+      );
+
       // 1. Consistency Check: Matched vs Difference
       if (category.value === 'MATCHED' && Math.abs(diff) > 0) {
         throw new HttpException(
@@ -239,14 +276,17 @@ export class PosSessionsService {
     };
   }
 
-  async getActiveSession(user: User) {
+  async getActiveSession(user: User | { id: string }) {
     if (!user || !user.id) {
       throw new UnauthorizedException('User not authenticated');
     }
 
+    const userId = user.id;
+
+    // Use a more direct query to find open session for the user
     const session = await this.posSessionRepository.findOne({
       where: {
-        user: { id: user.id },
+        user: { id: userId },
         status: PosSessionStatus.OPEN,
       },
       relations: ['branch', 'user'],
@@ -268,39 +308,118 @@ export class PosSessionsService {
   async getSessionSummary(id: string) {
     const session = await this.posSessionRepository.findOne({
       where: { id },
-      relations: ['orders', 'branch', 'user'],
+      relations: ['branch', 'user'],
     });
 
     if (!session) {
       throw new HttpException('Session not found', HttpStatus.NOT_FOUND);
     }
 
-    // Debug: Also query orders directly by pos_session_id to cross-check
-    const directOrders = await this.orderRepository.find({
-      where: { posSession: { id } },
-      select: ['id', 'invoice_number', 'status', 'subtotal', 'tax_amount', 'discount_amount'],
-    });
+    const branchId = session.branch?.id;
+    const userId = session.user?.id;
+    const sessionStart = session.startTime;
+    const sessionEnd = session.endTime ?? new Date();
 
-    // --- Calculate total sales from COMPLETED orders in this session ---
-    // Use directOrders (queried by FK) since session.orders relation may not load in all cases
-    const completedOrders = directOrders.filter(
-      (o) => o.status === OrderStatus.COMPLETED,
+    console.log(
+      `[getSessionSummary] session=${id}, user=${userId}, branch=${branchId}, start=${sessionStart}, end=${sessionEnd}`,
+    );
+
+    // Strategy 1: Orders explicitly linked by pos_session_id
+    const linkedOrders: any[] = await this.orderRepository.query(
+      `SELECT id, status, subtotal, tax_amount, discount_amount
+       FROM orders
+       WHERE pos_session_id = $1
+         AND "deletedAt" IS NULL`,
+      [id],
+    );
+
+    console.log(
+      `[getSessionSummary] linkedOrders count=${linkedOrders.length}`,
+    );
+
+    // Strategy 2: Orphaned orders by user+branch in session time window
+    let orphanedOrders: any[] = [];
+    if (branchId && userId) {
+      orphanedOrders = await this.orderRepository.query(
+        `SELECT id, status, subtotal, tax_amount, discount_amount
+         FROM orders
+         WHERE user_id = $1
+           AND branch_id = $2
+           AND pos_session_id IS NULL
+           AND "createdAt" >= $3
+           AND "createdAt" <= $4
+           AND "deletedAt" IS NULL`,
+        [userId, branchId, sessionStart, sessionEnd],
+      );
+
+      console.log(
+        `[getSessionSummary] orphanedOrders count=${orphanedOrders.length}`,
+      );
+
+      // Auto-fix: link orphaned orders to this session
+      if (orphanedOrders.length > 0) {
+        const orphanedIds = orphanedOrders.map((o: any) => o.id);
+        await this.orderRepository.query(
+          `UPDATE orders SET pos_session_id = $1 WHERE id = ANY($2::text[])`,
+          [id, orphanedIds],
+        );
+        console.log(
+          `[getSessionSummary] Auto-linked ${orphanedIds.length} orphaned orders to session ${id}`,
+        );
+      }
+    }
+
+    // Combine all orders
+    const allOrders = [...linkedOrders, ...orphanedOrders];
+    const allOrderIds = allOrders.map((o: any) => o.id);
+
+    console.log(
+      `[getSessionSummary] totalOrders=${allOrders.length}, statuses=${allOrders.map((o: any) => o.status).join(',')}`,
+    );
+
+    // Calculate totals from COMPLETED orders
+    const completedOrders = allOrders.filter(
+      (o: any) => o.status === OrderStatus.COMPLETED,
     );
     const totalSales = completedOrders.reduce(
-      (acc, o) =>
+      (acc: number, o: any) =>
         acc +
         Number(o.subtotal || 0) +
         Number(o.tax_amount || 0) -
         Number(o.discount_amount || 0),
       0,
     );
-    const totalTransactions = completedOrders.length;
-
     const completedCount = completedOrders.length;
+
+    console.log(
+      `[getSessionSummary] completedCount=${completedCount}, totalSales=${totalSales}`,
+    );
+
+    // Payment breakdown from SUCCESS payments
+    let paymentBreakdown: { method: string; total: number }[] = [];
+    if (allOrderIds.length > 0) {
+      const payments: any[] = await this.paymentRepository.query(
+        `SELECT method, SUM(amount::numeric) as total
+         FROM payments
+         WHERE "orderId" = ANY($1::text[])
+           AND status = $2
+         GROUP BY method`,
+        [allOrderIds, PaymentStatus.SUCCESS],
+      );
+
+      console.log(
+        `[getSessionSummary] payments breakdown=${JSON.stringify(payments)}`,
+      );
+
+      paymentBreakdown = payments.map((p: any) => ({
+        method: p.method,
+        total: Number(Number(p.total).toFixed(2)),
+      }));
+    }
 
     const openingBal = Number(session.openingBalance || 0);
     const expectedCash = openingBal + totalSales;
-    // Use stored values if session is already closed, otherwise compute live
+
     const closingBal =
       session.closingBalance !== null && session.closingBalance !== undefined
         ? Number(session.closingBalance)
@@ -311,26 +430,6 @@ export class PosSessionsService {
         : closingBal !== null
           ? closingBal - expectedCash
           : null;
-
-    // --- Payment breakdown: group VERIFIED payments by method ---
-    const sessionOrderIds = directOrders.map((o) => o.id);
-    let paymentBreakdown: { method: string; total: number }[] = [];
-    if (sessionOrderIds.length > 0) {
-      const payments = await this.paymentRepository.find({
-        where: sessionOrderIds.map((oid) => ({
-          orderId: oid,
-          status: PaymentStatus.SUCCESS,
-        })),
-      });
-      const grouped: Record<string, number> = {};
-      for (const p of payments) {
-        grouped[p.method] = (grouped[p.method] || 0) + Number(p.amount);
-      }
-      paymentBreakdown = Object.entries(grouped).map(([method, total]) => ({
-        method,
-        total: Number(total.toFixed(2)),
-      }));
-    }
 
     return {
       message: 'Session summary retrieved successfully',
@@ -347,7 +446,7 @@ export class PosSessionsService {
         closingBalance: closingBal,
         difference: difference !== null ? Number(difference.toFixed(2)) : null,
         transactionsCount: completedCount,
-        totalPaymentsProcessed: totalTransactions,
+        totalPaymentsProcessed: completedCount,
         paymentBreakdown,
         paymentDeclarations: session.paymentDeclarations ?? [],
         notes: session.notes ?? null,
@@ -362,7 +461,6 @@ export class PosSessionsService {
         createdAt: 'DESC',
       },
     });
-
 
     return {
       message: 'Success get all pos sessions',
